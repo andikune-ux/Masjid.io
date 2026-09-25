@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.sin
 
 class SoundManager(private val context: Context) {
+
     private val scope = CoroutineScope(Dispatchers.Default)
     private var activeJob: Job? = null
     private var isPlaying = false
@@ -57,17 +58,24 @@ class SoundManager(private val context: Context) {
         isPlaying = false
     }
 
+    /**
+     * Suara beep untuk masjid:
+     * - Tone: TONE_CDMA_ALERT_CALL_GUARD (nada serius seperti alarm, bukan nada mainan)
+     * - Stream: STREAM_ALARM (volume maksimal menembus speaker TV)
+     * - Durasi: 1200ms per beep (lebih panjang dari sebelumnya 600ms)
+     * - Jeda: 1600ms antar beep (terputus-putus jelas)
+     */
     private fun playBeeps(count: Int, volumePercent: Int) {
         activeJob = scope.launch {
             try {
                 isPlaying = true
                 val toneVolume = volumePercent.coerceIn(10, 100)
-                val tg = ToneGenerator(AudioManager.STREAM_MUSIC, toneVolume)
+                val tg = ToneGenerator(AudioManager.STREAM_ALARM, toneVolume)
                 for (i in 1..count) {
-                    tg.startTone(ToneGenerator.TONE_CDMA_ALERT_NETWORK_LITE, 600)
-                    delay(800)
+                    tg.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1200)
+                    delay(1600)
                 }
-                delay(300)
+                delay(400)
                 tg.release()
             } catch (e: Exception) {
                 Log.e("SoundManager", "ToneGenerator error: ${e.message}")
@@ -81,7 +89,6 @@ class SoundManager(private val context: Context) {
         activeJob = scope.launch {
             try {
                 isPlaying = true
-                // Synthesizes a sacred harmonic azan melodic drone chant using PCM AudioTrack
                 playAdzanHarmonicMelody(volumePercent, style)
             } catch (e: Exception) {
                 Log.e("SoundManager", "Adzan audio error: ${e.message}")
@@ -94,11 +101,10 @@ class SoundManager(private val context: Context) {
     private suspend fun playAdzanHarmonicMelody(volumePercent: Int, style: String) {
         val sampleRate = 22050
         val baseFreq = when (style) {
-            "Madinah" -> 220.0 // A3
-            "Indonesia" -> 246.94 // B3
-            else -> 196.0 // G3 (Makkah deep resonant)
+            "Madinah" -> 220.0
+            "Indonesia" -> 246.94
+            else -> 196.0
         }
-
         val notes = listOf(
             Pair(baseFreq, 1800),
             Pair(baseFreq * 1.25, 1400),
@@ -106,13 +112,11 @@ class SoundManager(private val context: Context) {
             Pair(baseFreq * 1.333, 1600),
             Pair(baseFreq, 2200)
         )
-
         val trackBufferSize = AudioTrack.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
-
         val audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -129,23 +133,16 @@ class SoundManager(private val context: Context) {
             )
             .setBufferSizeInBytes(trackBufferSize)
             .build()
-
         audioTrack.play()
-
         val vol = (volumePercent.coerceIn(10, 100) / 100f)
-
         for ((freq, durationMs) in notes) {
             val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
             val buffer = ShortArray(numSamples)
-
             for (i in 0 until numSamples) {
                 val time = i.toDouble() / sampleRate
-                // Harmonic synthesis (fundamental + 2nd harmonic + 3rd harmonic for rich vocal timbre)
                 val wave = 0.6 * sin(2.0 * Math.PI * freq * time) +
                         0.3 * sin(2.0 * Math.PI * (freq * 2) * time) +
                         0.1 * sin(2.0 * Math.PI * (freq * 3) * time)
-
-                // Envelope attack and release
                 val attackSamples = (sampleRate * 0.1).toInt()
                 val releaseSamples = (sampleRate * 0.2).toInt()
                 val envelope = when {
@@ -153,15 +150,12 @@ class SoundManager(private val context: Context) {
                     i > numSamples - releaseSamples -> (numSamples - i).toDouble() / releaseSamples
                     else -> 1.0
                 }
-
                 val sample = (wave * envelope * Short.MAX_VALUE * vol).toInt().toShort()
                 buffer[i] = sample
             }
-
             audioTrack.write(buffer, 0, buffer.size)
             delay(durationMs.toLong() + 150)
         }
-
         audioTrack.stop()
         audioTrack.release()
     }
