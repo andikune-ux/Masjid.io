@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -25,6 +26,8 @@ import com.example.data.local.SettingsRepository
 import com.example.data.local.WeatherService
 import com.example.data.model.PrayerId
 import com.example.data.model.PrayerSchedule
+import com.example.kiosk.KioskManager
+import com.example.kiosk.WatchdogService
 import com.example.ui.focus.PrayerFocusOverlay
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.home.HomeScreen
@@ -59,7 +62,35 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
 
-            // Request Gallery / Media Permissions on launch (User request #4)
+            // ==== KIOSK MODE: Enable / Disable saat setting berubah ====
+            LaunchedEffect(settings.kioskModeEnabled) {
+                if (settings.kioskModeEnabled) {
+                    KioskManager.enableKiosk(this@MainActivity)
+                } else {
+                    KioskManager.disableKiosk(this@MainActivity)
+                }
+            }
+
+            // ==== WATCHDOG: Start saat kiosk aktif, stop saat nonaktif ====
+            DisposableEffect(settings.kioskModeEnabled) {
+                val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
+                if (settings.kioskModeEnabled) {
+                    try {
+                        startService(serviceIntent)
+                    } catch (_: Exception) { }
+                } else {
+                    try {
+                        stopService(serviceIntent)
+                    } catch (_: Exception) { }
+                }
+                onDispose {
+                    try {
+                        stopService(serviceIntent)
+                    } catch (_: Exception) { }
+                }
+            }
+
+            // Request Gallery / Media Permissions on launch
             val permissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
             ) { /* Results handled gracefully */ }
@@ -103,7 +134,7 @@ class MainActivity : ComponentActivity() {
                     val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
                     currentTemperature = weather.temperature
                     currentWeatherCondition = weather.condition
-                    delay(30 * 60 * 1000L) // Refresh every 30 minutes
+                    delay(30 * 60 * 1000L)
                 }
             }
 
@@ -165,7 +196,6 @@ class MainActivity : ComponentActivity() {
                     hijriDateString = IslamicCalendar.formatHijriDateString(hDate)
                     gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
 
-                    // Recalculate schedule
                     val schedule = PrayerTimesCalculator.calculate(
                         date = currentDate,
                         latitude = settings.latitude,
@@ -173,7 +203,6 @@ class MainActivity : ComponentActivity() {
                     )
                     prayerSchedule = schedule
 
-                    // Check if prayer time has just arrived (at 00 seconds of prayer minute)
                     val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
                     if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
                         for (item in schedule.items) {
@@ -181,7 +210,6 @@ class MainActivity : ComponentActivity() {
                                 lastTriggeredPrayerMinute = currentMinuteStr
                                 focusPrayerId = item.id
                                 focusPrayerTime = item.timeFormatted
-                                // Trigger Alert & Sound
                                 soundManager.playPrayerAlert(
                                     mode = settings.audioMode,
                                     beepVolume = settings.beepVolume,
@@ -280,6 +308,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Tandai Activity di foreground untuk Watchdog
+        KioskManager.isMainActivityForeground = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Tandai Activity tidak di foreground
+        KioskManager.isMainActivityForeground = false
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
