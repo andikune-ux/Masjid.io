@@ -13,74 +13,49 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. CEK ENVIRONMENT
-      - name: Check environment
-        run: |
-          echo "=== JDK Version ==="
-          java -version
-          echo ""
-          echo "=== ANDROID_HOME ==="
-          echo "$ANDROID_HOME"
-          echo "=== ANDROID_SDK_ROOT ==="
-          echo "$ANDROID_SDK_ROOT"
-          echo "=== Project structure ==="
-          ls -la
-          echo ""
-          echo "=== App folder ==="
-          ls -la app/ 2>/dev/null || echo "No app folder"
-
-      # 2. SETUP JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. SETUP GRADLE
       - name: Setup Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 9.3.1
 
-      # 4. FIX gradle.properties (memory + androidx)
+      # FIX: gradle.properties tanpa properti deprecated
       - name: Fix gradle.properties
         run: |
           cat > gradle.properties << 'EOF'
-          # JVM Settings (hindari Out of Memory)
+          # JVM Settings
           org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
           org.gradle.parallel=true
           org.gradle.caching=true
           org.gradle.daemon=true
-          org.gradle.configureondemand=false
           
-          # AndroidX (WAJIB untuk project modern)
+          # AndroidX (tanpa jetifier & buildconfig karena sudah deprecated)
           android.useAndroidX=true
-          android.enableJetifier=true
           android.nonTransitiveRClass=true
-          android.defaults.buildfeatures.buildconfig=true
           
           # Kotlin
           kotlin.code.style=official
           kotlin.daemon.jvmargs=-Xmx2048m
           
-          # Bypass lint error saat build
+          # Bypass lint error
           android.lint.abortOnError=false
-          android.lint.checkTestSources=false
           EOF
           echo "=== gradle.properties ready ==="
           cat gradle.properties
 
-      # 5. FIX local.properties (SDK path)
       - name: Fix local.properties
         run: |
           if [ -z "$ANDROID_HOME" ]; then
             export ANDROID_HOME=/usr/local/lib/android/sdk
           fi
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          echo "=== local.properties ==="
           cat local.properties
 
-      # 6. GENERATE debug.keystore
       - name: Generate debug.keystore
         run: |
           keytool -genkeypair -v \
@@ -92,23 +67,15 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
-          echo "=== debug.keystore created ==="
-          ls -la debug.keystore
 
-      # 7. DETEKSI PACKAGE NAME & BUAT google-services.json
       - name: Create google-services.json
         run: |
-          # Coba detect applicationId dari build.gradle.kts
+          PKG="com.example"
           if [ -f app/build.gradle.kts ]; then
-            PKG=$(grep -E 'applicationId\s*=' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/' | tr -d '"')
-          elif [ -f app/build.gradle ]; then
-            PKG=$(grep -E 'applicationId' app/build.gradle | head -1 | sed 's/.*"\(.*\)".*/\1/' | tr -d '"')
+            DETECTED=$(grep -E 'applicationId\s*=' app/build.gradle.kts | head -1 | grep -o '"[^"]*"' | head -1 | tr -d '"')
+            if [ -n "$DETECTED" ]; then PKG="$DETECTED"; fi
           fi
-          
-          if [ -z "$PKG" ]; then
-            PKG="com.example"
-          fi
-          echo "Detected package name: $PKG"
+          echo "Package detected: $PKG"
           
           cat > app/google-services.json << EOF
           {
@@ -127,9 +94,7 @@ jobs:
                 },
                 "oauth_client": [],
                 "api_key": [
-                  {
-                    "current_key": "AIzaSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-                  }
+                  {"current_key": "AIzaSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
                 ],
                 "services": {
                   "appinvite_service": {
@@ -141,32 +106,13 @@ jobs:
             "configuration_version": "1"
           }
           EOF
-          echo "=== google-services.json created for $PKG ==="
-          cat app/google-services.json
 
-      # 8. GENERATE gradlew WRAPPER
       - name: Generate gradlew wrapper
         run: gradle wrapper --gradle-version 9.3.1 --distribution-type bin
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # 9. VERIFIKASI SEBELUM BUILD
-      - name: Verify setup
-        run: |
-          echo "=== Root files ==="
-          ls -la
-          echo ""
-          echo "=== App folder ==="
-          ls -la app/
-          echo ""
-          echo "=== gradle/wrapper ==="
-          ls -la gradle/wrapper/
-          echo ""
-          echo "=== Gradle wrapper version ==="
-          cat gradle/wrapper/gradle-wrapper.properties
-
-      # 10. BUILD APK
       - name: Build Debug APK
         run: |
           ./gradlew assembleDebug \
@@ -174,7 +120,6 @@ jobs:
             --no-daemon \
             -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m"
 
-      # 11. UPLOAD APK
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -185,14 +130,3 @@ jobs:
             app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 30
-
-      # 12. UPLOAD LOG KALAU GAGAL (untuk debug)
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            app/build/outputs/logs/*.txt
-            build/reports/*.html
-          if-no-files-found: ignore
