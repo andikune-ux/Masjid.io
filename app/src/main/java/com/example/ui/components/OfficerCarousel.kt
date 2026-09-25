@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,32 +34,23 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Icon
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 
-// ============================================================
-// DATA MODEL
-// ============================================================
-
 data class OfficerInfo(
-    val role: String = "",           // Contoh: "IMAM MAGHRIB", "KHATIB JUM'AT"
-    val name: String = "",           // Contoh: "Ust. Ahmad Fauzi"
-    val subtitle: String = "",       // Contoh: "Tema: Menjaga Ukhuwah"
-    val photoUri: String? = null,    // URL atau content:// foto
-    val badgeColor: Color = Color(0xFFD4AF37),  // warna emas default
+    val role: String = "",
+    val name: String = "",
+    val subtitle: String = "",
+    val photoUri: String? = null,
+    val badgeColor: Color = Color(0xFFD4AF37),
     val iconType: OfficerIconType = OfficerIconType.PERSON
 )
 
 enum class OfficerIconType {
-    PERSON,     // untuk imam/muadzin/ustadz
-    BOOK,       // untuk kajian
-    EVENT       // untuk khatib/event
+    PERSON,
+    BOOK,
+    EVENT
 }
-
-// ============================================================
-// KOMPONEN UTAMA
-// ============================================================
 
 @Composable
 fun OfficerCarousel(
@@ -84,10 +76,6 @@ fun OfficerCarousel(
     }
 }
 
-// ============================================================
-// KARTU PER OFFICER
-// ============================================================
-
 @Composable
 private fun OfficerCard(
     officer: OfficerInfo,
@@ -100,22 +88,12 @@ private fun OfficerCard(
         onClick = onClick,
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
-            containerColor = Color(0xCC0A1A2F),  // biru gelap semi-transparan
+            containerColor = Color(0xCC0A1A2F),
             focusedContainerColor = Color(0xE60A1A2F)
-        ),
-        border = CardDefaults.border(
-            border = androidx.compose.foundation.BorderStroke(
-                width = 2.dp,
-                color = officer.badgeColor.copy(alpha = 0.6f)
-            ),
-            focusedBorder = androidx.compose.foundation.BorderStroke(
-                width = 3.dp,
-                color = officer.badgeColor
-            )
         ),
         modifier = modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(180.dp)
     ) {
         Box(
             modifier = Modifier
@@ -136,22 +114,16 @@ private fun OfficerCard(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ---- FOTO / IKON (BESAR) ----
-                OfficerAvatar(
-                    officer = officer,
-                    size = 120.dp
-                )
+                OfficerAvatar(officer = officer, size = 120.dp)
 
                 Spacer(modifier = Modifier.width(20.dp))
 
-                // ---- TEKS INFO ----
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // Role (contoh: "IMAM MAGHRIB")
                     Text(
                         text = officer.role.uppercase(),
                         fontSize = 16.sp,
@@ -163,7 +135,6 @@ private fun OfficerCard(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Nama (contoh: "Ust. Ahmad Fauzi")
                     Text(
                         text = officer.name,
                         fontSize = 24.sp,
@@ -173,13 +144,11 @@ private fun OfficerCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    // Subtitle (contoh: "Tema: Menjaga Ukhuwah")
                     if (officer.subtitle.isNotBlank()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = officer.subtitle,
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Normal,
                             color = Color.White.copy(alpha = 0.75f),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -190,10 +159,6 @@ private fun OfficerCard(
         }
     }
 }
-
-// ============================================================
-// FOTO / IKON BULAT BESAR
-// ============================================================
 
 @Composable
 private fun OfficerAvatar(
@@ -222,10 +187,9 @@ private fun OfficerAvatar(
                 modifier = Modifier
                     .size(size)
                     .clip(CircleShape),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                contentScale = ContentScale.Crop
             )
         } else {
-            // Placeholder ikon berdasarkan tipe
             Icon(
                 imageVector = when (officer.iconType) {
                     OfficerIconType.PERSON -> Icons.Filled.Person
@@ -238,33 +202,4 @@ private fun OfficerAvatar(
             )
         }
     }
-}
-
-// ============================================================
-// PREVIEW / CONTOH PEMAKAIAN
-// ============================================================
-
-@Composable
-fun OfficerCarouselPreview() {
-    OfficerCarousel(
-        officers = listOf(
-            OfficerInfo(
-                role = "KHATIB JUM'AT",
-                name = "Prof. Dr. KH. Zainuddin MZ",
-                subtitle = "Tema: Menjaga Ukhuwah & Istiqomah",
-                photoUri = null,
-                badgeColor = Color(0xFFD4AF37),
-                iconType = OfficerIconType.EVENT
-            ),
-            OfficerInfo(
-                role = "KAJIAN RUTIN PEKANAN",
-                name = "Ust. Hanan Attaki, Lc",
-                subtitle = "Tema: Tafsir Ayat-Ayat Rahmat",
-                photoUri = null,
-                badgeColor = Color(0xFF64B5F6),
-                iconType = OfficerIconType.BOOK
-            )
-        ),
-        modifier = Modifier.fillMaxWidth()
-    )
 }
