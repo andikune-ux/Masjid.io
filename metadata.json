@@ -1,0 +1,7 @@
+{
+  "name": "MASJID.IO",
+  "description": "Smart Android TV Mosque Display for Prayer Times, Focus Mode, and Mosque Information",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
