@@ -10,13 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -42,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.data.model.AppSettings
 import com.example.data.model.DailyOfficerItem
 import com.example.data.model.OfficerSchedule
 import com.example.data.model.PrayerId
@@ -52,8 +51,10 @@ import com.example.ui.theme.TextSecondary
 import java.time.LocalDate
 
 // ============================================================
-// DATA UNTUK SATU KARTU PETUGAS
+// BENTUK FOTO: KOTAK SUDUT TUMPUL (SQUIRCLE)
 // ============================================================
+private val AVATAR_SHAPE = RoundedCornerShape(24.dp)
+
 private data class OfficerCardData(
     val role: String,
     val name: String,
@@ -62,9 +63,6 @@ private data class OfficerCardData(
     val icon: ImageVector
 )
 
-// ============================================================
-// KOMPONEN UTAMA — signature SAMA dengan HomeScreen.kt
-// ============================================================
 @Composable
 fun OfficerCarousel(
     officers: OfficerSchedule,
@@ -75,43 +73,47 @@ fun OfficerCarousel(
 ) {
     val todayName = remember { todayIndonesianName() }
     val isFriday = remember { LocalDate.now().dayOfWeek.value == 5 }
-    val todayOfficer = remember(weeklyOfficers, todayName) {
-        weeklyOfficers.firstOrNull { it.dayName.equals(todayName, ignoreCase = true) }
+
+    val list: List<DailyOfficerItem> = remember(weeklyOfficers) {
+        if (weeklyOfficers.size == 7) weeklyOfficers
+        else AppSettings.createDefaultWeeklySchedule()
+    }
+
+    val todayOfficer: DailyOfficerItem? = remember(list, todayName) {
+        list.firstOrNull { normalizeDay(it.dayName) == normalizeDay(todayName) }
     }
 
     val leftCard: OfficerCardData
     val rightCard: OfficerCardData
 
     if (isFriday) {
-        // Hari Jum'at: tampilkan Khatib & Kajian
         leftCard = OfficerCardData(
             role = "KHATIB JUM'AT",
             name = officers.khatibJumat,
             subtitle = "Tema: ${officers.temaJumat}",
-            photoUri = todayOfficer?.fotoKhatibJumat ?: officerPhotoUri,
+            photoUri = firstNonBlank(todayOfficer?.fotoKhatibJumat, officerPhotoUri),
             icon = Icons.Filled.EventNote
         )
         rightCard = OfficerCardData(
             role = "KAJIAN RUTIN PEKANAN",
             name = officers.ustadzKajian,
             subtitle = "Tema: ${officers.temaKajian}",
-            photoUri = todayOfficer?.fotoUstadzKajian ?: officerPhotoUri,
+            photoUri = firstNonBlank(todayOfficer?.fotoUstadzKajian, officerPhotoUri),
             icon = Icons.AutoMirrored.Filled.MenuBook
         )
     } else {
-        // Hari biasa: tampilkan Imam & Muadzin sholat berikutnya
         leftCard = OfficerCardData(
             role = "IMAM ${nextPrayerId.displayName.uppercase()}",
             name = imamName(todayOfficer, officers, nextPrayerId),
             subtitle = "Petugas hari ini: $todayName",
-            photoUri = imamPhoto(todayOfficer, nextPrayerId) ?: officerPhotoUri,
+            photoUri = firstNonBlank(imamPhoto(todayOfficer, nextPrayerId), officerPhotoUri),
             icon = Icons.Filled.Person
         )
         rightCard = OfficerCardData(
             role = "MUADZIN ${nextPrayerId.displayName.uppercase()}",
             name = muadzinName(todayOfficer, officers, nextPrayerId),
             subtitle = "Petugas hari ini: $todayName",
-            photoUri = muadzinPhoto(todayOfficer, nextPrayerId) ?: officerPhotoUri,
+            photoUri = firstNonBlank(muadzinPhoto(todayOfficer, nextPrayerId), officerPhotoUri),
             icon = Icons.Filled.Person
         )
     }
@@ -137,9 +139,6 @@ fun OfficerCarousel(
     }
 }
 
-// ============================================================
-// KARTU PETUGAS (satu kartu)
-// ============================================================
 @Composable
 private fun OfficerCard(
     data: OfficerCardData,
@@ -211,50 +210,53 @@ private fun OfficerCard(
 }
 
 // ============================================================
-// FOTO BULAT BESAR (dengan fallback ikon)
+// FOTO PROFIL — KOTAK SUDUT TUMPUL
 // ============================================================
 @Composable
 private fun OfficerAvatar(data: OfficerCardData) {
-    val avatarSize = 120.dp
+    val avatarWidth = 110.dp
+    val avatarHeight = 130.dp
+    val hasPhoto = !data.photoUri.isNullOrBlank()
 
     Box(
         modifier = Modifier
-            .size(avatarSize)
-            .clip(CircleShape)
+            .size(width = avatarWidth, height = avatarHeight)
+            .clip(AVATAR_SHAPE)
             .background(
-                Brush.radialGradient(
+                Brush.verticalGradient(
                     listOf(
                         IslamicGold.copy(alpha = 0.28f),
                         Color(0x22FFFFFF)
                     )
                 )
             )
-            .border(3.dp, IslamicGold, CircleShape),
+            .border(3.dp, IslamicGold, AVATAR_SHAPE),
         contentAlignment = Alignment.Center
     ) {
-        if (!data.photoUri.isNullOrBlank()) {
+        if (hasPhoto) {
             AsyncImage(
                 model = data.photoUri,
                 contentDescription = data.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(avatarSize)
-                    .clip(CircleShape)
+                    .size(width = avatarWidth, height = avatarHeight)
+                    .clip(AVATAR_SHAPE)
             )
         } else {
             Icon(
                 imageVector = data.icon,
                 contentDescription = data.role,
                 tint = IslamicGoldLight,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(56.dp)
             )
         }
     }
 }
 
 // ============================================================
-// HELPER — nama hari & data petugas per waktu sholat
+// HELPER FUNCTIONS
 // ============================================================
+
 private fun todayIndonesianName(): String =
     when (LocalDate.now().dayOfWeek.value) {
         1 -> "Senin"
@@ -266,16 +268,26 @@ private fun todayIndonesianName(): String =
         else -> "Ahad"
     }
 
+private fun normalizeDay(s: String): String =
+    s.lowercase()
+        .replace("'", "")
+        .replace("\u2019", "")
+        .replace(" ", "")
+        .trim()
+
+private fun firstNonBlank(vararg values: String?): String? =
+    values.firstOrNull { !it.isNullOrBlank() }
+
 private fun imamName(
     item: DailyOfficerItem?,
     fallback: OfficerSchedule,
     id: PrayerId
 ): String = when (id) {
-    PrayerId.SUBUH, PrayerId.SYURUQ -> item?.imamSubuh ?: fallback.imamSubuh
-    PrayerId.DZUHUR -> item?.imamDzuhur ?: fallback.imamDzuhur
-    PrayerId.ASHAR -> item?.imamAshar ?: fallback.imamAshar
-    PrayerId.MAGHRIB -> item?.imamMaghrib ?: fallback.imamMaghrib
-    PrayerId.ISYA -> item?.imamIsya ?: fallback.imamIsya
+    PrayerId.SUBUH, PrayerId.SYURUQ -> item?.imamSubuh?.takeIf { it.isNotBlank() } ?: fallback.imamSubuh
+    PrayerId.DZUHUR -> item?.imamDzuhur?.takeIf { it.isNotBlank() } ?: fallback.imamDzuhur
+    PrayerId.ASHAR -> item?.imamAshar?.takeIf { it.isNotBlank() } ?: fallback.imamAshar
+    PrayerId.MAGHRIB -> item?.imamMaghrib?.takeIf { it.isNotBlank() } ?: fallback.imamMaghrib
+    PrayerId.ISYA -> item?.imamIsya?.takeIf { it.isNotBlank() } ?: fallback.imamIsya
 }
 
 private fun muadzinName(
@@ -283,11 +295,11 @@ private fun muadzinName(
     fallback: OfficerSchedule,
     id: PrayerId
 ): String = when (id) {
-    PrayerId.SUBUH, PrayerId.SYURUQ -> item?.muadzinSubuh ?: fallback.muadzinSubuh
-    PrayerId.DZUHUR -> item?.muadzinDzuhur ?: fallback.muadzinDzuhur
-    PrayerId.ASHAR -> item?.muadzinAshar ?: fallback.muadzinAshar
-    PrayerId.MAGHRIB -> item?.muadzinMaghrib ?: fallback.muadzinMaghrib
-    PrayerId.ISYA -> item?.muadzinIsya ?: fallback.muadzinIsya
+    PrayerId.SUBUH, PrayerId.SYURUQ -> item?.muadzinSubuh?.takeIf { it.isNotBlank() } ?: fallback.muadzinSubuh
+    PrayerId.DZUHUR -> item?.muadzinDzuhur?.takeIf { it.isNotBlank() } ?: fallback.muadzinDzuhur
+    PrayerId.ASHAR -> item?.muadzinAshar?.takeIf { it.isNotBlank() } ?: fallback.muadzinAshar
+    PrayerId.MAGHRIB -> item?.muadzinMaghrib?.takeIf { it.isNotBlank() } ?: fallback.muadzinMaghrib
+    PrayerId.ISYA -> item?.muadzinIsya?.takeIf { it.isNotBlank() } ?: fallback.muadzinIsya
 }
 
 private fun imamPhoto(item: DailyOfficerItem?, id: PrayerId): String? = when (id) {
