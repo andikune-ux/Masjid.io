@@ -53,13 +53,12 @@ fun HomeScreen(
     var showQrisModal by remember { mutableStateOf(false) }
     var userDismissedVideoFullscreen by remember { mutableStateOf(false) }
 
-    // Automatic periodic QRIS Focus trigger (0-30 min slider)
+    // Automatic periodic QRIS Focus trigger
     if (settings.qrisIntervalMinutes > 0) {
         LaunchedEffect(settings.qrisIntervalMinutes) {
             val intervalMs = settings.qrisIntervalMinutes * 60 * 1000L
             while (true) {
                 delay(intervalMs)
-                // Only trigger QRIS if next prayer is more than 5 minutes away
                 if (schedule.secondsToNext > 300) {
                     showQrisModal = true
                 }
@@ -67,15 +66,13 @@ fun HomeScreen(
         }
     }
 
-    // Determine smart video mode: Fullscreen if enabled, smart fullscreen checked, and next prayer > 30 minutes away
+    // Smart video mode: Fullscreen if enabled + > 30 min to next prayer
     val isSmartVideoFullscreen = settings.videoEnabled &&
             !settings.videoUri.isNullOrBlank() &&
             settings.videoSmartFullscreen &&
             schedule.secondsToNext > 1800 &&
             !userDismissedVideoFullscreen
 
-    // Sky theme brush: Based on real-time clock!
-    // At 15:13, it will be bright afternoon sky, not dark!
     val now = LocalTime.now()
     val realTimeSkyBrush = DynamicSkyTheme.getSkyBrush(now)
 
@@ -120,7 +117,6 @@ fun HomeScreen(
                 )
             }
             else -> {
-                // REAL-TIME DYNAMIC SKY THEME (Resolves 15:13 daylight issue!)
                 Box(modifier = Modifier.fillMaxSize().background(realTimeSkyBrush))
             }
         }
@@ -131,19 +127,13 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0x22000000),
-                            Color(0x66040B10),
-                            Color(0xAA02070A)
-                        )
+                        colors = listOf(Color(0x22000000), Color(0x66040B10), Color(0xAA02070A))
                     )
                 )
         )
 
-        // Geometric Arabesque Pattern
         ArabesquePattern(lineColor = Color(0x12FFD700))
 
-        // Ambient Weather Overlay (Rain / Clouds / Birds)
         if (settings.animationsEnabled) {
             WeatherAmbientOverlay(
                 weatherCondition = weatherCondition,
@@ -159,8 +149,6 @@ fun HomeScreen(
                     isFullscreen = true,
                     modifier = Modifier.fillMaxSize()
                 )
-
-                // Top banner overlay indicating next prayer
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -171,7 +159,12 @@ fun HomeScreen(
                         .clickable { userDismissedVideoFullscreen = true },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(imageVector = Icons.Default.Mosque, contentDescription = null, tint = IslamicGold, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = Icons.Default.Mosque,
+                        contentDescription = null,
+                        tint = IslamicGold,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     val nextName = schedule.nextPrayer?.id?.displayName ?: "Sholat"
                     val mm = schedule.secondsToNext / 60
@@ -184,12 +177,12 @@ fun HomeScreen(
                 }
             }
         } else {
-            // --- MAIN UI: STRICT 1-SCREEN PROPORTIONAL LAYOUT ---
+            // --- MAIN UI ---
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // [A] TOP BAR (tinggi 7%)
+                // [A] TOP BAR (7%)
                 TopBar(
                     locationName = "${settings.city}, ${settings.province}",
                     dayDateString = gregorianDateString,
@@ -200,9 +193,11 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.07f)
                 )
 
-                // [B] MIDDLE CLOCK & VIDEO SECTION (tinggi 24%)
-                // Auto-shifts: If video is in Split Mode, divides space into 58% clock + 42% video
-                val isSplitVideo = settings.videoEnabled && !settings.videoUri.isNullOrBlank() && !settings.videoSmartFullscreen
+                // [B] MIDDLE CLOCK & VIDEO SECTION (24%)
+                // PERUBAHAN: 38% jam + 62% video (sebelumnya 58% + 42%)
+                val isSplitVideo = settings.videoEnabled &&
+                        !settings.videoUri.isNullOrBlank() &&
+                        !settings.videoSmartFullscreen
 
                 if (isSplitVideo) {
                     Row(
@@ -213,9 +208,9 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Left side: Mosque Name + Compact Clock
+                        // Kiri: Jam (diperkecil dari 58% jadi 38%)
                         Column(
-                            modifier = Modifier.weight(0.58f),
+                            modifier = Modifier.weight(0.38f),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -227,11 +222,10 @@ fun HomeScreen(
                                 gregorianDateString = gregorianDateString
                             )
                         }
-
-                        // Right side: Mosque Activity Video Player (harmonious, no collisions)
+                        // Kanan: Video (diperbesar dari 42% jadi 62%)
                         Box(
                             modifier = Modifier
-                                .weight(0.42f)
+                                .weight(0.62f)
                                 .fillMaxHeight(0.95f)
                         ) {
                             MasjidVideoPlayer(
@@ -242,7 +236,6 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    // Standard centered Clock & Mosque Header (neat and compact)
                     Column(
                         modifier = Modifier
                             .weight(0.24f)
@@ -259,13 +252,16 @@ fun HomeScreen(
                     }
                 }
 
-                // [C] 6 KARTU SHOLAT 1 BARIS HORIZONTAL (tinggi 28%)
+                // [C] 6 KARTU SHOLAT (28%)
+                // PERUBAHAN: Digeser ke kiri & diperkecil saat video aktif
                 PrayerCardsRow(
                     prayerItems = schedule.items,
-                    modifier = Modifier.weight(0.28f)
+                    modifier = Modifier
+                        .weight(0.28f)
+                        .fillMaxWidth(if (isSplitVideo) 0.62f else 1f)
                 )
 
-                // [D] PROGRESS COUNTDOWN MENUJU WAKTU SHOLAT (tinggi 5%)
+                // [D] PROGRESS COUNTDOWN (5%)
                 PrayerProgressBar(
                     nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
                     secondsRemaining = schedule.secondsToNext,
@@ -273,7 +269,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.05f)
                 )
 
-                // [E] KARTU MUTIARA NASIHAT / EVENT ISLAMI BERGANTI (tinggi 6%)
+                // [E] KARTU MUTIARA NASIHAT / EVENT ISLAMI (6%)
                 WisdomCardCarousel(
                     upcomingEvent = upcomingEvent,
                     intervalSeconds = settings.wisdomCardIntervalSeconds,
@@ -281,7 +277,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.06f)
                 )
 
-                // [F] JADWAL PETUGAS HARI INI & FOTO USTADZ (tinggi 24%)
+                // [F] JADWAL PETUGAS HARI INI & FOTO USTADZ (24%)
                 OfficerCarousel(
                     officers = settings.officers,
                     weeklyOfficers = settings.weeklyOfficers,
@@ -290,7 +286,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.24f)
                 )
 
-                // [G] RUNNING TEXT MARQUEE (tinggi 6%)
+                // [G] RUNNING TEXT MARQUEE (6%)
                 RunningTextMarquee(
                     text = settings.runningText,
                     speed = settings.runningTextSpeed,
