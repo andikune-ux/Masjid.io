@@ -8,10 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
@@ -25,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
+import com.example.ui.components.TvSlider
+import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
@@ -47,7 +47,6 @@ fun TimeSettingsPane(
     val context = LocalContext.current
     var showCalendarModal by remember { mutableStateOf(false) }
 
-    // Derive current effective time from settings
     val effectiveNow = remember(settings.isManualTimeEnabled, settings.manualTimeOffsetSeconds) {
         if (settings.isManualTimeEnabled) {
             LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
@@ -77,46 +76,19 @@ fun TimeSettingsPane(
         )
 
         // Master Switch: Mode Manual vs Otomatis
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Aktifkan Mode Waktu Manual (Offline)",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = if (settings.isManualTimeEnabled)
-                        "Menggunakan waktu & tanggal yang diatur sendiri secara manual. Detik tetap berdetik normal setiap detik."
-                    else
-                        "Menggunakan waktu otomatis dari sistem TV / jaringan internet.",
-                    fontSize = 12.sp,
-                    color = if (settings.isManualTimeEnabled) IslamicGoldLight else TextSecondary
-                )
+        TvToggle(
+            label = "Aktifkan Mode Waktu Manual (Offline)",
+            description = if (settings.isManualTimeEnabled)
+                "Menggunakan waktu & tanggal yang diatur sendiri secara manual. Detik tetap berdetik normal setiap detik."
+            else
+                "Menggunakan waktu otomatis dari sistem TV / jaringan internet.",
+            isChecked = settings.isManualTimeEnabled,
+            onToggle = { isEnabled ->
+                onUpdate(settings.copy(isManualTimeEnabled = isEnabled))
+                val msg = if (isEnabled) "Mode waktu manual diaktifkan" else "Kembali ke waktu otomatis sistem"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             }
-
-            Switch(
-                checked = settings.isManualTimeEnabled,
-                onCheckedChange = { isEnabled ->
-                    onUpdate(settings.copy(isManualTimeEnabled = isEnabled))
-                    val msg = if (isEnabled) "Mode waktu manual diaktifkan" else "Kembali ke waktu otomatis sistem"
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = IslamicGold,
-                    checkedTrackColor = IslamicGreen
-                )
-            )
-        }
+        )
 
         // Section 1: Tanggal Manual + Tombol Kalender Mini
         Column(
@@ -171,14 +143,22 @@ fun TimeSettingsPane(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "PILIH DI KALENDER MINI", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "PILIH DI KALENDER MINI",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
 
-        // Section 2: Jam, Menit, Detik (TV Remote friendly Stepper)
+        // Section 2: Jam, Menit, Detik (TV Remote Friendly Slider)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -204,37 +184,35 @@ fun TimeSettingsPane(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Jam
-                TimeStepperItem(
-                    label = "Jam (0-23)",
-                    value = selectedHour,
-                    range = 0..23,
-                    onValueChange = { selectedHour = it },
-                    modifier = Modifier.weight(1f)
-                )
+            // Jam
+            TvSlider(
+                label = "Jam (0-23)",
+                value = selectedHour.toFloat(),
+                onValueChange = { selectedHour = it.toInt() },
+                valueRange = 0f..23f,
+                steps = 22,
+                formatter = { String.format("%02d", it.toInt()) }
+            )
 
-                // Menit
-                TimeStepperItem(
-                    label = "Menit (0-59)",
-                    value = selectedMinute,
-                    range = 0..59,
-                    onValueChange = { selectedMinute = it },
-                    modifier = Modifier.weight(1f)
-                )
+            // Menit
+            TvSlider(
+                label = "Menit (0-59)",
+                value = selectedMinute.toFloat(),
+                onValueChange = { selectedMinute = it.toInt() },
+                valueRange = 0f..59f,
+                steps = 58,
+                formatter = { String.format("%02d", it.toInt()) }
+            )
 
-                // Detik
-                TimeStepperItem(
-                    label = "Detik (0-59)",
-                    value = selectedSecond,
-                    range = 0..59,
-                    onValueChange = { selectedSecond = it },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            // Detik
+            TvSlider(
+                label = "Detik (0-59)",
+                value = selectedSecond.toFloat(),
+                onValueChange = { selectedSecond = it.toInt() },
+                valueRange = 0f..59f,
+                steps = 58,
+                formatter = { String.format("%02d", it.toInt()) }
+            )
         }
 
         // Action Buttons: Terapkan & Reset
@@ -272,9 +250,17 @@ fun TimeSettingsPane(
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "TERAPKAN WAKTU MANUAL", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "TERAPKAN WAKTU MANUAL",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             OutlinedButton(
@@ -295,10 +281,16 @@ fun TimeSettingsPane(
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)
+                ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(imageVector = Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(
+                    imageVector = Icons.Default.RestartAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "RESET OTOMATIS", fontSize = 12.sp)
             }
@@ -314,64 +306,5 @@ fun TimeSettingsPane(
             },
             onDismiss = { showCalendarModal = false }
         )
-    }
-}
-
-@Composable
-private fun TimeStepperItem(
-    label: String,
-    value: Int,
-    range: IntRange,
-    onValueChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF0C1B26))
-            .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
-            .padding(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = label, fontSize = 12.sp, color = TextSecondary)
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            IconButton(
-                onClick = {
-                    val nextVal = if (value - 1 < range.first) range.last else value - 1
-                    onValueChange(nextVal)
-                },
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0x33FFFFFF))
-            ) {
-                Icon(imageVector = Icons.Default.Remove, contentDescription = "Kurang", tint = IslamicGold, modifier = Modifier.size(16.dp))
-            }
-
-            Text(
-                text = String.format("%02d", value),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
-            )
-
-            IconButton(
-                onClick = {
-                    val nextVal = if (value + 1 > range.last) range.first else value + 1
-                    onValueChange(nextVal)
-                },
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0x33FFFFFF))
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Tambah", tint = IslamicGold, modifier = Modifier.size(16.dp))
-            }
-        }
     }
 }
