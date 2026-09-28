@@ -1,6 +1,10 @@
 package com.example.data.model
 
-enum class PrayerId(val arabicName: String, val displayName: String, val iconResName: String) {
+enum class PrayerId(
+    val arabicName: String,
+    val displayName: String,
+    val iconResName: String
+) {
     SUBUH("الفجر", "Subuh", "ic_subuh"),
     SYURUQ("الشروق", "Syuruq", "ic_syuruq"),
     DZUHUR("الظهر", "Dzuhur", "ic_dzuhur"),
@@ -11,7 +15,7 @@ enum class PrayerId(val arabicName: String, val displayName: String, val iconRes
 
 data class PrayerItem(
     val id: PrayerId,
-    val timeFormatted: String, // "04:32"
+    val timeFormatted: String,
     val targetTimeMillis: Long,
     val isNext: Boolean = false,
     val isPassed: Boolean = false,
@@ -34,11 +38,7 @@ data class PrayerSchedule(
     val secondsToNext: Long = 0L
 )
 
-enum class AudioMode {
-    BEEP_ONLY,
-    FULL_ADZAN,
-    SILENT
-}
+enum class AudioMode { BEEP_ONLY, FULL_ADZAN, SILENT }
 
 enum class BackgroundMode {
     NATURE,
@@ -73,43 +73,37 @@ data class DailyOfficerItem(
     val muadzinSubuh: String = "Ust. Ridwan Kamil",
     val fotoImamSubuh: String? = null,
     val fotoMuadzinSubuh: String? = null,
-
     val imamDzuhur: String = "Ust. M. Ridho, M.Ag",
     val muadzinDzuhur: String = "Ust. Bilal Sanjaya",
     val fotoImamDzuhur: String? = null,
     val fotoMuadzinDzuhur: String? = null,
-
     val imamAshar: String = "Ust. Dr. H. Lukman",
     val muadzinAshar: String = "Ust. Ilham Pratama",
     val fotoImamAshar: String? = null,
     val fotoMuadzinAshar: String? = null,
-
     val imamMaghrib: String = "Ust. Ahmad Syarifuddin",
     val muadzinMaghrib: String = "Ust. Ridwan Ar-Rasyid",
     val fotoImamMaghrib: String? = null,
     val fotoMuadzinMaghrib: String? = null,
-
     val imamIsya: String = "Ust. KH. Abdullah Gymnast",
     val muadzinIsya: String = "Ust. Farhan Azis",
     val fotoImamIsya: String? = null,
     val fotoMuadzinIsya: String? = null,
-
     val khatibJumat: String = "Prof. Dr. KH. Zainuddin MZ",
     val temaJumat: String = "Menjaga Ukhuwah & Istiqomah di Era Modern",
     val fotoKhatibJumat: String? = null,
-
     val ustadzKajian: String = "Ust. Hanan Attaki, Lc",
     val temaKajian: String = "Tafsir Ayat-Ayat Rahmat",
     val fotoUstadzKajian: String? = null
 )
 
 data class AppSettings(
-    // Mosque Identity
+    // ===== Mosque Identity =====
     val mosqueName: String = "MASJID AL-IKHLAS",
     val mosqueAddress: String = "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat",
     val mosqueTakmir: String = "H. Muhammad Syarif, S.E.",
 
-    // Location
+    // ===== Location =====
     val isGpsEnabled: Boolean = false,
     val country: String = "Indonesia",
     val province: String = "DKI Jakarta",
@@ -119,17 +113,17 @@ data class AppSettings(
     val longitude: Double = 106.8272,
     val calculationMethod: String = "Kementerian Agama RI (Kemenag)",
 
-    // Running text
+    // ===== Running text =====
     val runningText: String = "═══ Selamat datang di Masjid Al-Ikhlas ═══ Luruskan dan rapatkan shaf sholat ═══ Harap nonaktifkan nada dering ponsel ═══ Infaq & Shadaqah dapat melalui Rek BSI: 7123-4567-89 a.n Masjid Al-Ikhlas ═══ Kajian Rutin Sabtu Ba'da Maghrib bersama Ust. Hanan Attaki, Lc ═══",
     val runningTextSpeed: Int = 2,
     val runningTextFontSize: Int = 18,
 
-    // Officers & 7 Days Schedule
+    // ===== Officers & 7 Days Schedule =====
     val officers: OfficerSchedule = OfficerSchedule(),
     val weeklyOfficers: List<DailyOfficerItem> = createDefaultWeeklySchedule(),
     val officerPhotoUri: String? = null,
 
-    // Audio & Adzan
+    // ===== Audio & Adzan =====
     val audioMode: AudioMode = AudioMode.BEEP_ONLY,
     val beepVolume: Int = 70,
     val beepCount: Int = 3,
@@ -141,13 +135,13 @@ data class AppSettings(
     val prayerFocusDurationMinutes: Int = 30,
     val focusModeDurationMinutes: Int = 30,
 
-    // Display & Background
+    // ===== Display & Background =====
     val backgroundMode: BackgroundMode = BackgroundMode.NATURE,
     val customBackgroundUri: String? = null,
     val animationsEnabled: Boolean = true,
     val showBirdsAnimation: Boolean = true,
 
-    // QRIS Donation Card
+    // ===== QRIS Donation Card =====
     val qrisPhotoUri: String? = null,
     val qrisImageUri: String = "",
     val qrisIntervalMinutes: Int = 15,
@@ -156,30 +150,48 @@ data class AppSettings(
     val bankAccountNumber: String = "7123-4567-890",
     val bankAccountHolder: String = "DKM MASJID AL-IKHLAS",
 
-    // Wisdom cards
+    // ===== Wisdom cards =====
     val wisdomCardAnimation: String = "Fade",
     val wisdomCardIntervalSeconds: Int = 12,
 
-    // Video Facility
+    // ===== Video Facility =====
     val videoEnabled: Boolean = false,
     val videoUri: String? = null,
     val videoSmartFullscreen: Boolean = true,
 
-    // Ramadhan Mode
+    // ===== Ramadhan Mode =====
     val ramadhanModeEnabled: Boolean = false,
     val showImsakIftarCountdown: Boolean = true,
+    val showTarawihSchedule: Boolean = true,
+    val showKultumSchedule: Boolean = true,
+    val showMenuSahurIftar: Boolean = false,
+    val tarawihTime: String = "19:30",
+    val tarawihImam: String = "",
+    val kultumTitle: String = "",
+    val kultumUstadz: String = "",
+    val kultumTime: String = "17:30",
 
-    // Security & Kiosk
+    // ===== Security & Kiosk =====
     val pinCode: String = "1234",
     val kioskModeEnabled: Boolean = true,
     val autoStartOnBoot: Boolean = true,
+    val autoRestartIfCrash: Boolean = true,
+    val disableBackButton: Boolean = true,
+    val lockTaskMode: Boolean = true,
 
-    // Manual Offline Time & Date Setting
+    // ===== Manual Offline Time & Date Setting =====
     val isManualTimeEnabled: Boolean = false,
     val manualTimeOffsetSeconds: Long = 0L,
 
-    // Power
-    val keepScreenOn: Boolean = true
+    // ===== Power =====
+    val keepScreenOn: Boolean = true,
+    val autoOnOff: Boolean = false,
+    val autoOnTime: String = "04:00",
+    val autoOffTime: String = "22:30",
+    val idleScreenOff: Boolean = true,
+    val idleTimeoutMinutes: Int = 30,
+    val autoBrightness: Boolean = true,
+    val saveBatteryMode: Boolean = false
 ) {
     companion object {
         fun createDefaultWeeklySchedule(): List<DailyOfficerItem> {
