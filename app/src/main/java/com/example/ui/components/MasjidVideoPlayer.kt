@@ -1,24 +1,32 @@
 package com.example.ui.components
 
+import android.graphics.Outline
 import android.net.Uri
+import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -31,45 +39,60 @@ fun MasjidVideoPlayer(
     isFullscreen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp)
+    val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
+    val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
 
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Color.Black)
-            .border(if (isFullscreen) 0.dp else 1.5.dp, if (isFullscreen) Color.Transparent else IslamicGold, shape),
+            .background(Color(0xFF000000))
+            .border(
+                width = borderWidth,
+                color = if (isFullscreen) Color.Transparent else IslamicGold,
+                shape = shape
+            ),
         contentAlignment = Alignment.Center
     ) {
         if (!videoUriString.isNullOrBlank()) {
             AndroidView(
                 factory = { ctx ->
-                    VideoView(ctx).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        try {
-                            val uri = Uri.parse(videoUriString)
-                            setVideoURI(uri)
-                            setOnPreparedListener { mp ->
-                                mp.isLooping = true
-                                mp.setVolume(0f, 0f) // Mute so it doesn't disturb mosque silence
-                                start()
+                    FrameLayout(ctx).apply {
+                        // Clip sudut tumpul pada FrameLayout (parent VideoView)
+                        clipToOutline = true
+                        outlineProvider = object : ViewOutlineProvider() {
+                            override fun getOutline(view: View, outline: Outline) {
+                                val radiusPx = 20 * view.resources.displayMetrics.density
+                                outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
                             }
-                            setOnErrorListener { _, _, _ ->
-                                true // Handled gracefully
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
                         }
+
+                        val videoView = VideoView(ctx).apply {
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        }
+                        addView(videoView)
+
+                        // Simpan referensi VideoView di tag
+                        tag = videoView
                     }
                 },
-                update = { videoView ->
+                update = { frameLayout ->
+                    val videoView = frameLayout.tag as? VideoView ?: return@AndroidView
                     try {
-                        val currentUri = Uri.parse(videoUriString)
-                        videoView.setVideoURI(currentUri)
-                        videoView.start()
+                        // Hindari reload URI yang sama terus-menerus
+                        if (videoView.tag != videoUriString) {
+                            videoView.tag = videoUriString
+                            val uri = Uri.parse(videoUriString)
+                            videoView.setVideoURI(uri)
+                            videoView.setOnPreparedListener { mp ->
+                                mp.isLooping = true
+                                mp.setVolume(0f, 0f)
+                                videoView.start()
+                            }
+                            videoView.setOnErrorListener { _, _, _ -> true }
+                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -77,7 +100,7 @@ fun MasjidVideoPlayer(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            // Placeholder when no video is selected
+            // Placeholder kalau tidak ada video
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
