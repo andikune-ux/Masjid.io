@@ -1,8 +1,11 @@
 package com.example.util
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 import com.example.BuildConfig
 import com.example.data.AppKnowledge
@@ -21,9 +24,48 @@ object BackupManager {
     data class BackupResult(
         val success: Boolean,
         val filePath: String? = null,
-        val errorMessage: String? = null
+        val errorMessage: String? = null,
+        val needPermission: Boolean = false
     )
 
+    /**
+     * Cek apakah butuh izin MANAGE_EXTERNAL_STORAGE (Android 11+)
+     */
+    fun needsStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            !Environment.isExternalStorageManager()
+        } else {
+            false
+        }
+    }
+
+    /**
+     * Buka halaman pengaturan izin "Akses semua file"
+     */
+    fun openPermissionSettings(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (e2: Exception) {
+                    Log.e(TAG, "Gagal buka permission settings: ${e2.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Generate isi file backup dalam bentuk TXT.
+     */
     fun generateBackupContent(settings: AppSettings): String {
         val timestamp = SimpleDateFormat(
             "dd-MM-yyyy HH:mm:ss",
@@ -64,12 +106,17 @@ Android Version : ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
             appendLine()
             appendLine(AppKnowledge.DEVELOPER_INSTRUCTION)
             appendLine()
+            appendLine(AppKnowledge.MEMORY_INSTRUCTION)
+            appendLine()
             appendLine("=".repeat(60))
             appendLine("END OF BACKUP")
             appendLine("=".repeat(60))
         }
     }
 
+    /**
+     * Generate bagian pengaturan user saat ini.
+     */
     private fun generateUserSettings(settings: AppSettings): String {
         return """
 ============================================================
@@ -89,15 +136,11 @@ TAMPILAN
 - Background Mode     : ${settings.backgroundMode}
 - Keep Screen On      : ${settings.keepScreenOn}
 - Kiosk Mode          : ${settings.kioskModeEnabled}
-- Animasi             : ${settings.animationsEnabled}
-- Burung Terbang      : ${settings.showBirdsAnimation}
 
 AUDIO
 - Mode Audio          : ${settings.audioMode}
 - Volume Beep         : ${settings.beepVolume}%
 - Jumlah Beep         : ${settings.beepCount}x
-- File Adzan          : ${settings.adzanFile}
-- Volume Adzan        : ${settings.adzanVolume}%
 
 RUNNING TEXT
 - Isi Running Text    : ${settings.runningText}
@@ -109,7 +152,20 @@ MODE FOKUS
         """.trimIndent()
     }
 
+    /**
+     * Simpan file backup ke folder publik:
+     * /sdcard/masjid.io/backup aman/Backup Aman-masjid.io-DD-MM-YYYY.TXT
+     */
     fun saveBackupToFile(context: Context, content: String): BackupResult {
+        // Cek permission Android 11+
+        if (needsStoragePermission()) {
+            return BackupResult(
+                success = false,
+                errorMessage = "Izin akses penyimpanan diperlukan. Tap tombol IZIN untuk membuka pengaturan.",
+                needPermission = true
+            )
+        }
+
         return try {
             val dateString = SimpleDateFormat(
                 "dd-MM-yyyy",
@@ -117,16 +173,14 @@ MODE FOKUS
             ).format(Date())
 
             val fileName = "Backup Aman-masjid.io-$dateString.TXT"
-
-            val backupDir = File(
-                Environment.getExternalStorageDirectory(),
-                "$FOLDER_APP/$FOLDER_BACKUP"
-            )
+            val baseDir = Environment.getExternalStorageDirectory()
+            val backupDir = File(baseDir, "$FOLDER_APP/$FOLDER_BACKUP")
 
             if (!backupDir.exists()) {
                 val created = backupDir.mkdirs()
                 if (!created) {
-                    Log.w(TAG, "Folder tidak bisa dibuat: ${backupDir.absolutePath}")
+                    Log.w(TAG, "Folder gagal dibuat di external, coba fallback")
+                    return saveFallback(context, content)
                 }
             }
 
@@ -137,22 +191,35 @@ MODE FOKUS
             BackupResult(success = true, filePath = file.absolutePath)
         } catch (e: Exception) {
             Log.e(TAG, "Backup gagal: ${e.message}", e)
-            BackupResult(
-                success = false,
-                errorMessage = e.message ?: "Terjadi kesalahan tidak diketahui"
-            )
+            saveFallback(context, content)
         }
     }
 
-    fun isBackupFolderAccessible(): Boolean {
+    /**
+     * Fallback: simpan ke folder khusus app (selalu bisa diakses).
+     */
+    private fun saveFallback(context: Context, content: String): BackupResult {
         return try {
-            val dir = File(
-                Environment.getExternalStorageDirectory(),
-                "$FOLDER_APP/$FOLDER_BACKUP"
-            )
-            dir.exists() || dir.mkdirs() || Environment.getExternalStorageDirectory().canWrite()
+            val dateString = SimpleDateFormat(
+                "dd-MM-yyyy",
+                Locale.getDefault()
+            ).format(Date())
+
+            val fileName = "Backup Aman-masjid.io-$dateString.TXT"
+            val appDir = File(context.filesDir, "$FOLDER_APP/$FOLDER_BACKUP")
+            if (!appDir.exists()) appDir.mkdirs()
+
+            val file = File(appDir, fileName)
+            file.writeText(content, Charsets.UTF_8)
+
+            Log.d(TAG, "Backup (fallback) tersimpan: ${file.absolutePath}")
+            BackupResult(success = true, filePath = file.absolutePath)
         } catch (e: Exception) {
-            false
+            Log.e(TAG, "Fallback juga gagal: ${e.message}", e)
+            BackupResult(
+                success = false,
+                errorMessage = e.message ?: "Gagal menyimpan file backup"
+            )
         }
     }
 }
