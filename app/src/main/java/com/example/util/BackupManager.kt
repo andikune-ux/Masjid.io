@@ -18,18 +18,12 @@ object BackupManager {
     private const val FOLDER_APP = "masjid.io"
     private const val FOLDER_BACKUP = "backup aman"
 
-    /**
-     * Hasil backup: sukses (path file) atau gagal (pesan error)
-     */
     data class BackupResult(
         val success: Boolean,
         val filePath: String? = null,
         val errorMessage: String? = null
     )
 
-    /**
-     * Generate isi file backup dalam format TXT.
-     */
     fun generateBackupContent(settings: AppSettings): String {
         val timestamp = SimpleDateFormat(
             "dd-MM-yyyy HH:mm:ss",
@@ -76,9 +70,6 @@ Android Version : ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
         }
     }
 
-    /**
-     * Generate bagian pengaturan user saat ini.
-     */
     private fun generateUserSettings(settings: AppSettings): String {
         return """
 ============================================================
@@ -87,18 +78,14 @@ PENGATURAN USER SAAT INI
 
 IDENTITAS MASJID
 - Nama Masjid : ${settings.mosqueName}
-- Alamat      : ${settings.address}
 
 LOKASI
-- Negara      : ${settings.country}
-- Provinsi    : ${settings.province}
 - Kota        : ${settings.city}
-- Kecamatan   : ${settings.district}
+- Provinsi    : ${settings.province}
 - Latitude    : ${settings.latitude}
 - Longitude   : ${settings.longitude}
 
 TAMPILAN
-- Nama Masjid         : ${settings.mosqueName}
 - Background Mode     : ${settings.backgroundMode}
 - Keep Screen On      : ${settings.keepScreenOn}
 - Kiosk Mode          : ${settings.kioskModeEnabled}
@@ -122,11 +109,6 @@ MODE FOKUS
         """.trimIndent()
     }
 
-    /**
-     * Simpan file backup ke folder:
-     * /sdcard/masjid.io/backup aman/
-     * Nama file: Backup Aman-masjid.io-DD-MM-YYYY.TXT
-     */
     fun saveBackupToFile(context: Context, content: String): BackupResult {
         return try {
             val dateString = SimpleDateFormat(
@@ -162,9 +144,6 @@ MODE FOKUS
         }
     }
 
-    /**
-     * Cek apakah folder backup sudah bisa diakses.
-     */
     fun isBackupFolderAccessible(): Boolean {
         return try {
             val dir = File(
