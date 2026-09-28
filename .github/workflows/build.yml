@@ -50,10 +50,17 @@ jobs:
           fi
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      - name: Restore permanent keystore
+      # ================================================
+      # KEYSTORE: File sudah ada di repo, tidak perlu secret
+      # ================================================
+      - name: Verify keystore exists
         run: |
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > debug.keystore
-          echo "Keystore restored: $(wc -c < debug.keystore) bytes"
+          if [ ! -f debug.keystore ]; then
+            echo "❌ debug.keystore tidak ada di repo!"
+            echo "Jalankan workflow 'Setup Keystore' dulu."
+            exit 1
+          fi
+          echo "✅ Keystore ditemukan: $(wc -c < debug.keystore) bytes"
 
       - name: Create google-services.json
         run: |
