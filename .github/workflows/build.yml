@@ -50,9 +50,6 @@ jobs:
           fi
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      # ================================================
-      # KEYSTORE: File sudah ada di repo, tidak perlu secret
-      # ================================================
       - name: Verify keystore exists
         run: |
           if [ ! -f debug.keystore ]; then
