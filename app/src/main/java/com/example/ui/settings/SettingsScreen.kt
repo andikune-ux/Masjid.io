@@ -234,6 +234,7 @@ fun SettingsScreen(
                     )
                     SettingsCategory.AUDIO -> AudioSettingsPane(
                         settings = draftSettings,
+                        soundManager = soundManager,
                         onUpdate = { draftSettings = it }
                     )
                     SettingsCategory.RAMADHAN -> SimplePlaceholder("Mode Ramadhan")
@@ -311,6 +312,67 @@ private fun SidebarItem(
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             color = if (isSelected) IslamicGoldLight else TextPrimary
         )
+    }
+}
+
+@Composable
+fun LocationSettingsPane(
+    settings: AppSettings,
+    onUpdate: (AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("LOKASI & WAKTU SHOLAT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text("Atur lokasi masjid untuk perhitungan jadwal sholat.", fontSize = 13.sp, color = TextSecondary)
+        Text("Kota: ${settings.city}", fontSize = 15.sp, color = TextPrimary)
+        Text("Latitude: ${settings.latitude}", fontSize = 14.sp, color = TextPrimary)
+        Text("Longitude: ${settings.longitude}", fontSize = 14.sp, color = TextPrimary)
+    }
+}
+
+@Composable
+fun IdentitySettingsPane(
+    settings: AppSettings,
+    onUpdate: (AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("IDENTITAS MASJID", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text("Nama Masjid: ${settings.mosqueName}", fontSize = 15.sp, color = TextPrimary)
+    }
+}
+
+@Composable
+fun RunningTextSettingsPane(
+    settings: AppSettings,
+    onUpdate: (AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("RUNNING TEXT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text("Isi: ${settings.runningText}", fontSize = 14.sp, color = TextPrimary)
+    }
+}
+
+@Composable
+fun AudioSettingsPane(
+    settings: AppSettings,
+    soundManager: SoundManager,
+    onUpdate: (AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("AUDIO & ADZAN", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text("Mode: ${settings.audioMode}", fontSize = 15.sp, color = TextPrimary)
+        Text("Volume Beep: ${settings.beepVolume}%", fontSize = 14.sp, color = TextPrimary)
     }
 }
 
