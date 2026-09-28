@@ -57,6 +57,7 @@ import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
+import com.example.util.ApkDownloader
 import com.example.util.UpdateManager
 import kotlinx.coroutines.launch
 
@@ -71,11 +72,17 @@ fun AboutSettingsPane(
     var checkResult by remember { mutableStateOf<String?>(null) }
     var isUpdateAvailable by remember { mutableStateOf(false) }
     var latestVersion by remember { mutableStateOf("") }
+    var downloadUrl by remember { mutableStateOf<String?>(null) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var isDownloading by remember { mutableStateOf(false) }
     var downloadedApkPath by remember { mutableStateOf<String?>(null) }
 
     val currentVersion = try { BuildConfig.VERSION_NAME } catch (e: Exception) { "Unknown" }
+
+    // Cek APK yang sudah pernah di-download saat pertama buka
+    LaunchedEffect(Unit) {
+        downloadedApkPath = ApkDownloader.getDownloadedApkPath(context)
+    }
 
     Column(
         modifier = Modifier
@@ -178,6 +185,7 @@ fun AboutSettingsPane(
                     isChecking = false
                     isUpdateAvailable = info.available
                     latestVersion = info.latestVersion
+                    downloadUrl = info.downloadUrl
                     checkResult = if (info.available) {
                         "✅ Update tersedia: ${info.latestVersion}"
                     } else {
@@ -217,24 +225,49 @@ fun AboutSettingsPane(
                 description = "Download APK terbaru dari GitHub",
                 backgroundColor = IslamicGreen,
                 textColor = Color.White,
-                enabled = !isDownloading,
+                enabled = !isDownloading && downloadUrl != null,
                 onClick = {
                     if (isDownloading) return@ActionButton
-                    isDownloading = true
-                    downloadProgress = 0f
-                    // Simulasi progress — integrasi download nyata menyusul
-                    scope.launch {
-                        for (i in 1..100) {
-                            kotlinx.coroutines.delay(30)
-                            downloadProgress = i / 100f
-                        }
-                        isDownloading = false
-                        downloadedApkPath = "/sdcard/Download/masjid-io-$latestVersion.apk"
+                    val url = downloadUrl
+                    if (url.isNullOrBlank()) {
                         Toast.makeText(
                             context,
-                            "Download selesai (simulasi)",
+                            "URL download belum tersedia",
                             Toast.LENGTH_LONG
                         ).show()
+                        return@ActionButton
+                    }
+
+                    isDownloading = true
+                    downloadProgress = 0f
+                    downloadedApkPath = null
+
+                    scope.launch {
+                        ApkDownloader.downloadApk(
+                            context = context,
+                            downloadUrl = url,
+                            fileName = "masjid-io-$latestVersion.apk"
+                        ).collect { state ->
+                            if (state.errorMessage != null) {
+                                isDownloading = false
+                                Toast.makeText(
+                                    context,
+                                    "Download gagal: ${state.errorMessage}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                downloadProgress = state.progress
+                                if (state.isFinished && state.savedFilePath != null) {
+                                    isDownloading = false
+                                    downloadedApkPath = state.savedFilePath
+                                    Toast.makeText(
+                                        context,
+                                        "Download selesai! Siap install.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
                     }
                 }
             )
@@ -287,11 +320,32 @@ fun AboutSettingsPane(
                     textColor = Color(0xFF09141D),
                     enabled = true,
                     onClick = {
-                        Toast.makeText(
-                            context,
-                            "Fitur install otomatis akan diimplementasi di update berikutnya",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val path = downloadedApkPath
+                        if (path.isNullOrBlank()) {
+                            Toast.makeText(context, "Path APK tidak ditemukan", Toast.LENGTH_SHORT).show()
+                            return@ActionButton
+                        }
+
+                        // Cek izin install APK
+                        if (!ApkDownloader.canInstallApk(context)) {
+                            Toast.makeText(
+                                context,
+                                "Beri izin 'Install unknown apps' dulu",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            ApkDownloader.openInstallPermissionSettings(context)
+                            return@ActionButton
+                        }
+
+                        // Install
+                        val ok = ApkDownloader.installApk(context, path)
+                        if (!ok) {
+                            Toast.makeText(
+                                context,
+                                "Gagal membuka installer APK",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 )
 
