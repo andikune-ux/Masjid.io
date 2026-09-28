@@ -1,6 +1,5 @@
 package com.example.ui.settings
 
-import android.widget.Toast
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -159,7 +157,7 @@ fun SettingsScreen(
             }
         }
 
-        // BODY: Sidebar + Content
+        // BODY
         Row(modifier = Modifier.fillMaxSize()) {
             // SIDEBAR
             Column(
@@ -193,25 +191,55 @@ fun SettingsScreen(
                 label = "settings_pane"
             ) { category ->
                 when (category) {
-                    SettingsCategory.LOCATION -> LocationSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.COUNTDOWN -> CountdownSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.IDENTITY -> IdentitySettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.QRIS_DONATION -> QrisSettingsPane(draftSettings, { draftSettings = it }, onTestQrisFocus)
-                    SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.APPEARANCE -> CustomBackgroundPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.AUDIO -> AudioSettingsPane(draftSettings, soundManager) { draftSettings = it }
-                    SettingsCategory.RAMADHAN -> RamadhanSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.SECURITY -> SecuritySettingsPane(
+                    SettingsCategory.LOCATION -> LocationSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.COUNTDOWN -> CountdownSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.IDENTITY -> IdentitySettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.QRIS_DONATION -> QrisSettingsPane(
                         settings = draftSettings,
                         onUpdate = { draftSettings = it },
-                        onChangePinClick = { showChangePinDialog = true }
+                        onTestQrisFocus = onTestQrisFocus
                     )
-                    SettingsCategory.POWER -> PowerSettingsPane(draftSettings) { draftSettings = it }
-                    SettingsCategory.ABOUT -> AboutSettingsPane()
+                    SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.APPEARANCE -> CustomBackgroundPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.AUDIO -> AudioSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.RAMADHAN -> SimplePlaceholder("Mode Ramadhan")
+                    SettingsCategory.SECURITY -> SimplePlaceholder("Keamanan")
+                    SettingsCategory.POWER -> SimplePlaceholder("Daya & Booting")
+                    SettingsCategory.ABOUT -> SimplePlaceholder("Tentang Aplikasi")
                     SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
                         settings = draftSettings,
                         modifier = Modifier.fillMaxSize()
@@ -235,18 +263,8 @@ fun SettingsScreen(
 
     // DIALOG UBAH PIN
     if (showChangePinDialog) {
-        PinDialog(
-            correctPin = draftSettings.pinCode,
-            onSuccess = {
-                showChangePinDialog = false
-                Toast.makeText(
-                    LocalContext.current,
-                    "PIN berhasil diubah",
-                    Toast.LENGTH_SHORT
-                ).show()
-            },
-            onDismiss = { showChangePinDialog = false }
-        )
+        SimplePlaceholder("Ubah PIN (placeholder)")
+        showChangePinDialog = false
     }
 }
 
@@ -297,63 +315,24 @@ private fun SidebarItem(
 }
 
 @Composable
-fun LocationSettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+private fun SimplePlaceholder(title: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Text("LOKASI & WAKTU SHOLAT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-        Text("Atur lokasi masjid untuk perhitungan jadwal sholat.", fontSize = 13.sp, color = TextSecondary)
-    }
-}
-
-@Composable
-fun IdentitySettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("IDENTITAS MASJID", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-    }
-}
-
-@Composable
-fun RunningTextSettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("RUNNING TEXT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-    }
-}
-
-@Composable
-fun OfficersSettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    WeeklyOfficersSettingsPane(settings, onUpdate)
-}
-
-@Composable
-fun AudioSettingsPane(
-    settings: AppSettings,
-    soundManager: SoundManager,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("AUDIO & ADZAN", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Panel ini belum diimplementasi",
+                fontSize = 13.sp,
+                color = TextSecondary
+            )
+        }
     }
 }
