@@ -21,17 +21,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,8 +52,6 @@ import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
 import com.example.util.BackupManager
 import com.example.util.CrashReporter
-import com.example.util.UpdateManager
-import kotlinx.coroutines.launch
 
 @Composable
 fun DeveloperSettingsPane(
@@ -62,13 +59,13 @@ fun DeveloperSettingsPane(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     var showCrashHistory by remember { mutableStateOf(false) }
     var lastBackupPath by remember { mutableStateOf<String?>(null) }
     var lastBackupStatus by remember { mutableStateOf<String?>(null) }
-    var isCheckingUpdate by remember { mutableStateOf(false) }
-    var updateCheckResult by remember { mutableStateOf<String?>(null) }
+    var needStoragePermission by remember {
+        mutableStateOf(BackupManager.needsStoragePermission())
+    }
 
     // Kalau user buka Riwayat Crash → tampilkan layar itu
     if (showCrashHistory) {
@@ -108,6 +105,16 @@ fun DeveloperSettingsPane(
             description = "Versi build saat ini"
         )
 
+        // ============ PERMISSION STORAGE ============
+        if (needStoragePermission) {
+            PermissionWarningCard(
+                onGrantClick = {
+                    BackupManager.openPermissionSettings(context)
+                }
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
         // ============ BACKUP AMAN ============
         DeveloperButton(
             icon = Icons.Default.Save,
@@ -115,6 +122,18 @@ fun DeveloperSettingsPane(
             description = "Export semua info aplikasi ke file .TXT",
             onClick = {
                 try {
+                    // Cek permission dulu
+                    if (BackupManager.needsStoragePermission()) {
+                        needStoragePermission = true
+                        lastBackupStatus = "⚠️ Izin storage diperlukan"
+                        Toast.makeText(
+                            context,
+                            "Beri izin storage dulu, lalu coba lagi",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@DeveloperButton
+                    }
+
                     val content = BackupManager.generateBackupContent(settings)
                     val result = BackupManager.saveBackupToFile(context, content)
 
@@ -127,6 +146,9 @@ fun DeveloperSettingsPane(
                             Toast.LENGTH_LONG
                         ).show()
                     } else {
+                        if (result.needPermission) {
+                            needStoragePermission = true
+                        }
                         lastBackupPath = null
                         lastBackupStatus = "❌ Gagal: ${result.errorMessage}"
                         Toast.makeText(
@@ -148,7 +170,12 @@ fun DeveloperSettingsPane(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0x33000000), RoundedCornerShape(8.dp))
-                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .border(
+                        1.dp,
+                        if (lastBackupStatus?.startsWith("✅") == true) IslamicGreen
+                        else IslamicGold.copy(alpha = 0.5f),
+                        RoundedCornerShape(8.dp)
+                    )
                     .padding(12.dp)
             ) {
                 Text(
@@ -178,66 +205,9 @@ fun DeveloperSettingsPane(
             onClick = { showCrashHistory = true }
         )
 
-        // ============ PERIKSA UPDATE ============
-        DeveloperButton(
-            icon = Icons.Default.SystemUpdate,
-            title = "PERIKSA UPDATE",
-            description = if (isCheckingUpdate) "Sedang memeriksa..." else "Cek versi terbaru di GitHub",
-            onClick = {
-                if (isCheckingUpdate) return@DeveloperButton
-                isCheckingUpdate = true
-                updateCheckResult = null
-                scope.launch {
-                    val info = UpdateManager.checkForUpdate()
-                    isCheckingUpdate = false
-                    updateCheckResult = if (info.available) {
-                        "✅ Update tersedia: ${info.latestVersion}\n(dari ${info.currentVersion})"
-                    } else {
-                        "✅ Sudah versi terbaru (${info.currentVersion})"
-                    }
-                    Toast.makeText(
-                        context,
-                        updateCheckResult,
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        )
-
-        if (updateCheckResult != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0x33000000), RoundedCornerShape(8.dp))
-                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = updateCheckResult ?: "",
-                    fontSize = 13.sp,
-                    color = TextPrimary
-                )
-            }
-        }
-
-        // ============ RIWAYAT UPDATE ============
-        DeveloperButton(
-            icon = Icons.Default.History,
-            title = "RIWAYAT UPDATE",
-            description = "Lihat semua update dari versi sebelumnya",
-            onClick = {
-                Toast.makeText(
-                    context,
-                    "Fitur Riwayat Update akan tersedia di update berikutnya",
-                    Toast.LENGTH_SHORT
-                ).show()
-            },
-            disabled = true
-        )
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        // INFO FOLDER
+        // ============ INFO FOLDER ============
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,6 +268,88 @@ private fun InfoBox(
             Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             Text(description, fontSize = 11.sp, color = TextSecondary)
         }
+    }
+}
+
+@Composable
+private fun PermissionWarningCard(
+    onGrantClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(UrgentRed.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+            .border(
+                if (isFocused) 3.dp else 2.dp,
+                UrgentRed,
+                RoundedCornerShape(12.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                tint = UrgentRed,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "⚠️ IZIN STORAGE DIPERLUKAN",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = UrgentRed
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Untuk menyimpan Backup Aman ke /sdcard/masjid.io/, aplikasi butuh izin 'Akses semua file'.",
+                    fontSize = 12.sp,
+                    color = TextPrimary,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(UrgentRed)
+                .clickable { onGrantClick() }
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "BERI IZIN SEKARANG",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Setelah memberi izin, kembali ke aplikasi dan tekan BACKUP AMAN lagi.",
+            fontSize = 11.sp,
+            color = TextSecondary,
+            lineHeight = 16.sp
+        )
     }
 }
 
