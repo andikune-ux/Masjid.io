@@ -28,14 +28,18 @@ import com.example.data.model.PrayerId
 import com.example.data.model.PrayerSchedule
 import com.example.kiosk.KioskManager
 import com.example.kiosk.WatchdogService
+import com.example.ui.components.PinDialog
+import com.example.ui.components.UpdateDialog
 import com.example.ui.focus.PrayerFocusOverlay
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.home.HomeScreen
-import com.example.ui.components.PinDialog
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.MasjidTheme
 import com.example.ui.theme.MosqueDeepBg
+import com.example.util.CrashReporter
+import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -56,13 +60,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Init Crash Reporter — simpan log kalau ada error
+        CrashReporter.init(this)
+
         settingsRepository = SettingsRepository(this)
         soundManager = SoundManager(this)
 
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
 
-            // ==== KIOSK MODE: Enable / Disable saat setting berubah ====
+            // === KIOSK MODE ===
             LaunchedEffect(settings.kioskModeEnabled) {
                 if (settings.kioskModeEnabled) {
                     KioskManager.enableKiosk(this@MainActivity)
@@ -71,29 +78,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ==== WATCHDOG: Start saat kiosk aktif, stop saat nonaktif ====
+            // === WATCHDOG SERVICE ===
             DisposableEffect(settings.kioskModeEnabled) {
                 val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
                 if (settings.kioskModeEnabled) {
-                    try {
-                        startService(serviceIntent)
-                    } catch (_: Exception) { }
+                    try { startService(serviceIntent) } catch (_: Exception) {}
                 } else {
-                    try {
-                        stopService(serviceIntent)
-                    } catch (_: Exception) { }
+                    try { stopService(serviceIntent) } catch (_: Exception) {}
                 }
                 onDispose {
-                    try {
-                        stopService(serviceIntent)
-                    } catch (_: Exception) { }
+                    try { stopService(serviceIntent) } catch (_: Exception) {}
                 }
             }
 
-            // Request Gallery / Media Permissions on launch
+            // === PERMISSIONS ===
             val permissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { /* Results handled gracefully */ }
+            ) { }
 
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -110,7 +111,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Keep Screen On dynamically
+            // === KEEP SCREEN ON ===
             DisposableEffect(settings.keepScreenOn) {
                 if (settings.keepScreenOn) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -125,7 +126,22 @@ class MainActivity : ComponentActivity() {
             var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
             var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-            // Weather state (real-time from Open-Meteo)
+            // === UPDATE STATE ===
+            var showUpdateDialog by remember { mutableStateOf(false) }
+            var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
+
+            // Cek update otomatis saat app dibuka
+            LaunchedEffect(Unit) {
+                try {
+                    val info = UpdateManager.checkForUpdate()
+                    if (info.available) {
+                        updateInfo = info
+                        showUpdateDialog = true
+                    }
+                } catch (_: Exception) { }
+            }
+
+            // === WEATHER ===
             var currentTemperature by remember { mutableStateOf(30) }
             var currentWeatherCondition by remember { mutableStateOf("Cerah") }
 
@@ -138,21 +154,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Kiosk Back Press Handling
+            // === BACK PRESS ===
             DisposableEffect(settings.kioskModeEnabled, currentScreen) {
                 val callback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
                         when (currentScreen) {
-                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW -> {
-                                currentScreen = AppScreen.HOME
-                            }
-                            AppScreen.FOCUS_MODE -> {
-                                showPinDialog = true
-                            }
+                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW -> currentScreen = AppScreen.HOME
+                            AppScreen.FOCUS_MODE -> showPinDialog = true
                             AppScreen.HOME -> {
-                                if (settings.kioskModeEnabled) {
-                                    showPinDialog = true
-                                } else {
+                                if (settings.kioskModeEnabled) showPinDialog = true
+                                else {
                                     isEnabled = false
                                     onBackPressedDispatcher.onBackPressed()
                                 }
@@ -164,7 +175,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { callback.remove() }
             }
 
-            // Real-Time Clock & Prayer Schedule State
+            // === CLOCK & SCHEDULE ===
             var currentTimeString by remember { mutableStateOf("12:00:00") }
             var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
             var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
@@ -176,7 +187,6 @@ class MainActivity : ComponentActivity() {
                 IslamicCalendar.getUpcomingEvent(hDate)
             }
 
-            // 1-second continuous ticker
             LaunchedEffect(settings.latitude, settings.longitude, settings.isManualTimeEnabled, settings.manualTimeOffsetSeconds) {
                 val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
                 var lastTriggeredPrayerMinute: String? = null
@@ -222,7 +232,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-
                     delay(1000)
                 }
             }
@@ -234,75 +243,73 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
                         when (screen) {
-                            AppScreen.HOME -> {
-                                HomeScreen(
-                                    settings = settings,
-                                    schedule = prayerSchedule,
-                                    currentTimeString = currentTimeString,
-                                    hijriDateString = hijriDateString,
-                                    gregorianDateString = gregorianDateString,
-                                    upcomingEvent = upcomingEvent,
-                                    temperature = currentTemperature,
-                                    weatherCondition = currentWeatherCondition,
-                                    onSettingsClick = {
-                                        showPinDialog = true
-                                    }
-                                )
-                            }
-                            AppScreen.FOCUS_MODE -> {
-                                PrayerFocusOverlay(
-                                    prayerId = focusPrayerId,
-                                    prayerTimeFormatted = focusPrayerTime,
-                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                                    onDismiss = {
-                                        currentScreen = AppScreen.HOME
-                                    }
-                                )
-                            }
-                            AppScreen.SETTINGS -> {
-                                SettingsScreen(
-                                    currentSettings = settings,
-                                    soundManager = soundManager,
-                                    onSaveSettings = { updated ->
-                                        settingsRepository.updateSettings(updated)
-                                        currentScreen = AppScreen.HOME
-                                    },
-                                    onBack = {
-                                        currentScreen = AppScreen.HOME
-                                    },
-                                    onTestQrisFocus = {
-                                        currentScreen = AppScreen.QRIS_PREVIEW
-                                    }
-                                )
-                            }
-                            AppScreen.QRIS_PREVIEW -> {
-                                QRISFocusOverlay(
-                                    settings = settings,
-                                    onDismiss = {
-                                        currentScreen = AppScreen.SETTINGS
-                                    }
-                                )
-                            }
+                            AppScreen.HOME -> HomeScreen(
+                                settings = settings,
+                                schedule = prayerSchedule,
+                                currentTimeString = currentTimeString,
+                                hijriDateString = hijriDateString,
+                                gregorianDateString = gregorianDateString,
+                                upcomingEvent = upcomingEvent,
+                                temperature = currentTemperature,
+                                weatherCondition = currentWeatherCondition,
+                                onSettingsClick = { showPinDialog = true }
+                            )
+                            AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                                prayerId = focusPrayerId,
+                                prayerTimeFormatted = focusPrayerTime,
+                                totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                                iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                                qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                                onDismiss = { currentScreen = AppScreen.HOME }
+                            )
+                            AppScreen.SETTINGS -> SettingsScreen(
+                                currentSettings = settings,
+                                soundManager = soundManager,
+                                onSaveSettings = { updated ->
+                                    settingsRepository.updateSettings(updated)
+                                    currentScreen = AppScreen.HOME
+                                },
+                                onBack = { currentScreen = AppScreen.HOME },
+                                onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW }
+                            )
+                            AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                                settings = settings,
+                                onDismiss = { currentScreen = AppScreen.SETTINGS }
+                            )
                         }
                     }
 
-                    // PIN Dialog
+                    // PIN DIALOG (untuk masuk Settings)
                     if (showPinDialog) {
                         PinDialog(
                             correctPin = settings.pinCode,
                             onSuccess = {
                                 showPinDialog = false
-                                if (currentScreen == AppScreen.FOCUS_MODE) {
-                                    currentScreen = AppScreen.HOME
-                                } else {
-                                    currentScreen = AppScreen.SETTINGS
-                                }
+                                if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
+                                else currentScreen = AppScreen.SETTINGS
                             },
-                            onDismiss = {
-                                showPinDialog = false
-                            }
+                            onDismiss = { showPinDialog = false }
+                        )
+                    }
+
+                    // UPDATE DIALOG (mode: Harus Update)
+                    if (showUpdateDialog && updateInfo != null) {
+                        val info = updateInfo!!
+                        UpdateDialog(
+                            currentVersion = info.currentVersion,
+                            latestVersion = info.latestVersion,
+                            releaseNotes = info.releaseNotes,
+                            forceUpdate = true, // Mode: HARUS UPDATE
+                            downloadProgress = null,
+                            isDownloading = false,
+                            isInstalling = false,
+                            onUpdateClick = {
+                                // TODO: Download & install APK dari info.downloadUrl
+                                // Fitur download akan diimplementasi di batch berikutnya
+                                showUpdateDialog = false
+                            },
+                            onLaterClick = { showUpdateDialog = false },
+                            onSkipClick = { showUpdateDialog = false }
                         )
                     }
                 }
@@ -312,29 +319,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Tandai Activity di foreground untuk Watchdog
         KioskManager.isMainActivityForeground = true
     }
 
     override fun onPause() {
         super.onPause()
-        // Tandai Activity tidak di foreground
         KioskManager.isMainActivityForeground = false
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            hideSystemBars()
-        }
+        if (hasFocus) hideSystemBars()
     }
 
     private fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
     }
 
     override fun onDestroy() {
