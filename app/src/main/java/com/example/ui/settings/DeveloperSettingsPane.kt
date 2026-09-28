@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,9 +31,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -48,6 +52,9 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
 import com.example.util.BackupManager
+import com.example.util.CrashReporter
+import com.example.util.UpdateManager
+import kotlinx.coroutines.launch
 
 @Composable
 fun DeveloperSettingsPane(
@@ -55,16 +62,30 @@ fun DeveloperSettingsPane(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var showCrashHistory by remember { mutableStateOf(false) }
     var lastBackupPath by remember { mutableStateOf<String?>(null) }
     var lastBackupStatus by remember { mutableStateOf<String?>(null) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var updateCheckResult by remember { mutableStateOf<String?>(null) }
+
+    // Kalau user buka Riwayat Crash → tampilkan layar itu
+    if (showCrashHistory) {
+        RiwayatCrashScreen(
+            onBack = { showCrashHistory = false },
+            modifier = modifier
+        )
+        return
+    }
 
     Column(
         modifier = modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // === HEADER ===
+        // HEADER
         Text(
             text = "OPSI DEVELOPER",
             fontSize = 20.sp,
@@ -79,15 +100,15 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // === VERSI APLIKASI ===
+        // INFO VERSI
         InfoBox(
             icon = Icons.Default.Info,
             title = "Versi Aplikasi",
-            value = BuildConfig.VERSION_NAME,
+            value = try { BuildConfig.VERSION_NAME } catch (e: Exception) { "Unknown" },
             description = "Versi build saat ini"
         )
 
-        // === BACKUP AMAN ===
+        // ============ BACKUP AMAN ============
         DeveloperButton(
             icon = Icons.Default.Save,
             title = "BACKUP AMAN",
@@ -116,16 +137,12 @@ fun DeveloperSettingsPane(
                     }
                 } catch (e: Exception) {
                     lastBackupStatus = "❌ Error: ${e.message}"
-                    Toast.makeText(
-                        context,
-                        "Error: ${e.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         )
 
-        // === STATUS BACKUP TERAKHIR ===
+        // STATUS BACKUP
         if (lastBackupStatus != null) {
             Column(
                 modifier = Modifier
@@ -153,37 +170,57 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // === RIWAYAT CRASH ===
+        // ============ RIWAYAT CRASH ============
         DeveloperButton(
             icon = Icons.Default.BugReport,
             title = "RIWAYAT CRASH",
-            description = "Lihat daftar error yang pernah terjadi",
-            onClick = {
-                Toast.makeText(
-                    context,
-                    "Fitur akan tersedia di update berikutnya",
-                    Toast.LENGTH_SHORT
-                ).show()
-            },
-            disabled = true
+            description = "Lihat daftar error yang pernah terjadi (${CrashReporter.getCrashHistory(context).size} tercatat)",
+            onClick = { showCrashHistory = true }
         )
 
-        // === PERIKSA UPDATE ===
+        // ============ PERIKSA UPDATE ============
         DeveloperButton(
             icon = Icons.Default.SystemUpdate,
             title = "PERIKSA UPDATE",
-            description = "Cek versi terbaru di GitHub",
+            description = if (isCheckingUpdate) "Sedang memeriksa..." else "Cek versi terbaru di GitHub",
             onClick = {
-                Toast.makeText(
-                    context,
-                    "Fitur akan tersedia di update berikutnya",
-                    Toast.LENGTH_SHORT
-                ).show()
-            },
-            disabled = true
+                if (isCheckingUpdate) return@DeveloperButton
+                isCheckingUpdate = true
+                updateCheckResult = null
+                scope.launch {
+                    val info = UpdateManager.checkForUpdate()
+                    isCheckingUpdate = false
+                    updateCheckResult = if (info.available) {
+                        "✅ Update tersedia: ${info.latestVersion}\n(dari ${info.currentVersion})"
+                    } else {
+                        "✅ Sudah versi terbaru (${info.currentVersion})"
+                    }
+                    Toast.makeText(
+                        context,
+                        updateCheckResult,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         )
 
-        // === RIWAYAT UPDATE ===
+        if (updateCheckResult != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x33000000), RoundedCornerShape(8.dp))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = updateCheckResult ?: "",
+                    fontSize = 13.sp,
+                    color = TextPrimary
+                )
+            }
+        }
+
+        // ============ RIWAYAT UPDATE ============
         DeveloperButton(
             icon = Icons.Default.History,
             title = "RIWAYAT UPDATE",
@@ -191,7 +228,7 @@ fun DeveloperSettingsPane(
             onClick = {
                 Toast.makeText(
                     context,
-                    "Fitur akan tersedia di update berikutnya",
+                    "Fitur Riwayat Update akan tersedia di update berikutnya",
                     Toast.LENGTH_SHORT
                 ).show()
             },
@@ -200,7 +237,7 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // === INFO FOLDER BACKUP ===
+        // INFO FOLDER
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -253,26 +290,13 @@ private fun InfoBox(
             imageVector = icon,
             contentDescription = null,
             tint = IslamicGold,
-            modifier = Modifier.width(32.dp).height(32.dp)
+            modifier = Modifier.size(32.dp)
         )
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                color = TextSecondary
-            )
-            Text(
-                text = value,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-            Text(
-                text = description,
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
+            Text(title, fontSize = 13.sp, color = TextSecondary)
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+            Text(description, fontSize = 11.sp, color = TextSecondary)
         }
     }
 }
@@ -311,7 +335,7 @@ private fun DeveloperButton(
             imageVector = icon,
             contentDescription = title,
             tint = if (disabled) TextSecondary.copy(alpha = 0.5f) else IslamicGold,
-            modifier = Modifier.width(32.dp).height(32.dp)
+            modifier = Modifier.size(32.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
