@@ -49,7 +49,6 @@ fun MasjidVideoPlayer(
     val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
     val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
 
-    // Buat ExoPlayer sekali saja per komposisi
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             repeatMode = ExoPlayer.REPEAT_MODE_ALL
@@ -58,7 +57,6 @@ fun MasjidVideoPlayer(
         }
     }
 
-    // Update media item saat URI berubah
     DisposableEffect(videoUriString) {
         if (!videoUriString.isNullOrBlank()) {
             try {
@@ -71,12 +69,9 @@ fun MasjidVideoPlayer(
                 e.printStackTrace()
             }
         }
-        onDispose {
-            // Jangan release di sini — biarkan remember yang handle
-        }
+        onDispose { }
     }
 
-    // Release ExoPlayer saat komponen dihapus
     DisposableEffect(Unit) {
         onDispose {
             try {
@@ -126,7 +121,6 @@ fun MasjidVideoPlayer(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            // Placeholder kalau tidak ada video
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
