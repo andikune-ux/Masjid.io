@@ -12,7 +12,11 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-// ===== AUTO VERSIONING =====
+// ============================================================
+// AUTO VERSIONING
+// Format: V{inti}.{tanggal}.{countHariIni}
+// Contoh: V1.28.1
+// ============================================================
 val versionPropsFile = file("version.properties")
 val versionProps = Properties()
 
@@ -21,6 +25,7 @@ if (versionPropsFile.exists()) {
 }
 
 val currentDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+val currentDay = SimpleDateFormat("dd", Locale.getDefault()).format(Date())
 val lastBuildDate = versionProps.getProperty("lastBuildDate", "")
 var buildCount = versionProps.getProperty("buildCount", "0").toInt()
 
@@ -33,10 +38,8 @@ if (lastBuildDate == currentDate) {
 versionProps.setProperty("buildCount", buildCount.toString())
 versionProps.store(versionPropsFile.outputStream(), null)
 
-val dayOfMonth = SimpleDateFormat("dd", Locale.getDefault()).format(Date())
 val majorVersion = "1" // Ubah manual kalau ada perubahan besar UI/UX
-val autoVersionName = "V${majorVersion}.${dayOfMonth}.${buildCount}"
-
+val autoVersionName = "V${majorVersion}.${currentDay}.${buildCount}"
 val versionCodeInt = currentDate.toInt() * 100 + buildCount
 
 android {
