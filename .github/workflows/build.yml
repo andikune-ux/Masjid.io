@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK & Release
 
 on:
   push:
@@ -62,7 +62,6 @@ jobs:
             DETECTED=$(grep -E 'applicationId\s*=' app/build.gradle.kts | head -1 | grep -o '"[^"]*"' | head -1 | tr -d '"')
             if [ -n "$DETECTED" ]; then PKG="$DETECTED"; fi
           fi
-          
           cat > app/google-services.json << EOF
           {
             "project_info": {
@@ -106,14 +105,43 @@ jobs:
             --no-daemon \
             -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m"
 
-      - name: Upload APK
+      - name: Extract version info
+        id: version
+        run: |
+          VERSION=$(grep 'versionName = ' app/build.gradle.kts | head -1 | sed 's/.*= *//' | tr -d '"' | tr -d ' ')
+          if [ -z "$VERSION" ]; then VERSION="V1.0.0"; fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Upload APK as Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: masjid-io-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: MASJID.IO ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Update MASJID.IO ${{ steps.version.outputs.VERSION }}
+            
+            Build otomatis dari commit ${{ github.sha }}
+            
+            ### Cara Install
+            1. Download APK di bawah
+            2. Install di Android TV
+            3. Selesai
+          files: app/build/outputs/apk/debug/app-debug.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit version.properties
         if: success()
