@@ -12,11 +12,6 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-// ============================================================
-// AUTO VERSIONING
-// Format: V{inti}.{tanggal}.{countHariIni}
-// Contoh: V1.28.1
-// ============================================================
 val versionPropsFile = file("version.properties")
 val versionProps = Properties()
 
@@ -38,7 +33,7 @@ if (lastBuildDate == currentDate) {
 versionProps.setProperty("buildCount", buildCount.toString())
 versionProps.store(versionPropsFile.outputStream(), null)
 
-val majorVersion = "1" // Ubah manual kalau ada perubahan besar UI/UX
+val majorVersion = "1"
 val autoVersionName = "V${majorVersion}.${currentDay}.${buildCount}"
 val versionCodeInt = currentDate.toInt() * 100 + buildCount
 
@@ -141,6 +136,11 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.play.services.location)
     implementation(libs.retrofit)
+
+    // ===== EXOPLAYER (MEDIA3) =====
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)
