@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
-import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -23,13 +22,20 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.TextSecondary
 
@@ -39,8 +45,48 @@ fun MasjidVideoPlayer(
     isFullscreen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
     val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
+
+    // Buat ExoPlayer sekali saja per komposisi
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = ExoPlayer.REPEAT_MODE_ALL
+            volume = 0f
+            playWhenReady = true
+        }
+    }
+
+    // Update media item saat URI berubah
+    DisposableEffect(videoUriString) {
+        if (!videoUriString.isNullOrBlank()) {
+            try {
+                val uri = Uri.parse(videoUriString)
+                val mediaItem = MediaItem.fromUri(uri)
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+                exoPlayer.play()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        onDispose {
+            // Jangan release di sini — biarkan remember yang handle
+        }
+    }
+
+    // Release ExoPlayer saat komponen dihapus
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                exoPlayer.stop()
+                exoPlayer.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -57,7 +103,6 @@ fun MasjidVideoPlayer(
             AndroidView(
                 factory = { ctx ->
                     FrameLayout(ctx).apply {
-                        // Clip sudut tumpul pada FrameLayout (parent VideoView)
                         clipToOutline = true
                         outlineProvider = object : ViewOutlineProvider() {
                             override fun getOutline(view: View, outline: Outline) {
@@ -66,35 +111,16 @@ fun MasjidVideoPlayer(
                             }
                         }
 
-                        val videoView = VideoView(ctx).apply {
+                        val playerView = PlayerView(ctx).apply {
+                            useController = false
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                             layoutParams = FrameLayout.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
+                            player = exoPlayer
                         }
-                        addView(videoView)
-
-                        // Simpan referensi VideoView di tag
-                        tag = videoView
-                    }
-                },
-                update = { frameLayout ->
-                    val videoView = frameLayout.tag as? VideoView ?: return@AndroidView
-                    try {
-                        // Hindari reload URI yang sama terus-menerus
-                        if (videoView.tag != videoUriString) {
-                            videoView.tag = videoUriString
-                            val uri = Uri.parse(videoUriString)
-                            videoView.setVideoURI(uri)
-                            videoView.setOnPreparedListener { mp ->
-                                mp.isLooping = true
-                                mp.setVolume(0f, 0f)
-                                videoView.start()
-                            }
-                            videoView.setOnErrorListener { _, _, _ -> true }
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        addView(playerView)
                     }
                 },
                 modifier = Modifier.fillMaxSize()
