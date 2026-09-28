@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NightsStay
@@ -32,10 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
+import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
@@ -47,18 +50,6 @@ fun RamadhanSettingsPane(
     settings: AppSettings,
     onUpdate: (AppSettings) -> Unit
 ) {
-    // State lokal — nanti akan disimpan ke AppSettings setelah field ditambahkan
-    var isRamadhanActive by remember { mutableStateOf(false) }
-    var showCountdownImsakIftar by remember { mutableStateOf(true) }
-    var showTarawihSchedule by remember { mutableStateOf(true) }
-    var showKultumSchedule by remember { mutableStateOf(true) }
-    var showMenuSahurIftar by remember { mutableStateOf(false) }
-    var tarawihTime by remember { mutableStateOf("19:30") }
-    var tarawihImam by remember { mutableStateOf("") }
-    var kultumTitle by remember { mutableStateOf("") }
-    var kultumUstadz by remember { mutableStateOf("") }
-    var kultumTime by remember { mutableStateOf("17:30") }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,14 +80,14 @@ fun RamadhanSettingsPane(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // TOGGLE AKTIF
-        ToggleRow(
+        TvToggle(
             label = "Aktifkan Mode Ramadhan",
             description = "Aktifkan fitur khusus bulan Ramadhan",
-            isChecked = isRamadhanActive,
-            onToggle = { isRamadhanActive = it }
+            isChecked = settings.ramadhanModeEnabled,
+            onToggle = { onUpdate(settings.copy(ramadhanModeEnabled = it)) }
         )
 
         // SECTION COUNTDOWN
@@ -107,72 +98,72 @@ fun RamadhanSettingsPane(
             color = IslamicGoldLight
         )
 
-        ToggleRow(
+        TvToggle(
             label = "Countdown Imsak & Iftar",
             description = "Tampilkan hitungan mundur imsak & berbuka",
-            isChecked = showCountdownImsakIftar,
-            onToggle = { showCountdownImsakIftar = it },
-            enabled = isRamadhanActive
+            isChecked = settings.showImsakIftarCountdown,
+            onToggle = { onUpdate(settings.copy(showImsakIftarCountdown = it)) },
+            enabled = settings.ramadhanModeEnabled
         )
 
-        ToggleRow(
+        TvToggle(
             label = "Jadwal Tarawih",
             description = "Tampilkan jadwal sholat tarawih",
-            isChecked = showTarawihSchedule,
-            onToggle = { showTarawihSchedule = it },
-            enabled = isRamadhanActive
+            isChecked = settings.showTarawihSchedule,
+            onToggle = { onUpdate(settings.copy(showTarawihSchedule = it)) },
+            enabled = settings.ramadhanModeEnabled
         )
 
-        if (showTarawihSchedule && isRamadhanActive) {
+        if (settings.showTarawihSchedule && settings.ramadhanModeEnabled) {
             SettingsInput(
                 label = "Jam Tarawih",
-                value = tarawihTime,
+                value = settings.tarawihTime,
                 placeholder = "19:30",
-                onValueChange = { tarawihTime = it }
+                onValueChange = { onUpdate(settings.copy(tarawihTime = it)) }
             )
             SettingsInput(
                 label = "Imam Tarawih",
-                value = tarawihImam,
+                value = settings.tarawihImam,
                 placeholder = "Nama imam tarawih",
-                onValueChange = { tarawihImam = it }
+                onValueChange = { onUpdate(settings.copy(tarawihImam = it)) }
             )
         }
 
-        ToggleRow(
+        TvToggle(
             label = "Jadwal Kultum",
             description = "Tampilkan jadwal kultum Ramadhan",
-            isChecked = showKultumSchedule,
-            onToggle = { showKultumSchedule = it },
-            enabled = isRamadhanActive
+            isChecked = settings.showKultumSchedule,
+            onToggle = { onUpdate(settings.copy(showKultumSchedule = it)) },
+            enabled = settings.ramadhanModeEnabled
         )
 
-        if (showKultumSchedule && isRamadhanActive) {
+        if (settings.showKultumSchedule && settings.ramadhanModeEnabled) {
             SettingsInput(
                 label = "Judul Kultum",
-                value = kultumTitle,
+                value = settings.kultumTitle,
                 placeholder = "Judul ceramah",
-                onValueChange = { kultumTitle = it }
+                onValueChange = { onUpdate(settings.copy(kultumTitle = it)) }
             )
             SettingsInput(
                 label = "Ustadz Kultum",
-                value = kultumUstadz,
+                value = settings.kultumUstadz,
                 placeholder = "Nama ustadz",
-                onValueChange = { kultumUstadz = it }
+                onValueChange = { onUpdate(settings.copy(kultumUstadz = it)) }
             )
             SettingsInput(
                 label = "Jam Kultum",
-                value = kultumTime,
+                value = settings.kultumTime,
                 placeholder = "17:30",
-                onValueChange = { kultumTime = it }
+                onValueChange = { onUpdate(settings.copy(kultumTime = it)) }
             )
         }
 
-        ToggleRow(
+        TvToggle(
             label = "Menu Sahur & Iftar",
             description = "Tampilkan menu sahur & iftar masjid",
-            isChecked = showMenuSahurIftar,
-            onToggle = { showMenuSahurIftar = it },
-            enabled = isRamadhanActive
+            isChecked = settings.showMenuSahurIftar,
+            onToggle = { onUpdate(settings.copy(showMenuSahurIftar = it)) },
+            enabled = settings.ramadhanModeEnabled
         )
 
         // INFO
@@ -192,73 +183,12 @@ fun RamadhanSettingsPane(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Pengaturan ini masih bersifat sementara. Fitur akan tersimpan permanen setelah field Ramadhan ditambahkan di pengaturan.",
+                    text = "Pengaturan di sini akan otomatis tersimpan setelah Anda tekan SIMPAN PENGATURAN di atas.",
                     fontSize = 12.sp,
                     color = TextPrimary,
                     lineHeight = 18.sp
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ToggleRow(
-    label: String,
-    description: String,
-    isChecked: Boolean,
-    onToggle: (Boolean) -> Unit,
-    enabled: Boolean = true
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (isFocused && enabled) Color(0x33FFD700) else Color(0x22000000)
-            )
-            .border(
-                if (isFocused && enabled) 3.dp else 1.5.dp,
-                if (isFocused && enabled) IslamicGoldLight else IslamicGold.copy(alpha = if (enabled) 0.5f else 0.2f),
-                RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable(enabled)
-            .clickable(enabled = enabled) { onToggle(!isChecked) }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (enabled) IslamicGoldLight else TextSecondary
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 28.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(if (isChecked) IslamicGreen else Color(0x55FFFFFF))
-                .padding(3.dp),
-            contentAlignment = if (isChecked) Alignment.CenterEnd else Alignment.CenterStart
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(Color.White)
-            )
         }
     }
 }
@@ -285,8 +215,8 @@ private fun SettingsInput(
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color(0x22000000))
                 .border(
-                    if (isFocused) 2.dp else 1.dp,
-                    if (isFocused) IslamicGold else Color(0x44FFFFFF),
+                    if (isFocused) 3.dp else 1.dp,
+                    if (isFocused) IslamicGoldLight else Color(0x44FFFFFF),
                     RoundedCornerShape(10.dp)
                 )
                 .padding(14.dp)
@@ -298,10 +228,10 @@ private fun SettingsInput(
                     color = TextSecondary
                 )
             }
-            androidx.compose.foundation.text.BasicTextField(
+            BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = androidx.compose.ui.text.TextStyle(
+                textStyle = TextStyle(
                     fontSize = 15.sp,
                     color = TextPrimary
                 ),
