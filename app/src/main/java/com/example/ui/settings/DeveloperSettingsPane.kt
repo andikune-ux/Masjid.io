@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
@@ -57,6 +58,7 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
 import com.example.util.BackupManager
+import com.example.util.BuildHistoryFetcher
 import com.example.util.CrashReporter
 import com.example.util.FonnteSender
 import kotlinx.coroutines.launch
@@ -77,6 +79,11 @@ fun DeveloperSettingsPane(
         mutableStateOf(BackupManager.needsStoragePermission())
     }
 
+    // State build history
+    var cachedBuildHistoryText by remember { mutableStateOf<String?>(null) }
+    var isFetchingBuild by remember { mutableStateOf(false) }
+    var lastFetchStatus by remember { mutableStateOf<String?>(null) }
+
     var tokenInput by remember { mutableStateOf(settings.fonnteToken) }
     var groupIdInput by remember { mutableStateOf(settings.fonnteGroupId) }
     var isTestingFonnte by remember { mutableStateOf(false) }
@@ -96,7 +103,6 @@ fun DeveloperSettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // HEADER
         Text(
             text = "OPSI DEVELOPER",
             fontSize = 20.sp,
@@ -111,7 +117,6 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // INFO VERSI
         InfoBox(
             icon = Icons.Default.Info,
             title = "Versi Aplikasi",
@@ -119,7 +124,83 @@ fun DeveloperSettingsPane(
             description = "Versi build saat ini"
         )
 
-        // PERMISSION STORAGE
+        // ============================================================
+        // REFRESH BUILD HISTORY
+        // ============================================================
+        Text(
+            text = "RIWAYAT BUILD",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
+        Text(
+            text = "Fetch 10 build terakhir dari GitHub Actions. Hasilnya akan ikut ke Backup Aman.",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+
+        DeveloperButton(
+            icon = Icons.Default.Refresh,
+            title = if (isFetchingBuild) "MENGAMBIL DATA..." else "REFRESH BUILD HISTORY",
+            description = if (lastFetchStatus != null) lastFetchStatus!!
+                          else "Ambil data build terbaru dari GitHub",
+            onClick = {
+                if (isFetchingBuild) return@DeveloperButton
+                isFetchingBuild = true
+                lastFetchStatus = null
+                scope.launch {
+                    val builds = BuildHistoryFetcher.fetchRecentBuilds()
+                    isFetchingBuild = false
+                    if (builds.isEmpty()) {
+                        cachedBuildHistoryText = null
+                        lastFetchStatus = "⚠️ Gagal fetch (tidak ada koneksi / rate limit)"
+                        Toast.makeText(
+                            context,
+                            "Gagal fetch build history. Cek koneksi internet.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        cachedBuildHistoryText = BuildHistoryFetcher.formatBuildsAsText(builds)
+                        val failedCount = builds.count { it.conclusion == "failure" }
+                        lastFetchStatus = "✅ ${builds.size} build di-fetch • $failedCount gagal"
+                        Toast.makeText(
+                            context,
+                            "Berhasil! ${builds.size} build (${failedCount} gagal)",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        )
+
+        // Status hasil fetch
+        if (lastFetchStatus != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x33000000), RoundedCornerShape(8.dp))
+                    .border(
+                        1.dp,
+                        if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen
+                        else UrgentRed,
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = lastFetchStatus ?: "",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // ============================================================
+        // PERMISSION STORAGE WARNING
+        // ============================================================
         if (needStoragePermission) {
             PermissionWarningCard(
                 onGrantClick = {
@@ -129,11 +210,13 @@ fun DeveloperSettingsPane(
             Spacer(modifier = Modifier.height(4.dp))
         }
 
+        // ============================================================
         // BACKUP AMAN
+        // ============================================================
         DeveloperButton(
             icon = Icons.Default.Save,
             title = "BACKUP AMAN",
-            description = "Export semua info aplikasi ke file .TXT",
+            description = "Export semua info aplikasi ke file .TXT (termasuk build history)",
             onClick = {
                 try {
                     if (BackupManager.needsStoragePermission()) {
@@ -147,28 +230,57 @@ fun DeveloperSettingsPane(
                         return@DeveloperButton
                     }
 
-                    val content = BackupManager.generateBackupContent(settings)
-                    val result = BackupManager.saveBackupToFile(context, content)
+                    // Kalau belum fetch build history, fetch dulu
+                    if (cachedBuildHistoryText == null) {
+                        isFetchingBuild = true
+                        Toast.makeText(
+                            context,
+                            "Mengambil build history dulu...",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        scope.launch {
+                            val builds = BuildHistoryFetcher.fetchRecentBuilds()
+                            cachedBuildHistoryText = if (builds.isNotEmpty())
+                                BuildHistoryFetcher.formatBuildsAsText(builds)
+                            else null
+                            isFetchingBuild = false
 
-                    if (result.success) {
-                        lastBackupPath = result.filePath
-                        lastBackupStatus = "✅ Backup berhasil"
-                        Toast.makeText(
-                            context,
-                            "Backup tersimpan di:\n${result.filePath}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        if (result.needPermission) {
-                            needStoragePermission = true
+                            // Setelah fetch, lanjut backup
+                            doBackup(
+                                context = context,
+                                settings = settings,
+                                buildHistoryText = cachedBuildHistoryText,
+                                onSuccess = { path ->
+                                    lastBackupPath = path
+                                    lastBackupStatus = "✅ Backup berhasil"
+                                },
+                                onError = { msg ->
+                                    lastBackupPath = null
+                                    lastBackupStatus = "❌ Gagal: $msg"
+                                },
+                                onNeedPermission = {
+                                    needStoragePermission = true
+                                }
+                            )
                         }
-                        lastBackupPath = null
-                        lastBackupStatus = "❌ Gagal: ${result.errorMessage}"
-                        Toast.makeText(
-                            context,
-                            "Backup gagal: ${result.errorMessage}",
-                            Toast.LENGTH_LONG
-                        ).show()
+                    } else {
+                        // Sudah ada cache, langsung backup
+                        doBackup(
+                            context = context,
+                            settings = settings,
+                            buildHistoryText = cachedBuildHistoryText,
+                            onSuccess = { path ->
+                                lastBackupPath = path
+                                lastBackupStatus = "✅ Backup berhasil"
+                            },
+                            onError = { msg ->
+                                lastBackupPath = null
+                                lastBackupStatus = "❌ Gagal: $msg"
+                            },
+                            onNeedPermission = {
+                                needStoragePermission = true
+                            }
+                        )
                     }
                 } catch (e: Exception) {
                     lastBackupStatus = "❌ Error: ${e.message}"
@@ -177,7 +289,7 @@ fun DeveloperSettingsPane(
             }
         )
 
-        // STATUS BACKUP
+        // Status backup
         if (lastBackupStatus != null) {
             Column(
                 modifier = Modifier
@@ -210,7 +322,9 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // ============================================================
         // RIWAYAT CRASH
+        // ============================================================
         DeveloperButton(
             icon = Icons.Default.BugReport,
             title = "RIWAYAT CRASH",
@@ -219,8 +333,9 @@ fun DeveloperSettingsPane(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-
-        // ==================== WHATSAPP FONNTE ====================
+                // ============================================================
+        // WHATSAPP FONNTE
+        // ============================================================
         Text(
             text = "WHATSAPP REPORT (FONNTE)",
             fontSize = 14.sp,
@@ -233,7 +348,6 @@ fun DeveloperSettingsPane(
             color = TextSecondary
         )
 
-        // Toggle aktif
         FonnteToggle(
             label = "Aktifkan Kirim WA",
             description = if (settings.whatsappReportEnabled)
@@ -251,7 +365,6 @@ fun DeveloperSettingsPane(
             }
         )
 
-        // Input Token
         FonnteInputField(
             label = "Token Fonnte",
             value = tokenInput,
@@ -262,7 +375,6 @@ fun DeveloperSettingsPane(
             onValueChange = { tokenInput = it }
         )
 
-        // Input Group ID
         FonnteInputField(
             label = "ID Grup WA",
             value = groupIdInput,
@@ -273,7 +385,6 @@ fun DeveloperSettingsPane(
             onValueChange = { groupIdInput = it }
         )
 
-        // Tombol Simpan & Test
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -332,7 +443,6 @@ fun DeveloperSettingsPane(
             }
         }
 
-        // Info Fonnte
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -363,7 +473,6 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // INFO FOLDER BACKUP
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -392,6 +501,45 @@ fun DeveloperSettingsPane(
         }
     }
 }
+
+// ============================================================
+// FUNGSI HELPER: DO BACKUP
+// ============================================================
+
+private fun doBackup(
+    context: android.content.Context,
+    settings: AppSettings,
+    buildHistoryText: String?,
+    onSuccess: (String) -> Unit,
+    onError: (String) -> Unit,
+    onNeedPermission: () -> Unit
+) {
+    try {
+        val content = BackupManager.generateBackupContent(settings, buildHistoryText)
+        val result = BackupManager.saveBackupToFile(context, content)
+
+        if (result.success) {
+            onSuccess(result.filePath ?: "")
+            Toast.makeText(
+                context,
+                "Backup tersimpan:\n${result.filePath}",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            if (result.needPermission) onNeedPermission()
+            onError(result.errorMessage ?: "Unknown error")
+            Toast.makeText(
+                context,
+                "Backup gagal: ${result.errorMessage}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    } catch (e: Exception) {
+        onError(e.message ?: "Error")
+        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
 // ============================================================
 // KOMPONEN PENDUKUNG
 // ============================================================
@@ -496,15 +644,6 @@ private fun PermissionWarningCard(
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Setelah memberi izin, kembali ke aplikasi dan tekan BACKUP AMAN lagi.",
-            fontSize = 11.sp,
-            color = TextSecondary,
-            lineHeight = 16.sp
-        )
     }
 }
 
