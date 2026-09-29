@@ -125,8 +125,10 @@ data class AppSettings(
 
     // ===== Audio & Adzan =====
     val audioMode: AudioMode = AudioMode.BEEP_ONLY,
-    val beepVolume: Int = 70,
-    val beepCount: Int = 3,
+    val beepVolume: Int = 100,
+    val beepCount: Int = 5,
+    val beepDurationMs: Int = 1500,
+    val beepIntervalMs: Int = 2000,
     val adzanFile: String = "Makkah",
     val adzanVolume: Int = 85,
     val adzanWaitMinutes: Int = 5,
