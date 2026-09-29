@@ -17,16 +17,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Battery
+import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,7 +76,7 @@ fun PowerSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ==================== PENGATURAN LAYAR ====================
+        // PENGATURAN LAYAR
         Text(
             text = "PENGATURAN LAYAR",
             fontSize = 14.sp,
@@ -107,7 +107,7 @@ fun PowerSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ==================== IDLE SCREEN ====================
+        // IDLE SCREEN
         Text(
             text = "IDLE SCREEN",
             fontSize = 14.sp,
@@ -137,7 +137,7 @@ fun PowerSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ==================== JADWAL ON/OFF TV ====================
+        // JADWAL ON/OFF TV
         Text(
             text = "JADWAL ON / OFF TV",
             fontSize = 14.sp,
@@ -156,15 +156,8 @@ fun PowerSettingsPane(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        androidx.compose.ui.graphics.Color(0x22FFD700),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .border(
-                        1.dp,
-                        IslamicGold.copy(alpha = 0.5f),
-                        RoundedCornerShape(10.dp)
-                    )
+                    .background(Color(0x22FFD700), RoundedCornerShape(10.dp))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
                     .padding(14.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -197,15 +190,8 @@ fun PowerSettingsPane(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        androidx.compose.ui.graphics.Color(0x22FFD700),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .border(
-                        1.dp,
-                        IslamicGold.copy(alpha = 0.5f),
-                        RoundedCornerShape(10.dp)
-                    )
+                    .background(Color(0x22FFD700), RoundedCornerShape(10.dp))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
                     .padding(14.dp)
             ) {
                 Text(
@@ -219,7 +205,7 @@ fun PowerSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ==================== BOOTING INFO ====================
+        // BOOTING INFO
         Text(
             text = "BOOTING",
             fontSize = 14.sp,
@@ -235,7 +221,7 @@ fun PowerSettingsPane(
         )
 
         InfoBox(
-            icon = Icons.Default.Battery,
+            icon = Icons.Default.BatteryFull,
             title = "Wake Lock",
             value = if (settings.keepScreenOn) "AKTIF" else "NONAKTIF",
             description = "Cegah TV sleep saat aplikasi berjalan"
@@ -250,10 +236,6 @@ fun PowerSettingsPane(
     }
 }
 
-// ============================================================
-// KOMPONEN PENDUKUNG
-// ============================================================
-
 @Composable
 private fun InfoBox(
     icon: ImageVector,
@@ -264,15 +246,8 @@ private fun InfoBox(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                androidx.compose.ui.graphics.Color(0x33000000),
-                RoundedCornerShape(10.dp)
-            )
-            .border(
-                1.dp,
-                IslamicGold.copy(alpha = 0.4f),
-                RoundedCornerShape(10.dp)
-            )
+            .background(Color(0x33000000), RoundedCornerShape(10.dp))
+            .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
