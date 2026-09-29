@@ -1,283 +1,242 @@
 package com.example.util
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.Settings
-import android.util.Log
-import com.example.BuildConfig
 import com.example.data.AppKnowledge
 import com.example.data.UpdateHistory
-import com.example.data.model.AppSettings
+import com.example.data.local.SettingsRepository
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Backup Aman — Ekspor SEMUA data + ISI KODE SEMUA FILE.
+ *
+ * Output: /sdcard/masjid.io/backup aman/Backup Aman-masjid.io-DD-MM-YYYY.TXT
+ *
+ * Cara C (folder lokal dulu, fallback GitHub API):
+ *   1. Kalau /sdcard/masjid.io/source/ ada -> baca dari situ
+ *   2. Kalau tidak ada -> fetch dari GitHub API (repo public)
+ *   3. Kalau dua-duanya gagal -> kasih pesan jelas di TXT
+ *
+ * PENTING: fungsi `backup()` sekarang SUSPEND.
+ * Pemanggil WAJIB di dalam Coroutine Scope.
+ */
 object BackupManager {
 
-    private const val TAG = "BackupManager"
-    private const val FOLDER_APP = "masjid.io"
-    private const val FOLDER_BACKUP = "backup aman"
+    private val DATE_FMT = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+    private val TIME_FMT = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault())
 
-    data class BackupResult(
-        val success: Boolean,
-        val filePath: String? = null,
-        val errorMessage: String? = null,
-        val needPermission: Boolean = false
+    private val SOURCE_EXTENSIONS = setOf(
+        "kt", "java", "xml", "gradle", "kts",
+        "toml", "yml", "yaml", "properties", "pro"
     )
 
     /**
-     * Cek apakah butuh izin MANAGE_EXTERNAL_STORAGE (Android 11+)
+     * Jalankan backup lengkap.
      */
-    fun needsStoragePermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            !Environment.isExternalStorageManager()
+    suspend fun backup(
+        context: Context,
+        onProgress: (tahap: String, current: Int, total: Int, info: String) -> Unit = { _, _, _, _ -> }
+    ): File? {
+        onProgress("Siapkan data", 0, 1, "")
+
+        val sourceMap = collectSourceCode(context, onProgress)
+
+        onProgress("Susun TXT", 0, 1, "")
+        val text = buildBackupText(context, sourceMap)
+        val fileName = "Backup Aman-masjid.io-${DATE_FMT.format(Date())}.TXT"
+
+        // Prioritas 1: /sdcard/masjid.io/backup aman/
+        runCatching {
+            val extDir = File(
+                Environment.getExternalStorageDirectory(),
+                "masjid.io/backup aman"
+            )
+            if (!extDir.exists()) extDir.mkdirs()
+            val f = File(extDir, fileName)
+            f.writeText(text)
+            return f
+        }
+
+        // Prioritas 2: app external files dir
+        return runCatching {
+            val fallback = File(context.getExternalFilesDir(null), fileName)
+            fallback.writeText(text)
+            fallback
+        }.getOrNull()
+    }
+
+    /**
+     * Kumpulkan source code (Cara C):
+     *   1. Coba folder lokal
+     *   2. Fallback GitHub API
+     */
+    private suspend fun collectSourceCode(
+        context: Context,
+        onProgress: (tahap: String, current: Int, total: Int, info: String) -> Unit
+    ): Map<String, String> {
+
+        // === 1. Coba folder lokal ===
+        val localRoot = findLocalSourceRoot(context)
+        if (localRoot != null) {
+            val files = localRoot.walkTopDown()
+                .filter { it.isFile }
+                .filter { it.extension.lowercase() in SOURCE_EXTENSIONS }
+                .filter { !it.absolutePath.contains("/build/") }
+                .sortedBy { it.absolutePath }
+                .toList()
+
+            if (files.isNotEmpty()) {
+                onProgress("Baca folder lokal", 0, files.size, localRoot.absolutePath)
+                val map = LinkedHashMap<String, String>()
+                files.forEachIndexed { idx, f ->
+                    val rel = f.absolutePath
+                        .removePrefix(localRoot.absolutePath)
+                        .trimStart(File.separatorChar)
+                    onProgress("Baca folder lokal", idx + 1, files.size, rel)
+                    map[rel] = runCatching { f.readText() }.getOrDefault("[GAGAL BACA]")
+                }
+                return map
+            }
+        }
+
+        // === 2. Fallback GitHub API ===
+        onProgress("GitHub API", 0, 1, "Menghubungi github.com…")
+        val fromApi = runCatching {
+            GithubSourceFetcher.fetchAllFiles { cur, total, path ->
+                onProgress("GitHub API", cur, total, path)
+            }
+        }.getOrNull() ?: emptyMap()
+
+        return fromApi
+    }
+
+    /** Cari folder sumber kode lokal. */
+    private fun findLocalSourceRoot(context: Context): File? {
+        val candidates = listOf(
+            File(Environment.getExternalStorageDirectory(), "masjid.io/source"),
+            File(context.filesDir, "source")
+        )
+        return candidates.firstOrNull { it.exists() && it.isDirectory }
+    }
+
+    /** Bangun isi backup lengkap. */
+    private fun buildBackupText(
+        context: Context,
+        sourceMap: Map<String, String>
+    ): String = buildString {
+
+        // ==================== HEADER ====================
+        appendLine("=".repeat(60))
+        appendLine("BACKUP AMAN - MASJID.IO")
+        appendLine("=".repeat(60))
+        appendLine("Tanggal Export  : ${TIME_FMT.format(Date())}")
+        appendLine("Versi Aplikasi  : ${getAppVersion(context)}")
+        appendLine("Device          : ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("Android Version : ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+        appendLine("=".repeat(60))
+        appendLine()
+
+        // ==================== PENGATURAN USER ====================
+        appendLine("=".repeat(60))
+        appendLine("PENGATURAN USER SAAT INI")
+        appendLine("=".repeat(60))
+        appendLine(runCatching { SettingsRepository.exportSummary(context) }
+            .getOrDefault("(tidak bisa baca pengaturan)"))
+        appendLine()
+
+        // ==================== MEMORY KNOWLEDGE ====================
+        appendLine("=".repeat(60))
+        appendLine("MEMORY KNOWLEDGE & INSTRUCTION")
+        appendLine("=".repeat(60))
+        appendLine(AppKnowledge.MEMORY_KNOWLEDGE)
+        appendLine()
+
+        // ==================== STRUKTUR APLIKASI ====================
+        appendLine("=".repeat(60))
+        appendLine("STRUKTUR APLIKASI MASJID.IO")
+        appendLine("=".repeat(60))
+        appendLine(AppKnowledge.STRUCTURE)
+        appendLine()
+
+        // ==================== FITUR ====================
+        appendLine("=".repeat(60))
+        appendLine("FITUR APLIKASI MASJID.IO")
+        appendLine("=".repeat(60))
+        appendLine(AppKnowledge.FEATURES)
+        appendLine()
+
+        // ==================== RIWAYAT UPDATE ====================
+        appendLine("=".repeat(60))
+        appendLine("RIWAYAT UPDATE MASJID.IO")
+        appendLine("=".repeat(60))
+        appendLine(runCatching { UpdateHistory.getFullText() }
+            .getOrDefault("(tidak bisa baca riwayat update)"))
+        appendLine()
+
+        // ==================== BUILD ERROR HISTORY ====================
+        appendLine("=".repeat(60))
+        appendLine("RIWAYAT BUILD ERROR & SOLUSI")
+        appendLine("=".repeat(60))
+        appendLine(AppKnowledge.BUILD_ERROR_HISTORY)
+        appendLine()
+
+        // ==================== BUILD GITHUB ====================
+        appendLine("=".repeat(60))
+        appendLine("RIWAYAT BUILD (GitHub Actions)")
+        appendLine("=".repeat(60))
+        appendLine(runCatching { BuildHistoryFetcher.getCachedSummary() }
+            .getOrDefault("(belum ada data build history)"))
+        appendLine()
+
+        // ==================== FULL SOURCE CODE ====================
+        appendLine("=".repeat(60))
+        appendLine("FULL SOURCE CODE — SEMUA FILE")
+        appendLine("=".repeat(60))
+        appendLine("File di bawah ini adalah SOURCE CODE LENGKAP aplikasi.")
+        appendLine("Setiap file dipisahkan marker ---BEGIN--- dan ---END---.")
+        appendLine("AI pembaca: baca setiap file untuk paham struktur.")
+        appendLine("=".repeat(60))
+        appendLine()
+
+        if (sourceMap.isEmpty()) {
+            appendLine("⚠️ SOURCE CODE TIDAK BISA DIAMBIL.")
+            appendLine()
+            appendLine("Kemungkinan penyebab:")
+            appendLine("- Tidak ada folder /sdcard/masjid.io/source/")
+            appendLine("- Tidak ada koneksi internet ke GitHub API")
+            appendLine("- Repo private (butuh token)")
+            appendLine()
+            appendLine("Cara aktifkan:")
+            appendLine("1. Download repo dari GitHub (menu → Download ZIP)")
+            appendLine("2. Extract ZIP")
+            appendLine("3. Copy folder 'app/src/main' ke:")
+            appendLine("   /sdcard/masjid.io/source/")
+            appendLine("4. Jalankan Backup Aman lagi.")
         } else {
-            false
-        }
-    }
-
-    /**
-     * Buka halaman pengaturan izin "Akses semua file"
-     */
-    fun openPermissionSettings(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
-                } catch (e2: Exception) {
-                    Log.e(TAG, "Gagal buka permission settings: ${e2.message}")
-                }
-            }
-        }
-    }
-
-    /**
-     * Generate isi file backup dalam bentuk TXT.
-     * Parameter buildHistoryText: teks dari BuildHistoryFetcher (bisa null).
-     */
-    fun generateBackupContent(
-        settings: AppSettings,
-        buildHistoryText: String? = null
-    ): String {
-        val timestamp = SimpleDateFormat(
-            "dd-MM-yyyy HH:mm:ss",
-            Locale.getDefault()
-        ).format(Date())
-
-        val version = try {
-            BuildConfig.VERSION_NAME
-        } catch (e: Exception) {
-            "Unknown"
-        }
-
-        val header = """
-============================================================
-BACKUP AMAN - MASJID.IO
-============================================================
-Tanggal Export  : $timestamp
-Versi Aplikasi  : $version
-Device          : ${Build.MANUFACTURER} ${Build.MODEL}
-Android Version : ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
-============================================================
-        """.trimIndent()
-
-        val userSettings = generateUserSettings(settings)
-        val dynamicUpdateHistory = generateDynamicUpdateHistory()
-
-        return buildString {
-            appendLine(header)
+            appendLine("📊 Total file: ${sourceMap.size}")
             appendLine()
-            appendLine(userSettings)
-            appendLine()
-            appendLine(AppKnowledge.APP_STRUCTURE)
-            appendLine()
-            appendLine(AppKnowledge.APP_FEATURES)
-            appendLine()
-            appendLine(AppKnowledge.UPDATE_HISTORY)
-            appendLine()
-            appendLine(dynamicUpdateHistory)
-            appendLine()
-            appendLine(AppKnowledge.KNOWN_ISSUES)
-            appendLine()
-            appendLine(AppKnowledge.BUILD_ERROR_HISTORY)
-            appendLine()
-            if (!buildHistoryText.isNullOrBlank()) {
-                appendLine(buildHistoryText)
+            sourceMap.forEach { (path, content) ->
+                appendLine("---BEGIN--- $path")
+                appendLine(content)
+                appendLine("---END--- $path")
                 appendLine()
             }
-            appendLine(AppKnowledge.DEVELOPER_INSTRUCTION)
-            appendLine()
-            appendLine(AppKnowledge.MEMORY_INSTRUCTION)
-            appendLine()
-            appendLine("=".repeat(60))
-            appendLine("END OF BACKUP")
-            appendLine("=".repeat(60))
-        }
-    }
-
-    /**
-     * Generate riwayat update dari UpdateHistory.kt (dinamis).
-     */
-    private fun generateDynamicUpdateHistory(): String {
-        return buildString {
-            appendLine("=".repeat(60))
-            appendLine("RIWAYAT UPDATE LENGKAP (DARI UpdateHistory.kt)")
-            appendLine("=".repeat(60))
-            appendLine()
-            appendLine("Total: ${UpdateHistory.entries.size} versi tercatat")
-            appendLine()
-
-            UpdateHistory.entries.forEach { entry ->
-                appendLine("┌─ ${entry.version}  (${entry.date})")
-                appendLine("│  ${entry.title}")
-                appendLine("│")
-                entry.features.forEach { feature ->
-                    appendLine("│  • $feature")
-                }
-                appendLine("└─")
-                appendLine()
-            }
-            appendLine("=".repeat(60))
-        }
-    }
-
-    /**
-     * Generate bagian pengaturan user saat ini.
-     */
-    private fun generateUserSettings(settings: AppSettings): String {
-        return """
-============================================================
-PENGATURAN USER SAAT INI
-============================================================
-
-IDENTITAS MASJID
-- Nama Masjid : ${settings.mosqueName}
-
-LOKASI
-- Kota        : ${settings.city}
-- Provinsi    : ${settings.province}
-- Latitude    : ${settings.latitude}
-- Longitude   : ${settings.longitude}
-
-TAMPILAN
-- Background Mode     : ${settings.backgroundMode}
-- Keep Screen On      : ${settings.keepScreenOn}
-- Kiosk Mode          : ${settings.kioskModeEnabled}
-- Animasi             : ${settings.animationsEnabled}
-- Burung Terbang      : ${settings.showBirdsAnimation}
-
-AUDIO
-- Mode Audio          : ${settings.audioMode}
-- Volume Beep         : ${settings.beepVolume}%
-- Jumlah Beep         : ${settings.beepCount}x
-- Durasi Beep         : ${settings.beepDurationMs}ms
-- Jeda Beep           : ${settings.beepIntervalMs}ms
-- File Adzan          : ${settings.adzanFile}
-- Volume Adzan        : ${settings.adzanVolume}%
-
-VIDEO & FOTO
-- Video Enabled       : ${settings.videoEnabled}
-- Video Smart Full    : ${settings.videoSmartFullscreen}
-- Photo Slideshow     : ${settings.photoSlideshowEnabled}
-- Jumlah Foto         : ${settings.photoSlideshowUris.size} foto
-- Interval Foto       : ${settings.photoSlideshowIntervalSeconds} detik
-
-RUNNING TEXT
-- Isi Running Text    : ${settings.runningText}
-
-MODE FOKUS
-- Durasi Mode Fokus   : ${settings.prayerFocusDurationMinutes} menit
-- Jeda Iqamah         : ${settings.iqamahWaitMinutes} menit
-- Countdown Qobliyah  : ${settings.qobliyahWaitMinutes} menit
-
-WHATSAPP FONNTE
-- WA Report Enabled   : ${settings.whatsappReportEnabled}
-- Token Fonnte        : ${if (settings.fonnteToken.isBlank()) "(kosong)" else "(terisi)"}
-- Group ID            : ${if (settings.fonnteGroupId.isBlank()) "(kosong)" else "(terisi)"}
-        """.trimIndent()
-    }
-
-    /**
-     * Simpan file backup ke folder publik:
-     * /sdcard/masjid.io/backup aman/Backup Aman-masjid.io-DD-MM-YYYY.TXT
-     */
-    fun saveBackupToFile(context: Context, content: String): BackupResult {
-        // Cek permission Android 11+
-        if (needsStoragePermission()) {
-            return BackupResult(
-                success = false,
-                errorMessage = "Izin akses penyimpanan diperlukan. Tap tombol IZIN untuk membuka pengaturan.",
-                needPermission = true
-            )
         }
 
-        return try {
-            val dateString = SimpleDateFormat(
-                "dd-MM-yyyy",
-                Locale.getDefault()
-            ).format(Date())
-
-            val fileName = "Backup Aman-masjid.io-$dateString.TXT"
-            val baseDir = Environment.getExternalStorageDirectory()
-            val backupDir = File(baseDir, "$FOLDER_APP/$FOLDER_BACKUP")
-
-            if (!backupDir.exists()) {
-                val created = backupDir.mkdirs()
-                if (!created) {
-                    Log.w(TAG, "Folder gagal dibuat di external, coba fallback")
-                    return saveFallback(context, content)
-                }
-            }
-
-            val file = File(backupDir, fileName)
-            file.writeText(content, Charsets.UTF_8)
-
-            Log.d(TAG, "Backup tersimpan: ${file.absolutePath}")
-            BackupResult(success = true, filePath = file.absolutePath)
-        } catch (e: Exception) {
-            Log.e(TAG, "Backup gagal: ${e.message}", e)
-            saveFallback(context, content)
-        }
+        // ==================== FOOTER ====================
+        appendLine()
+        appendLine("=".repeat(60))
+        appendLine("END OF BACKUP")
+        appendLine("=".repeat(60))
     }
 
-    /**
-     * Fallback: simpan ke folder khusus app (selalu bisa diakses).
-     */
-    private fun saveFallback(context: Context, content: String): BackupResult {
-        return try {
-            val dateString = SimpleDateFormat(
-                "dd-MM-yyyy",
-                Locale.getDefault()
-            ).format(Date())
-
-            val fileName = "Backup Aman-masjid.io-$dateString.TXT"
-            val appDir = File(context.filesDir, "$FOLDER_APP/$FOLDER_BACKUP")
-            if (!appDir.exists()) appDir.mkdirs()
-
-            val file = File(appDir, fileName)
-            file.writeText(content, Charsets.UTF_8)
-
-            Log.d(TAG, "Backup (fallback) tersimpan: ${file.absolutePath}")
-            BackupResult(success = true, filePath = file.absolutePath)
-        } catch (e: Exception) {
-            Log.e(TAG, "Fallback juga gagal: ${e.message}", e)
-            BackupResult(
-                success = false,
-                errorMessage = e.message ?: "Gagal menyimpan file backup"
-            )
-        }
-    }
+    private fun getAppVersion(context: Context): String = runCatching {
+        context.packageManager
+            .getPackageInfo(context.packageName, 0)
+            .versionName ?: "unknown"
+    }.getOrDefault("unknown")
 }
