@@ -17,8 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -50,9 +50,6 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import java.time.LocalDate
 
-// ============================================================
-// BENTUK FOTO: KOTAK SUDUT TUMPUL (SQUIRCLE)
-// ============================================================
 private val AVATAR_SHAPE = RoundedCornerShape(24.dp)
 
 private data class OfficerCardData(
@@ -92,7 +89,7 @@ fun OfficerCarousel(
             name = officers.khatibJumat,
             subtitle = "Tema: ${officers.temaJumat}",
             photoUri = firstNonBlank(todayOfficer?.fotoKhatibJumat, officerPhotoUri),
-            icon = Icons.Filled.EventNote
+            icon = Icons.AutoMirrored.Filled.EventNote
         )
         rightCard = OfficerCardData(
             role = "KAJIAN RUTIN PEKANAN",
@@ -126,19 +123,14 @@ fun OfficerCarousel(
     ) {
         OfficerCard(
             data = leftCard,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
+            modifier = Modifier.weight(1f).fillMaxHeight()
         )
         OfficerCard(
             data = rightCard,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
+            modifier = Modifier.weight(1f).fillMaxHeight()
         )
     }
 }
-
 @Composable
 private fun OfficerCard(
     data: OfficerCardData,
@@ -209,9 +201,6 @@ private fun OfficerCard(
     }
 }
 
-// ============================================================
-// FOTO PROFIL — KOTAK SUDUT TUMPUL
-// ============================================================
 @Composable
 private fun OfficerAvatar(data: OfficerCardData) {
     val avatarWidth = 110.dp
@@ -252,7 +241,6 @@ private fun OfficerAvatar(data: OfficerCardData) {
         }
     }
 }
-
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
