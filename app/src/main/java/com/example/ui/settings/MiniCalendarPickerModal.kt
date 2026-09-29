@@ -46,8 +46,9 @@ fun MiniCalendarPickerModal(
     var selectedDate by remember { mutableStateOf(initialDate) }
 
     val daysOfWeek = listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
-    val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale("id", "ID"))
-    val displayDateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy", Locale("id", "ID"))
+    val localeId = Locale.forLanguageTag("id-ID")
+    val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", localeId)
+    val displayDateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy", localeId)
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -80,7 +81,6 @@ fun MiniCalendarPickerModal(
                         color = IslamicGoldLight
                     )
                 }
-
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier.size(32.dp)
@@ -116,14 +116,12 @@ fun MiniCalendarPickerModal(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-
                 Text(
                     text = currentYearMonth.format(monthFormatter).uppercase(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-
                 IconButton(
                     onClick = { currentYearMonth = currentYearMonth.plusMonths(1) },
                     modifier = Modifier.size(32.dp)
@@ -160,9 +158,8 @@ fun MiniCalendarPickerModal(
 
             // Calendar Days Grid
             val firstDayOfMonth = currentYearMonth.atDay(1)
-            val dayOfWeekOffset = (firstDayOfMonth.dayOfWeek.value - 1) // 0 = Monday, 6 = Sunday
+            val dayOfWeekOffset = (firstDayOfMonth.dayOfWeek.value - 1)
             val daysInMonth = currentYearMonth.lengthOfMonth()
-
             val totalCells = ((dayOfWeekOffset + daysInMonth + 6) / 7) * 7
 
             Column(
@@ -177,7 +174,6 @@ fun MiniCalendarPickerModal(
                         for (col in 0 until 7) {
                             val cellIndex = row * 7 + col
                             val dayNumber = cellIndex - dayOfWeekOffset + 1
-
                             if (dayNumber in 1..daysInMonth) {
                                 val cellDate = currentYearMonth.atDay(dayNumber)
                                 val isSelected = cellDate == selectedDate
@@ -283,9 +279,17 @@ fun MiniCalendarPickerModal(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "GUNAKAN TANGGAL", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "GUNAKAN TANGGAL",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
