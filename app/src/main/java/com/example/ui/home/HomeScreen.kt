@@ -1,11 +1,5 @@
 package com.example.ui.home
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -41,15 +35,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
-import com.example.data.content.AsmaulHusnaStore
-import com.example.data.content.AyatStore
 import com.example.data.content.ContentRotationStore
-import com.example.data.content.HaditsStore
 import com.example.data.content.RotationType
 import com.example.data.local.DynamicSkyTheme
 import com.example.data.local.IslamicEvent
@@ -58,10 +48,24 @@ import com.example.data.model.BackgroundMode
 import com.example.data.model.PrayerId
 import com.example.data.model.PrayerSchedule
 import com.example.ui.cctv.CctvWidget
-import com.example.ui.components.*
+import com.example.ui.components.ArabesquePattern
+import com.example.ui.components.ClockAndDate
+import com.example.ui.components.MasjidVideoPlayer
+import com.example.ui.components.MosqueHeader
+import com.example.ui.components.OfficerCarousel
+import com.example.ui.components.PhotoSlideshow
+import com.example.ui.components.PrayerCardsRow
+import com.example.ui.components.PrayerProgressBar
+import com.example.ui.components.RunningTextMarquee
+import com.example.ui.components.TopBar
+import com.example.ui.components.WeatherAmbientOverlay
+import com.example.ui.components.WisdomCardCarousel
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.slides.SlideManager
-import com.example.ui.theme.*
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 
@@ -83,11 +87,7 @@ fun HomeScreen(
     var userDismissedVideoFullscreen by remember { mutableStateOf(false) }
     var userDismissedSlide by remember { mutableStateOf(false) }
 
-    // ============ SLIDE FULLSCREEN TRIGGER ============
-    // Slide muncul otomatis kalau:
-    // - slideEnabled = true
-    // - Tidak ada waktu sholat dekat (idle > 5 menit) ATAU slideShowOnlyWhenIdle = false
-    // - User belum dismiss slide ini
+    // SLIDE FULLSCREEN TRIGGER
     LaunchedEffect(
         settings.slideEnabled,
         settings.slideShowOnlyWhenIdle,
@@ -100,7 +100,7 @@ fun HomeScreen(
         }
 
         val canShow = if (settings.slideShowOnlyWhenIdle) {
-            schedule.secondsToNext > 300  // lebih dari 5 menit ke sholat berikutnya
+            schedule.secondsToNext > 300
         } else true
 
         if (canShow && !userDismissedSlide) {
@@ -110,12 +110,11 @@ fun HomeScreen(
         }
     }
 
-    // Reset userDismissedSlide kalau slide dimatikan
     LaunchedEffect(settings.slideEnabled) {
         if (!settings.slideEnabled) userDismissedSlide = false
     }
 
-    // Automatic periodic QRIS Focus trigger (kalau tidak dalam mode slide)
+    // QRIS FOCUS TRIGGER
     if (settings.qrisIntervalMinutes > 0 && !showSlideOverlay) {
         LaunchedEffect(settings.qrisIntervalMinutes, showSlideOverlay) {
             if (showSlideOverlay) return@LaunchedEffect
@@ -153,7 +152,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color(0xFF071219))
     ) {
-        // ============ BACKGROUND LAYER ============
+        // BACKGROUND LAYER
         when (settings.backgroundMode) {
             BackgroundMode.CUSTOM -> {
                 if (!settings.customBackgroundUri.isNullOrBlank()) {
@@ -212,16 +211,16 @@ fun HomeScreen(
                 showBirds = settings.showBirdsAnimation
             )
         }
-        
-        // ============ CCTV WIDGET (selalu tampil kalau aktif) ============
+
+        // CCTV WIDGET
         if (settings.cctvEnabled && settings.cctvUrl.isNotBlank()) {
             CctvWidget(
                 settings = settings,
                 modifier = Modifier.fillMaxSize()
             )
         }
-
-        // ============ SMART FULLSCREEN VIDEO MODE ============
+        
+        // SMART FULLSCREEN VIDEO MODE
         if (isSmartVideoFullscreen) {
             Box(modifier = Modifier.fillMaxSize()) {
                 MasjidVideoPlayer(
@@ -257,12 +256,12 @@ fun HomeScreen(
                 }
             }
         } else {
-            // ============ MAIN UI ============
+            // MAIN UI
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // [A] TOP BAR
+                // TOP BAR
                 TopBar(
                     locationName = "${settings.city}, ${settings.province}",
                     dayDateString = gregorianDateString,
@@ -273,7 +272,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.07f)
                 )
 
-                // [B] MIDDLE: JAM + Video/Foto
+                // MIDDLE: JAM + Video/Foto
                 if (isSplitMode) {
                     Row(
                         modifier = Modifier
@@ -334,7 +333,7 @@ fun HomeScreen(
                     }
                 }
 
-                // [C] 6 KARTU SHOLAT (passing settings!)
+                // 6 KARTU SHOLAT
                 PrayerCardsRow(
                     prayerItems = schedule.items,
                     settings = settings,
@@ -343,7 +342,7 @@ fun HomeScreen(
                         .fillMaxWidth(if (isSplitMode) 0.62f else 1f)
                 )
 
-                // [D] PROGRESS COUNTDOWN
+                // PROGRESS COUNTDOWN
                 PrayerProgressBar(
                     nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
                     secondsRemaining = schedule.secondsToNext,
@@ -351,7 +350,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.05f)
                 )
 
-                // [E] KONTEN ROTASI (Ayat/Hadits/Asmaul Husna) ATAU Wisdom Card
+                // KONTEN ROTASI / WISDOM CARD
                 if (settings.contentRotationEnabled) {
                     ContentRotationCard(
                         settings = settings,
@@ -367,7 +366,7 @@ fun HomeScreen(
                     )
                 }
 
-                // [F] PANEL IMAM & MUADZIN
+                // PANEL IMAM & MUADZIN
                 OfficerCarousel(
                     officers = settings.officers,
                     weeklyOfficers = settings.weeklyOfficers,
@@ -376,7 +375,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.24f)
                 )
 
-                // [G] RUNNING TEXT
+                // RUNNING TEXT
                 RunningTextMarquee(
                     text = settings.runningText,
                     speed = settings.runningTextSpeed,
@@ -386,7 +385,7 @@ fun HomeScreen(
             }
         }
 
-        // ============ QRIS FOCUS MODAL ============
+        // QRIS FOCUS MODAL
         if (showQrisModal && !showSlideOverlay) {
             QRISFocusOverlay(
                 settings = settings,
@@ -394,7 +393,7 @@ fun HomeScreen(
             )
         }
 
-        // ============ SLIDE MANAGER OVERLAY ============
+        // SLIDE MANAGER OVERLAY
         if (showSlideOverlay) {
             SlideManager(
                 settings = settings,
@@ -410,7 +409,7 @@ fun HomeScreen(
 }
 
 // ============================================================
-// KONTEN ROTASI CARD — Ayat / Hadits / Asmaul Husna
+// KONTEN ROTASI CARD
 // ============================================================
 
 @Composable
@@ -440,7 +439,6 @@ private fun ContentRotationCard(
         contentAlignment = Alignment.Center
     ) {
         if (content == null) {
-            // Tidak ada konten aktif
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -463,7 +461,6 @@ private fun ContentRotationCard(
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icon berdasarkan tipe
                 Text(
                     text = when (content.type) {
                         RotationType.AYAT -> "📖"
@@ -476,7 +473,6 @@ private fun ContentRotationCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Arab (kalau ada)
                     if (!content.arabic.isNullOrBlank()) {
                         Text(
                             text = content.arabic,
@@ -486,7 +482,6 @@ private fun ContentRotationCard(
                             maxLines = 1
                         )
                     }
-                    // Latin atau terjemahan
                     Text(
                         text = content.latin ?: content.translation ?: "",
                         fontSize = 12.sp,
@@ -497,7 +492,6 @@ private fun ContentRotationCard(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Source
                 Text(
                     text = content.source ?: "",
                     fontSize = 11.sp,
