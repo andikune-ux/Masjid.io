@@ -193,7 +193,12 @@ data class AppSettings(
     val idleScreenOff: Boolean = true,
     val idleTimeoutMinutes: Int = 30,
     val autoBrightness: Boolean = true,
-    val saveBatteryMode: Boolean = false
+    val saveBatteryMode: Boolean = false,
+
+    // ===== WhatsApp Fonnte Integration =====
+    val fonnteToken: String = "",
+    val fonnteGroupId: String = "",
+    val whatsappReportEnabled: Boolean = false
 ) {
     companion object {
         fun createDefaultWeeklySchedule(): List<DailyOfficerItem> {
