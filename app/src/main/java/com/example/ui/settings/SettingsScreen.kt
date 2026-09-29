@@ -35,12 +35,15 @@ import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -86,6 +89,9 @@ enum class SettingsCategory(
     RAMADHAN("Mode Ramadhan", Icons.Default.NightsStay),
     SECURITY("Keamanan", Icons.Default.Security),
     POWER("Daya & Booting", Icons.Default.Power),
+    SLIDESHOW("Slide Fullscreen", Icons.Default.Slideshow),
+    CCTV("CCTV Masjid", Icons.Default.Videocam),
+    REMOTE_CONTROL("Remote Control", Icons.Default.PhoneAndroid),
     ABOUT("Tentang Aplikasi", Icons.Default.Info),
     DEVELOPER("Opsi Developer", Icons.Default.Code)
 }
@@ -94,6 +100,7 @@ enum class SettingsCategory(
 fun SettingsScreen(
     currentSettings: AppSettings,
     soundManager: SoundManager,
+    isRemoteServerRunning: Boolean = false,
     onSaveSettings: (AppSettings) -> Unit,
     onBack: () -> Unit,
     onTestQrisFocus: () -> Unit
@@ -257,6 +264,19 @@ fun SettingsScreen(
                         settings = draftSettings,
                         onUpdate = { draftSettings = it }
                     )
+                    SettingsCategory.SLIDESHOW -> SlideSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.CCTV -> CctvSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
+                        settings = draftSettings,
+                        isServerRunning = isRemoteServerRunning,
+                        onUpdate = { draftSettings = it }
+                    )
                     SettingsCategory.ABOUT -> AboutSettingsPane(
                         onOpenRiwayatUpdate = { showRiwayatUpdate = true }
                     )
@@ -372,7 +392,7 @@ private fun SidebarItem(
 }
 
 // ============================================================
-// TOMBOL ICON DENGAN FOKUS LEBIH TEBAL
+// TOMBOL ICON
 // ============================================================
 
 @Composable
