@@ -3,9 +3,25 @@ package com.example.ui.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -14,25 +30,36 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.AppSettings
+import com.example.ui.components.TvSlider
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
-import kotlin.math.roundToInt
 
 @Composable
 fun QrisSettingsPane(
@@ -62,7 +89,9 @@ fun QrisSettingsPane(
             color = IslamicGoldLight
         )
 
-        // --- PREVIEW & PICKER ---
+        // ============================================================
+        // PREVIEW & PICKER QRIS
+        // ============================================================
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -73,7 +102,6 @@ fun QrisSettingsPane(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // QRIS Image Box
             Box(
                 modifier = Modifier
                     .size(130.dp)
@@ -120,53 +148,44 @@ fun QrisSettingsPane(
                 Text(
                     text = "Unggah barcode QRIS masjid dari galeri perangkat atau penyimpanan internal.",
                     fontSize = 12.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 16.sp
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { qrisPickerLauncher.launch("image/*") },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = IslamicGold,
-                            contentColor = Color(0xFF09141D)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "PILIH DARI GALERI", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
+                    TvActionButton(
+                        icon = Icons.Default.AddPhotoAlternate,
+                        label = "PILIH DARI GALERI",
+                        backgroundColor = IslamicGold,
+                        textColor = Color(0xFF09141D),
+                        onClick = { qrisPickerLauncher.launch("image/*") }
+                    )
 
                     if (!settings.qrisPhotoUri.isNullOrBlank()) {
-                        OutlinedButton(
-                            onClick = { onUpdate(settings.copy(qrisPhotoUri = null)) },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "HAPUS", fontSize = 12.sp)
-                        }
+                        TvActionButton(
+                            icon = Icons.Default.Delete,
+                            label = "HAPUS",
+                            backgroundColor = Color.Transparent,
+                            textColor = UrgentRed,
+                            isOutlined = true,
+                            onClick = { onUpdate(settings.copy(qrisPhotoUri = null)) }
+                        )
                     }
 
-                    Button(
-                        onClick = onTestQrisFocus,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = IslamicGreen,
-                            contentColor = Color(0xFF09141D)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "UJI TAMPILAN", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
+                    TvActionButton(
+                        icon = Icons.Default.Visibility,
+                        label = "UJI TAMPILAN",
+                        backgroundColor = IslamicGreen,
+                        textColor = Color(0xFF09141D),
+                        onClick = onTestQrisFocus
+                    )
                 }
             }
         }
 
-        // --- SLIDERS 0-30 MENIT ---
+        // ============================================================
+        // SLIDER INTERVAL & DURASI
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -183,64 +202,32 @@ fun QrisSettingsPane(
                 color = IslamicGoldLight
             )
 
-            // Slider 1: Interval (0 - 30 Menit)
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Interval Penayangan Otomatis:",
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = if (settings.qrisIntervalMinutes == 0) "Nonaktif (Manual)" else "${settings.qrisIntervalMinutes} Menit Sekali",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGold
-                    )
+            // Slider 1: Interval (0-30 menit)
+            TvSlider(
+                label = "Interval Penayangan Otomatis",
+                value = settings.qrisIntervalMinutes.toFloat(),
+                onValueChange = { onUpdate(settings.copy(qrisIntervalMinutes = it.toInt())) },
+                valueRange = 0f..30f,
+                steps = 29,
+                formatter = { v ->
+                    if (v.toInt() == 0) "Nonaktif (Manual)" else "${v.toInt()} Menit Sekali"
                 }
-                Slider(
-                    value = settings.qrisIntervalMinutes.toFloat(),
-                    onValueChange = { onUpdate(settings.copy(qrisIntervalMinutes = it.roundToInt())) },
-                    valueRange = 0f..30f,
-                    steps = 30,
-                    colors = SliderDefaults.colors(thumbColor = IslamicGold, activeTrackColor = IslamicGold)
-                )
-            }
+            )
 
-            // Slider 2: Durasi Tampil (5 - 60 Detik)
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Lama Tampil Setiap Sesi:",
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "${settings.qrisDisplayDurationSeconds} Detik",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGreen
-                    )
-                }
-                Slider(
-                    value = settings.qrisDisplayDurationSeconds.toFloat(),
-                    onValueChange = { onUpdate(settings.copy(qrisDisplayDurationSeconds = it.roundToInt())) },
-                    valueRange = 5f..60f,
-                    steps = 55,
-                    colors = SliderDefaults.colors(thumbColor = IslamicGreen, activeTrackColor = IslamicGreen)
-                )
-            }
+            // Slider 2: Durasi Tampil (5-60 detik)
+            TvSlider(
+                label = "Lama Tampil Setiap Sesi",
+                value = settings.qrisDisplayDurationSeconds.toFloat(),
+                onValueChange = { onUpdate(settings.copy(qrisDisplayDurationSeconds = it.toInt())) },
+                valueRange = 5f..60f,
+                steps = 54,
+                unit = " Detik"
+            )
         }
-
-        // --- BANK ACCOUNT DETAILS ---
+        
+        // ============================================================
+        // BANK ACCOUNT DETAILS
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -261,7 +248,7 @@ fun QrisSettingsPane(
                 OutlinedTextField(
                     value = settings.bankName,
                     onValueChange = { onUpdate(settings.copy(bankName = it)) },
-                    label = { Text("Nama Bank (cth. BSI / Bank Syariah Indonesia)") },
+                    label = { Text("Nama Bank") },
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = IslamicGold,
@@ -284,7 +271,7 @@ fun QrisSettingsPane(
             OutlinedTextField(
                 value = settings.bankAccountHolder,
                 onValueChange = { onUpdate(settings.copy(bankAccountHolder = it)) },
-                label = { Text("Atas Nama Rekening (cth. DKM MASJID AL-IKHLAS)") },
+                label = { Text("Atas Nama Rekening") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = IslamicGold,
@@ -292,5 +279,80 @@ fun QrisSettingsPane(
                 )
             )
         }
+    }
+}
+
+// ============================================================
+// KOMPONEN: TOMBOL DENGAN FOKUS LEBIH TEBAL
+// ============================================================
+
+@Composable
+private fun TvActionButton(
+    icon: ImageVector,
+    label: String,
+    backgroundColor: Color,
+    textColor: Color,
+    onClick: () -> Unit,
+    isOutlined: Boolean = false
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else if (isOutlined) 1.5.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "btn_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "btn_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 12.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "btn_shadow"
+    )
+
+    Row(
+        modifier = Modifier
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(10.dp),
+                ambientColor = Color(0x88FFD700),
+                spotColor = Color(0x88FFD700)
+            )
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isOutlined) Color.Transparent else backgroundColor)
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isOutlined -> textColor.copy(alpha = 0.6f)
+                    else -> Color.Transparent
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = textColor,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor
+        )
     }
 }
