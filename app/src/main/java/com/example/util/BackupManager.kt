@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import com.example.BuildConfig
 import com.example.data.AppKnowledge
+import com.example.data.UpdateHistory
 import com.example.data.model.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
@@ -65,8 +66,12 @@ object BackupManager {
 
     /**
      * Generate isi file backup dalam bentuk TXT.
+     * Parameter buildHistoryText: teks dari BuildHistoryFetcher (bisa null).
      */
-    fun generateBackupContent(settings: AppSettings): String {
+    fun generateBackupContent(
+        settings: AppSettings,
+        buildHistoryText: String? = null
+    ): String {
         val timestamp = SimpleDateFormat(
             "dd-MM-yyyy HH:mm:ss",
             Locale.getDefault()
@@ -90,6 +95,7 @@ Android Version : ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
         """.trimIndent()
 
         val userSettings = generateUserSettings(settings)
+        val dynamicUpdateHistory = generateDynamicUpdateHistory()
 
         return buildString {
             appendLine(header)
@@ -102,14 +108,48 @@ Android Version : ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
             appendLine()
             appendLine(AppKnowledge.UPDATE_HISTORY)
             appendLine()
+            appendLine(dynamicUpdateHistory)
+            appendLine()
             appendLine(AppKnowledge.KNOWN_ISSUES)
             appendLine()
+            appendLine(AppKnowledge.BUILD_ERROR_HISTORY)
+            appendLine()
+            if (!buildHistoryText.isNullOrBlank()) {
+                appendLine(buildHistoryText)
+                appendLine()
+            }
             appendLine(AppKnowledge.DEVELOPER_INSTRUCTION)
             appendLine()
             appendLine(AppKnowledge.MEMORY_INSTRUCTION)
             appendLine()
             appendLine("=".repeat(60))
             appendLine("END OF BACKUP")
+            appendLine("=".repeat(60))
+        }
+    }
+
+    /**
+     * Generate riwayat update dari UpdateHistory.kt (dinamis).
+     */
+    private fun generateDynamicUpdateHistory(): String {
+        return buildString {
+            appendLine("=".repeat(60))
+            appendLine("RIWAYAT UPDATE LENGKAP (DARI UpdateHistory.kt)")
+            appendLine("=".repeat(60))
+            appendLine()
+            appendLine("Total: ${UpdateHistory.entries.size} versi tercatat")
+            appendLine()
+
+            UpdateHistory.entries.forEach { entry ->
+                appendLine("┌─ ${entry.version}  (${entry.date})")
+                appendLine("│  ${entry.title}")
+                appendLine("│")
+                entry.features.forEach { feature ->
+                    appendLine("│  • $feature")
+                }
+                appendLine("└─")
+                appendLine()
+            }
             appendLine("=".repeat(60))
         }
     }
@@ -136,11 +176,24 @@ TAMPILAN
 - Background Mode     : ${settings.backgroundMode}
 - Keep Screen On      : ${settings.keepScreenOn}
 - Kiosk Mode          : ${settings.kioskModeEnabled}
+- Animasi             : ${settings.animationsEnabled}
+- Burung Terbang      : ${settings.showBirdsAnimation}
 
 AUDIO
 - Mode Audio          : ${settings.audioMode}
 - Volume Beep         : ${settings.beepVolume}%
 - Jumlah Beep         : ${settings.beepCount}x
+- Durasi Beep         : ${settings.beepDurationMs}ms
+- Jeda Beep           : ${settings.beepIntervalMs}ms
+- File Adzan          : ${settings.adzanFile}
+- Volume Adzan        : ${settings.adzanVolume}%
+
+VIDEO & FOTO
+- Video Enabled       : ${settings.videoEnabled}
+- Video Smart Full    : ${settings.videoSmartFullscreen}
+- Photo Slideshow     : ${settings.photoSlideshowEnabled}
+- Jumlah Foto         : ${settings.photoSlideshowUris.size} foto
+- Interval Foto       : ${settings.photoSlideshowIntervalSeconds} detik
 
 RUNNING TEXT
 - Isi Running Text    : ${settings.runningText}
@@ -149,6 +202,11 @@ MODE FOKUS
 - Durasi Mode Fokus   : ${settings.prayerFocusDurationMinutes} menit
 - Jeda Iqamah         : ${settings.iqamahWaitMinutes} menit
 - Countdown Qobliyah  : ${settings.qobliyahWaitMinutes} menit
+
+WHATSAPP FONNTE
+- WA Report Enabled   : ${settings.whatsappReportEnabled}
+- Token Fonnte        : ${if (settings.fonnteToken.isBlank()) "(kosong)" else "(terisi)"}
+- Group ID            : ${if (settings.fonnteGroupId.isBlank()) "(kosong)" else "(terisi)"}
         """.trimIndent()
     }
 
