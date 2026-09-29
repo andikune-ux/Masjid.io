@@ -1,9 +1,19 @@
 package com.example.ui.settings
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -12,8 +22,17 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,11 +75,13 @@ fun TimeSettingsPane(
     }
 
     var selectedDate by remember { mutableStateOf(effectiveNow.toLocalDate()) }
-    var selectedHour by remember { mutableStateOf(effectiveNow.hour) }
-    var selectedMinute by remember { mutableStateOf(effectiveNow.minute) }
-    var selectedSecond by remember { mutableStateOf(effectiveNow.second) }
+    var selectedHour by remember { mutableIntStateOf(effectiveNow.hour) }
+    var selectedMinute by remember { mutableIntStateOf(effectiveNow.minute) }
+    var selectedSecond by remember { mutableIntStateOf(effectiveNow.second) }
 
-    val fullDateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy", Locale("id", "ID"))
+    // Pakai Locale.forLanguageTag (bukan Locale(String, String) yang deprecated)
+    val localeId = remember { Locale.forLanguageTag("id-ID") }
+    val fullDateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy", localeId) }
 
     Column(
         modifier = modifier
@@ -69,17 +90,17 @@ fun TimeSettingsPane(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Pengaturan Waktu & Tanggal Manual (Khusus TV Offline / Tanpa Internet)",
+            text = "Pengaturan Waktu & Tanggal Manual (Khusus TV Offline)",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight
         )
 
-        // Master Switch: Mode Manual vs Otomatis
+        // Master Switch
         TvToggle(
             label = "Aktifkan Mode Waktu Manual (Offline)",
             description = if (settings.isManualTimeEnabled)
-                "Menggunakan waktu & tanggal yang diatur sendiri secara manual. Detik tetap berdetik normal setiap detik."
+                "Menggunakan waktu & tanggal yang diatur sendiri secara manual."
             else
                 "Menggunakan waktu otomatis dari sistem TV / jaringan internet.",
             isChecked = settings.isManualTimeEnabled,
@@ -90,7 +111,7 @@ fun TimeSettingsPane(
             }
         )
 
-        // Section 1: Tanggal Manual + Tombol Kalender Mini
+        // Section Tanggal
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -109,7 +130,7 @@ fun TimeSettingsPane(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Pengaturan Hari & Tanggal:",
+                    text = "Pengaturan Hari & Tanggal",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -150,7 +171,7 @@ fun TimeSettingsPane(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "PILIH DI KALENDER MINI",
+                        text = "PILIH DI KALENDER",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -158,7 +179,7 @@ fun TimeSettingsPane(
             }
         }
 
-        // Section 2: Jam, Menit, Detik (TV Remote Friendly Slider)
+        // Section Jam
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -177,14 +198,13 @@ fun TimeSettingsPane(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Pengaturan Jam, Menit & Detik:",
+                    text = "Pengaturan Jam, Menit & Detik",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
             }
 
-            // Jam
             TvSlider(
                 label = "Jam (0-23)",
                 value = selectedHour.toFloat(),
@@ -194,7 +214,6 @@ fun TimeSettingsPane(
                 formatter = { String.format("%02d", it.toInt()) }
             )
 
-            // Menit
             TvSlider(
                 label = "Menit (0-59)",
                 value = selectedMinute.toFloat(),
@@ -204,7 +223,6 @@ fun TimeSettingsPane(
                 formatter = { String.format("%02d", it.toInt()) }
             )
 
-            // Detik
             TvSlider(
                 label = "Detik (0-59)",
                 value = selectedSecond.toFloat(),
@@ -215,7 +233,7 @@ fun TimeSettingsPane(
             )
         }
 
-        // Action Buttons: Terapkan & Reset
+        // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -239,7 +257,7 @@ fun TimeSettingsPane(
 
                     Toast.makeText(
                         context,
-                        "Waktu manual berhasil diterapkan: ${selectedDate.format(fullDateFormatter)} • ${String.format("%02d:%02d:%02d", selectedHour, selectedMinute, selectedSecond)}",
+                        "Waktu manual diterapkan: ${String.format("%02d:%02d:%02d", selectedHour, selectedMinute, selectedSecond)}",
                         Toast.LENGTH_LONG
                     ).show()
                 },
@@ -263,6 +281,7 @@ fun TimeSettingsPane(
                 )
             }
 
+            // Pakai BorderStroke (bukan outlinedButtonBorder.copy yang deprecated)
             OutlinedButton(
                 onClick = {
                     onUpdate(
@@ -276,14 +295,11 @@ fun TimeSettingsPane(
                     selectedHour = now.hour
                     selectedMinute = now.minute
                     selectedSecond = now.second
-
-                    Toast.makeText(context, "Waktu direset ke waktu sistem TV", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Waktu direset ke sistem TV", Toast.LENGTH_SHORT).show()
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                border = ButtonDefaults.outlinedButtonBorder.copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)
-                ),
+                border = BorderStroke(1.5.dp, UrgentRed),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(
@@ -292,18 +308,15 @@ fun TimeSettingsPane(
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "RESET OTOMATIS", fontSize = 12.sp)
+                Text(text = "RESET", fontSize = 12.sp)
             }
         }
     }
 
-    // Mini Calendar Popup Dialog
     if (showCalendarModal) {
         MiniCalendarPickerModal(
             initialDate = selectedDate,
-            onDateSelected = { newDate ->
-                selectedDate = newDate
-            },
+            onDateSelected = { newDate -> selectedDate = newDate },
             onDismiss = { showCalendarModal = false }
         )
     }
