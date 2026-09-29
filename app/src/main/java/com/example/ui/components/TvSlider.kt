@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -45,22 +47,6 @@ import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
-/**
- * Slider khusus Android TV.
- *
- * Cara pakai:
- * 1. Fokus slider → tekan OK → slider "aktif"
- * 2. Saat aktif → tombol KIRI/KANAN untuk geser nilai
- * 3. Tekan OK lagi → slider "nonaktif"
- *
- * @param label Label di atas slider
- * @param value Nilai saat ini
- * @param onValueChange Callback saat nilai berubah
- * @param valueRange Range nilai (min..max)
- * @param steps Jumlah step (0 = smooth)
- * @param unit Satuan (contoh: "%", " menit")
- * @param formatter Custom formatter (opsional)
- */
 @Composable
 fun TvSlider(
     label: String,
@@ -75,38 +61,58 @@ fun TvSlider(
     var isFocused by remember { mutableStateOf(false) }
     var isSliderActive by remember { mutableStateOf(false) }
 
+    // Border warna: hijau kalau aktif, emas terang kalau fokus, emas redup default
     val borderColor by animateColorAsState(
         targetValue = when {
             isSliderActive -> IslamicGreen
-            isFocused -> IslamicGoldLight
+            isFocused -> Color(0xFFFFE44D)
             else -> IslamicGold.copy(alpha = 0.4f)
         },
         label = "slider_border"
     )
 
+    val borderWidth by animateFloatAsState(
+        targetValue = when {
+            isSliderActive -> 3f
+            isFocused -> 4f
+            else -> 1.5f
+        },
+        label = "slider_border_width"
+    )
+
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.03f else 1f,
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
         label = "slider_scale"
     )
 
-    // Hitung step size
+    val shadowElevation by animateFloatAsState(
+        targetValue = if (isFocused) 12f else 0f,
+        label = "slider_shadow"
+    )
+
     val stepSize: Float = if (steps > 0) {
         (valueRange.endInclusive - valueRange.start) / (steps + 1)
     } else {
         (valueRange.endInclusive - valueRange.start) / 20f
     }
 
-    // Format nilai untuk ditampilkan
     val displayValue = formatter?.invoke(value) ?: "${value.toInt()}$unit"
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
+            .shadow(
+                elevation = shadowElevation.dp,
+                shape = RoundedCornerShape(12.dp),
+                ambientColor = Color(0x88FFD700),
+                spotColor = Color(0x88FFD700)
+            )
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSliderActive) Color(0x33A5D6A7) else Color(0x22000000))
             .border(
-                width = if (isFocused) 3.dp else 1.5.dp,
+                width = borderWidth.dp,
                 color = borderColor,
                 shape = RoundedCornerShape(12.dp)
             )
@@ -151,7 +157,6 @@ fun TvSlider(
             }
             .padding(16.dp)
     ) {
-        // HEADER: label + nilai
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -159,21 +164,28 @@ fun TvSlider(
         ) {
             Text(
                 text = label,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSliderActive) IslamicGreen else IslamicGoldLight
+                color = when {
+                    isSliderActive -> IslamicGreen
+                    isFocused -> Color(0xFFFFE44D)
+                    else -> IslamicGoldLight
+                }
             )
             Text(
                 text = displayValue,
-                fontSize = 16.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSliderActive) IslamicGreen else TextPrimary
+                color = when {
+                    isSliderActive -> IslamicGreen
+                    isFocused -> Color(0xFFFFE44D)
+                    else -> TextPrimary
+                }
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // SLIDER BAR
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -202,24 +214,29 @@ fun TvSlider(
                     .background(if (isSliderActive) IslamicGreen else IslamicGold)
             )
 
-            // Thumb (lingkaran)
+            // Thumb
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
-                    .height(24.dp),
+                    .height(28.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Box(
                     modifier = Modifier
-                        .size(if (isSliderActive) 28.dp else 24.dp)
+                        .size(if (isSliderActive) 30.dp else 26.dp)
                         .clip(CircleShape)
-                        .background(if (isSliderActive) IslamicGreen else IslamicGold)
+                        .background(
+                            when {
+                                isSliderActive -> IslamicGreen
+                                isFocused -> Color(0xFFFFE44D)
+                                else -> IslamicGold
+                            }
+                        )
                         .border(3.dp, Color.White, CircleShape)
                 )
             }
         }
 
-        // HINT
         Spacer(modifier = Modifier.height(6.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -260,77 +277,6 @@ fun TvSlider(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * Versi toggle sederhana untuk TV (on/off).
- */
-@Composable
-fun TvToggle(
-    label: String,
-    description: String,
-    isChecked: Boolean,
-    onToggle: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused && enabled) 1.02f else 1f,
-        label = "toggle_scale"
-    )
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (isFocused && enabled) Color(0x33FFD700) else Color(0x22000000)
-            )
-            .border(
-                if (isFocused && enabled) 3.dp else 1.5.dp,
-                if (isFocused && enabled) IslamicGoldLight
-                else IslamicGold.copy(alpha = if (enabled) 0.5f else 0.2f),
-                RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable(enabled)
-            .clickable(enabled = enabled) { onToggle(!isChecked) }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (enabled) IslamicGoldLight else TextSecondary
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 28.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(if (isChecked) IslamicGreen else Color(0x55FFFFFF))
-                .padding(3.dp),
-            contentAlignment = if (isChecked) Alignment.CenterEnd else Alignment.CenterStart
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(Color.White)
-            )
         }
     }
 }
