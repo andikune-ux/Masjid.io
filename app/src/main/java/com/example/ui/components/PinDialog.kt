@@ -4,14 +4,30 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -149,7 +165,6 @@ fun ChangePinDialog(
     var isError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // Reset input setiap ganti step
     LaunchedEffect(step) {
         enteredPin = ""
         isError = false
@@ -210,7 +225,6 @@ fun ChangePinDialog(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Step indicator
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
@@ -263,7 +277,6 @@ fun ChangePinDialog(
                                 enteredPin += key
                                 isError = false
                                 if (enteredPin.length == 4) {
-                                    // Cek setelah 4 digit
                                     when (step) {
                                         ChangePinStep.ENTER_OLD -> {
                                             if (enteredPin == currentPin) {
@@ -304,7 +317,6 @@ fun ChangePinDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Tombol Kembali (kalau bukan step 1)
                 if (step != ChangePinStep.ENTER_OLD) {
                     TextButton(
                         onClick = {
@@ -315,22 +327,14 @@ fun ChangePinDialog(
                             }
                         }
                     ) {
-                        Text(
-                            text = "← Kembali",
-                            color = IslamicGold,
-                            fontSize = 14.sp
-                        )
+                        Text(text = "← Kembali", color = IslamicGold, fontSize = 14.sp)
                     }
                 } else {
                     Spacer(modifier = Modifier.width(1.dp))
                 }
 
                 TextButton(onClick = onDismiss) {
-                    Text(
-                        text = "Batal",
-                        color = TextSecondary,
-                        fontSize = 14.sp
-                    )
+                    Text(text = "Batal", color = TextSecondary, fontSize = 14.sp)
                 }
             }
         }
@@ -338,7 +342,7 @@ fun ChangePinDialog(
 }
 
 // ============================================================
-// KOMPONEN HELPER: PinDots (4 titik PIN)
+// KOMPONEN HELPER: PinDots
 // ============================================================
 
 @Composable
@@ -360,18 +364,14 @@ private fun PinDots(
                         if (isFilled) (if (isError) UrgentRed else IslamicGold)
                         else Color(0x33FFFFFF)
                     )
-                    .border(
-                        1.5.dp,
-                        if (isError) UrgentRed else IslamicGold,
-                        CircleShape
-                    )
+                    .border(1.5.dp, if (isError) UrgentRed else IslamicGold, CircleShape)
             )
         }
     }
 }
 
 // ============================================================
-// KOMPONEN HELPER: PinPad (Number pad 3x4)
+// KOMPONEN HELPER: PinPad
 // ============================================================
 
 @Composable
