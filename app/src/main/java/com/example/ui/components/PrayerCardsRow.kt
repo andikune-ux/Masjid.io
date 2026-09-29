@@ -1,9 +1,23 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -19,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +41,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.data.model.AppSettings
 import com.example.data.model.PrayerItem
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
@@ -36,6 +53,7 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun PrayerCardsRow(
     prayerItems: List<PrayerItem>,
+    settings: AppSettings,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -49,7 +67,7 @@ fun PrayerCardsRow(
         label = "gold_pulse"
     )
 
-    // 6 Cards horizontally in 1 line, NO SCROLL, strictly proportional
+    // 6 Kartu sejajar horizontal dalam 1 baris, TANPA SCROLL
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -61,6 +79,8 @@ fun PrayerCardsRow(
             PrayerCard(
                 item = item,
                 pulseAlpha = pulseAlpha,
+                backgroundPhotoUri = if (settings.prayerCardPhotoEnabled) settings.prayerCardPhotoUri else null,
+                photoAlpha = settings.prayerCardPhotoAlpha,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -71,14 +91,16 @@ fun PrayerCardsRow(
 private fun PrayerCard(
     item: PrayerItem,
     pulseAlpha: Float,
+    backgroundPhotoUri: String?,
+    photoAlpha: Float,
     modifier: Modifier = Modifier
 ) {
     val isNext = item.isNext
     val isPassed = item.isPassed
     val isActive = item.isActive
-
     val cardShape = RoundedCornerShape(14.dp)
 
+    // Gradient background (dipakai kalau tidak ada foto)
     val bgBrush = when {
         isActive -> Brush.verticalGradient(listOf(Color(0xFF0F3B2A), Color(0xFF071F15)))
         isNext -> Brush.verticalGradient(listOf(Color(0xFF2C220E), Color(0xFF161106)))
@@ -110,22 +132,40 @@ private fun PrayerCard(
             )
             .clip(cardShape)
             .background(bgBrush)
-            .border(borderWidth, borderColor, cardShape)
-            .padding(vertical = 8.dp, horizontal = 6.dp),
+            .border(borderWidth, borderColor, cardShape),
         contentAlignment = Alignment.Center
     ) {
+        // ===== BACKGROUND FOTO (kalau ada) =====
+        if (!backgroundPhotoUri.isNullOrBlank()) {
+            AsyncImage(
+                model = backgroundPhotoUri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                alpha = 1f - photoAlpha.coerceIn(0f, 0.95f)
+            )
+            // Overlay gelap biar teks tetap terbaca
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = photoAlpha.coerceIn(0f, 0.95f)))
+            )
+        }
+
+        // ===== KONTEN KARTU =====
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 8.dp, horizontal = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // [Top] Header: Arabic Script + Status Badge (immune to wrapping/clipping)
+            // [Atas] Nama Arab + Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Arabic Script Name
                 Text(
                     text = item.id.arabicName,
                     fontSize = 18.sp,
@@ -134,7 +174,6 @@ private fun PrayerCard(
                     textAlign = TextAlign.Start,
                     maxLines = 1
                 )
-
                 if (isPassed) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
@@ -143,7 +182,6 @@ private fun PrayerCard(
                         modifier = Modifier.size(15.dp)
                     )
                 } else if (isNext) {
-                    // Small compact pill that never overflows
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
@@ -165,7 +203,7 @@ private fun PrayerCard(
                 }
             }
 
-            // [Center] Prayer Time Digits (fitted cleanly at 32sp so it never gets cut off)
+            // [Tengah] Waktu Sholat
             Text(
                 text = item.timeFormatted,
                 style = TextStyle(
@@ -188,7 +226,7 @@ private fun PrayerCard(
                 maxLines = 1
             )
 
-            // [Bottom] Latin Name
+            // [Bawah] Nama Latin
             Text(
                 text = item.id.displayName.uppercase(),
                 fontSize = 13.sp,
