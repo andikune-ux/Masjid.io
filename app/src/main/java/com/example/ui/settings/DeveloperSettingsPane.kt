@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
@@ -25,12 +26,14 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +42,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.BuildConfig
@@ -52,13 +58,17 @@ import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
 import com.example.util.BackupManager
 import com.example.util.CrashReporter
+import com.example.util.FonnteSender
+import kotlinx.coroutines.launch
 
 @Composable
 fun DeveloperSettingsPane(
     settings: AppSettings,
+    onUpdate: (AppSettings) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var showCrashHistory by remember { mutableStateOf(false) }
     var lastBackupPath by remember { mutableStateOf<String?>(null) }
@@ -67,7 +77,11 @@ fun DeveloperSettingsPane(
         mutableStateOf(BackupManager.needsStoragePermission())
     }
 
-    // Kalau user buka Riwayat Crash → tampilkan layar itu
+    var tokenInput by remember { mutableStateOf(settings.fonnteToken) }
+    var groupIdInput by remember { mutableStateOf(settings.fonnteGroupId) }
+    var isTestingFonnte by remember { mutableStateOf(false) }
+    var showToken by remember { mutableStateOf(false) }
+
     if (showCrashHistory) {
         RiwayatCrashScreen(
             onBack = { showCrashHistory = false },
@@ -105,7 +119,7 @@ fun DeveloperSettingsPane(
             description = "Versi build saat ini"
         )
 
-        // ============ PERMISSION STORAGE ============
+        // PERMISSION STORAGE
         if (needStoragePermission) {
             PermissionWarningCard(
                 onGrantClick = {
@@ -115,14 +129,13 @@ fun DeveloperSettingsPane(
             Spacer(modifier = Modifier.height(4.dp))
         }
 
-        // ============ BACKUP AMAN ============
+        // BACKUP AMAN
         DeveloperButton(
             icon = Icons.Default.Save,
             title = "BACKUP AMAN",
             description = "Export semua info aplikasi ke file .TXT",
             onClick = {
                 try {
-                    // Cek permission dulu
                     if (BackupManager.needsStoragePermission()) {
                         needStoragePermission = true
                         lastBackupStatus = "⚠️ Izin storage diperlukan"
@@ -197,7 +210,7 @@ fun DeveloperSettingsPane(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ============ RIWAYAT CRASH ============
+        // RIWAYAT CRASH
         DeveloperButton(
             icon = Icons.Default.BugReport,
             title = "RIWAYAT CRASH",
@@ -205,9 +218,152 @@ fun DeveloperSettingsPane(
             onClick = { showCrashHistory = true }
         )
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ==================== WHATSAPP FONNTE ====================
+        Text(
+            text = "WHATSAPP REPORT (FONNTE)",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
+        Text(
+            text = "Kirim notifikasi otomatis ke grup WA admin saat aplikasi crash.",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+
+        // Toggle aktif
+        FonnteToggle(
+            label = "Aktifkan Kirim WA",
+            description = if (settings.whatsappReportEnabled)
+                "Setiap crash akan dikirim ke grup WA admin"
+            else
+                "WA report tidak aktif",
+            isChecked = settings.whatsappReportEnabled,
+            onToggle = {
+                onUpdate(settings.copy(whatsappReportEnabled = it))
+                CrashReporter.updateFonnteConfig(
+                    token = settings.fonnteToken,
+                    groupId = settings.fonnteGroupId,
+                    enabled = it
+                )
+            }
+        )
+
+        // Input Token
+        FonnteInputField(
+            label = "Token Fonnte",
+            value = tokenInput,
+            placeholder = "Contoh: M@N!4Yr-Vs#CPtaopCkE",
+            isPassword = true,
+            showPassword = showToken,
+            onTogglePassword = { showToken = !showToken },
+            onValueChange = { tokenInput = it }
+        )
+
+        // Input Group ID
+        FonnteInputField(
+            label = "ID Grup WA",
+            value = groupIdInput,
+            placeholder = "Contoh: 123456789-123456@g.us",
+            isPassword = false,
+            showPassword = true,
+            onTogglePassword = {},
+            onValueChange = { groupIdInput = it }
+        )
+
+        // Tombol Simpan & Test
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                FonnteButton(
+                    icon = Icons.Default.CheckCircle,
+                    label = "SIMPAN",
+                    backgroundColor = IslamicGold,
+                    textColor = Color(0xFF09141D),
+                    enabled = !isTestingFonnte,
+                    onClick = {
+                        onUpdate(
+                            settings.copy(
+                                fonnteToken = tokenInput.trim(),
+                                fonnteGroupId = groupIdInput.trim()
+                            )
+                        )
+                        CrashReporter.updateFonnteConfig(
+                            token = tokenInput.trim(),
+                            groupId = groupIdInput.trim(),
+                            enabled = settings.whatsappReportEnabled
+                        )
+                        Toast.makeText(context, "Konfigurasi Fonnte tersimpan", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                FonnteButton(
+                    icon = Icons.Default.Send,
+                    label = if (isTestingFonnte) "MENGIRIM..." else "TEST",
+                    backgroundColor = IslamicGreen,
+                    textColor = Color.White,
+                    enabled = !isTestingFonnte &&
+                            tokenInput.isNotBlank() &&
+                            groupIdInput.isNotBlank(),
+                    onClick = {
+                        if (isTestingFonnte) return@FonnteButton
+                        isTestingFonnte = true
+                        scope.launch {
+                            val result = FonnteSender.sendTestMessage(
+                                token = tokenInput.trim(),
+                                groupId = groupIdInput.trim()
+                            )
+                            isTestingFonnte = false
+                            Toast.makeText(
+                                context,
+                                if (result.success) "Test berhasil! Cek grup WA Anda"
+                                else "Test gagal: ${result.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                )
+            }
+        }
+
+        // Info Fonnte
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0x22FFD700), RoundedCornerShape(10.dp))
+                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .padding(14.dp)
+        ) {
+            Column {
+                Text(
+                    text = "ℹ️ Cara Dapat Token Fonnte",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IslamicGoldLight
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "1. Daftar di fonnte.com\n" +
+                            "2. Scan QR pakai WA Anda\n" +
+                            "3. Copy Token dari dashboard\n" +
+                            "4. Buat grup WA admin & dapatkan ID grup\n" +
+                            "5. Paste di kolom atas → SIMPAN",
+                    fontSize = 12.sp,
+                    color = TextPrimary,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ============ INFO FOLDER ============
+        // INFO FOLDER BACKUP
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -236,7 +392,6 @@ fun DeveloperSettingsPane(
         }
     }
 }
-
 // ============================================================
 // KOMPONEN PENDUKUNG
 // ============================================================
@@ -403,5 +558,180 @@ private fun DeveloperButton(
                 color = contentColor.copy(alpha = 0.7f)
             )
         }
+    }
+}
+
+@Composable
+private fun FonnteToggle(
+    label: String,
+    description: String,
+    isChecked: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isFocused) Color(0x33FFD700) else Color(0x22000000))
+            .border(
+                if (isFocused) 3.dp else 1.5.dp,
+                if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.5f),
+                RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onToggle(!isChecked) }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                fontSize = 12.sp,
+                color = TextSecondary
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Box(
+            modifier = Modifier
+                .size(width = 52.dp, height = 28.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isChecked) IslamicGreen else Color(0x55FFFFFF))
+                .padding(3.dp),
+            contentAlignment = if (isChecked) Alignment.CenterEnd else Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(Color.White)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FonnteInputField(
+    label: String,
+    value: String,
+    placeholder: String,
+    isPassword: Boolean,
+    showPassword: Boolean,
+    onTogglePassword: () -> Unit,
+    onValueChange: (String) -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            if (isPassword) {
+                Text(
+                    text = if (showPassword) "SEMBUNYIKAN" else "LIHAT",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IslamicGold,
+                    modifier = Modifier
+                        .clickable { onTogglePassword() }
+                        .padding(4.dp)
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0x22000000))
+                .border(
+                    if (isFocused) 3.dp else 1.dp,
+                    if (isFocused) IslamicGoldLight else Color(0x44FFFFFF),
+                    RoundedCornerShape(10.dp)
+                )
+                .padding(14.dp)
+        ) {
+            if (value.isEmpty()) {
+                Text(
+                    text = placeholder,
+                    fontSize = 14.sp,
+                    color = TextSecondary.copy(alpha = 0.5f)
+                )
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = TextStyle(
+                    fontSize = 14.sp,
+                    color = TextPrimary
+                ),
+                visualTransformation = if (isPassword && !showPassword)
+                    PasswordVisualTransformation()
+                else VisualTransformation.None,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { isFocused = it.isFocused }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FonnteButton(
+    icon: ImageVector,
+    label: String,
+    backgroundColor: Color,
+    textColor: Color,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (enabled) backgroundColor else backgroundColor.copy(alpha = 0.4f))
+            .border(
+                if (isFocused && enabled) 3.dp else 0.dp,
+                if (isFocused && enabled) IslamicGoldLight else Color.Transparent,
+                RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable(enabled)
+            .clickable(enabled) { onClick() }
+            .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = textColor,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor
+        )
     }
 }
