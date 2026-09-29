@@ -2,6 +2,19 @@ package com.example.data
 
 /**
  * AppKnowledge — Data statis aplikasi MASJID.IO.
+ *
+ * Berisi semua teks yang dipakai oleh Backup Aman:
+ *   - APP_STRUCTURE        : Peta folder aplikasi
+ *   - APP_FEATURES         : Daftar fitur
+ *   - UPDATE_HISTORY       : Riwayat versi (ringkas)
+ *   - KNOWN_ISSUES         : Masalah + solusi
+ *   - BUILD_ERROR_HISTORY  : Riwayat error build
+ *   - WORKFLOW_INSTRUCTION : Prinsip kerja AI
+ *   - DEVELOPER_INSTRUCTION: Panduan update
+ *   - MEMORY_INSTRUCTION   : Aturan AI lengkap
+ *   - MEMORY_KNOWLEDGE     : Memory + link GitHub + anti-truncation
+ *   - STRUCTURE            : Alias APP_STRUCTURE
+ *   - FEATURES             : Alias APP_FEATURES
  */
 object AppKnowledge {
 
@@ -54,8 +67,8 @@ app/src/main/java/com/example/
 ├── util/
 │   ├── BackupManager.kt               -> Backup Aman (TXT)
 │   ├── CrashReporter.kt               -> Log crash + WA Fonnte
-│   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash (BARU)
-│   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub (BARU)
+│   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
+│   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
 │   ├── ApkDownloader.kt               -> Download & install APK
@@ -215,12 +228,31 @@ app/src/main/java/com/example/
     - Cara C: folder lokal + fallback GitHub API
     - Format: ---BEGIN--- path ---END--- path
     - AI baru langsung paham tanpa tanya user
+
+19. FIX CRASH NESTED SCROLL (V1.29.3+)
+    - Fix crash "Vertically scrollable component infinity"
+    - Ganti Crossfade ke Box + key + alpha fade manual
+    - Tetap ada animasi fade antar pane (300ms)
+    - Semua pane settings aman dibuka
+
+20. FADE ANIMASI MANUAL (V1.29.3+)
+    - Animasi fade-in 300ms saat ganti kategori
+    - Implementasi via key() + animateFloatAsState + alpha
+    - Tidak pakai Crossfade (hindari nested scroll crash)
     """.trimIndent()
 
     // ============================================================
     // RIWAYAT UPDATE (RINGKAS)
     // ============================================================
     val UPDATE_HISTORY = """
+V1.29.3 (29 September 2026)
+- Fix crash nested scroll di SettingsScreen
+- Ganti Crossfade ke Box + fade manual (300ms)
+- BackupManager: pertahankan method lama + fetch source GitHub
+- SettingsRepository: tambah exportSummary() + load/save full AppSettings
+- UpdateHistory: tambah getFullText() & getSummary()
+- AppKnowledge: tambah BAGIAN 15 (link GitHub) + anti-truncation
+
 V1.28.4 (29 September 2026)
 - Slide Fullscreen (QRIS, Laporan, Kajian)
 - Konten Rotasi (Ayat, Hadits, Asmaul Husna)
@@ -299,6 +331,9 @@ V1.28.0 (27 September 2026)
 13. Fitur Location & Identity pakai placeholder
     Solusi: Buat file sendiri + hapus placeholder di SettingsScreen
 
+14. Crash: Vertically scrollable component infinity (V1.29.3)
+    Solusi: Ganti Crossfade ke Box + key + alpha fade manual
+
 === BELUM DIPERBAIKI ===
 (Tidak ada - semua sudah diperbaiki)
     """.trimIndent()
@@ -316,6 +351,13 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[29-09-2026] - V1.29.3
+Error: IllegalStateException "Vertically scrollable component was
+       measured with an infinity maximum height constraints"
+File: SettingsScreen.kt
+Solusi: Ganti Crossfade ke Box biasa + tambah key() + animasi
+        fade manual via animateFloatAsState + Modifier.alpha
 
 [29-09-2026] - V1.28.4
 Error: PrayerCardsRow belum terima parameter settings
@@ -411,7 +453,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.29.2
+- Versi saat ini : V1.29.3
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -486,7 +528,7 @@ FITUR YANG BELUM SELESAI:
     """.trimIndent()
     
     // ============================================================
-    // MEMORY KNOWLEDGE (BARU — LENGKAP + LINK GITHUB)
+    // MEMORY KNOWLEDGE (LENGKAP + LINK GITHUB)
     // ============================================================
     val MEMORY_KNOWLEDGE = """
 ============================================================
@@ -555,7 +597,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.29.2
+  Versi saat ini : V1.29.3
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (19 KATEGORI) ===
