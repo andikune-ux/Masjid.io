@@ -1,9 +1,24 @@
 package com.example.ui.settings
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -11,23 +26,31 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.IslamicWisdomStore
 import com.example.data.model.AppSettings
+import com.example.ui.components.TvSlider
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import kotlin.math.roundToInt
 
 @Composable
 fun WisdomSettingsPane(
@@ -48,7 +71,9 @@ fun WisdomSettingsPane(
             color = IslamicGoldLight
         )
 
-        // Animation Type Selector
+        // ============================================================
+        // ANIMASI SELECTOR
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -82,47 +107,18 @@ fun WisdomSettingsPane(
 
             for ((animKey, animDesc) in animations) {
                 val isSelected = settings.wisdomCardAnimation == animKey
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) Color(0x33FFD700) else Color(0x22000000))
-                        .border(1.dp, if (isSelected) IslamicGold else Color(0x22FFFFFF), RoundedCornerShape(10.dp))
-                        .clickable { onUpdate(settings.copy(wisdomCardAnimation = animKey)) }
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = animKey,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) IslamicGoldLight else TextPrimary
-                            )
-                            Text(
-                                text = animDesc,
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = IslamicGold,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
+                AnimationOptionItem(
+                    title = animKey,
+                    description = animDesc,
+                    isSelected = isSelected,
+                    onClick = { onUpdate(settings.copy(wisdomCardAnimation = animKey)) }
+                )
             }
         }
 
-        // Duration Slider
+        // ============================================================
+        // DURASI SLIDER
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -146,31 +142,27 @@ fun WisdomSettingsPane(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Durasi Tampil Setiap Kartu:",
+                        text = "Durasi Tampil Setiap Kartu",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 }
-
-                Text(
-                    text = "${settings.wisdomCardIntervalSeconds} Detik",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGreen
-                )
             }
 
-            Slider(
+            TvSlider(
+                label = "Durasi",
                 value = settings.wisdomCardIntervalSeconds.toFloat(),
-                onValueChange = { onUpdate(settings.copy(wisdomCardIntervalSeconds = it.roundToInt())) },
+                onValueChange = { onUpdate(settings.copy(wisdomCardIntervalSeconds = it.toInt())) },
                 valueRange = 4f..60f,
-                steps = 56,
-                colors = SliderDefaults.colors(thumbColor = IslamicGold, activeTrackColor = IslamicGold)
+                steps = 55,
+                unit = " Detik"
             )
         }
 
-        // Preview of Card Collection
+        // ============================================================
+        // PREVIEW KOLEKSI
+        // ============================================================
         Text(
             text = "Daftar Koleksi Mutiara Nasihat (${IslamicWisdomStore.wisdomCards.size} Hadits & Ayat Tersedia):",
             fontSize = 14.sp,
@@ -207,7 +199,106 @@ fun WisdomSettingsPane(
                 Text(
                     text = "\"${card.translation}\"",
                     fontSize = 12.sp,
-                    color = TextPrimary
+                    color = TextPrimary,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// KOMPONEN: ANIMATION OPTION (dengan fokus lebih tebal)
+// ============================================================
+
+@Composable
+private fun AnimationOptionItem(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "anim_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.02f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "anim_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 10.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "anim_shadow"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(10.dp),
+                ambientColor = Color(0x66FFD700),
+                spotColor = Color(0x66FFD700)
+            )
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                when {
+                    isSelected -> Color(0x33FFD700)
+                    isFocused -> Color(0x22FFD700)
+                    else -> Color(0x22000000)
+                }
+            )
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isSelected -> IslamicGold
+                    else -> Color(0x22FFFFFF)
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        isSelected -> IslamicGoldLight
+                        isFocused -> Color(0xFFFFE44D)
+                        else -> TextPrimary
+                    }
+                )
+                Text(
+                    text = description,
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+            }
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = IslamicGold,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
