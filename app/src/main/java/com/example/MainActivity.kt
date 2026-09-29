@@ -33,6 +33,7 @@ import com.example.ui.components.UpdateDialog
 import com.example.ui.focus.PrayerFocusOverlay
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.home.HomeScreen
+import com.example.ui.ramadhan.RamadhanOverlay
 import com.example.ui.remote.RemoteServer
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.MasjidTheme
@@ -41,14 +42,17 @@ import com.example.util.CrashReporter
 import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 enum class AppScreen {
     HOME,
     FOCUS_MODE,
     SETTINGS,
-    QRIS_PREVIEW
+    QRIS_PREVIEW,
+    RAMADHAN
 }
 
 class MainActivity : ComponentActivity() {
@@ -104,7 +108,21 @@ class MainActivity : ComponentActivity() {
             }
 
             // ============ REMOTE SERVER ============
-            val remoteServer = remember { RemoteServer(this@MainActivity, settingsRepository) }
+            val remoteServer = remember {
+                RemoteServer(
+                    context = this@MainActivity,
+                    settingsRepository = settingsRepository,
+                    onRestart = {
+                        runOnUiThread {
+                            val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            finish()
+                        }
+                    }
+                )
+            }
             var isRemoteServerRunning by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
 
@@ -196,7 +214,8 @@ class MainActivity : ComponentActivity() {
                 val callback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
                         when (currentScreen) {
-                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW -> currentScreen = AppScreen.HOME
+                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW, AppScreen.RAMADHAN ->
+                                currentScreen = AppScreen.HOME
                             AppScreen.FOCUS_MODE -> showPinDialog = true
                             AppScreen.HOME -> {
                                 if (settings.kioskModeEnabled) showPinDialog = true
@@ -218,12 +237,17 @@ class MainActivity : ComponentActivity() {
             var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
             var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
 
+            // ============ RAMADHAN STATE ============
+            var secondsToImsak by remember { mutableLongStateOf(0L) }
+            var secondsToMaghrib by remember { mutableLongStateOf(0L) }
+            var userDismissedRamadhan by remember { mutableStateOf(false) }
+
             val today = remember { LocalDate.now() }
             val upcomingEvent = remember {
                 val hDate = IslamicCalendar.getHijriDate(today)
                 IslamicCalendar.getUpcomingEvent(hDate)
             }
-
+            
             LaunchedEffect(
                 settings.latitude,
                 settings.longitude,
@@ -235,9 +259,9 @@ class MainActivity : ComponentActivity() {
 
                 while (true) {
                     val currentDateTime = if (settings.isManualTimeEnabled) {
-                        java.time.LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+                        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
                     } else {
-                        java.time.LocalDateTime.now()
+                        LocalDateTime.now()
                     }
 
                     val now = currentDateTime.toLocalTime()
@@ -255,6 +279,10 @@ class MainActivity : ComponentActivity() {
                     )
                     prayerSchedule = schedule
 
+                    // Hitung secondsToImsak & secondsToMaghrib (untuk Ramadhan Overlay)
+                    secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
+                    secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
+
                     val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
                     if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
                         for (item in schedule.items) {
@@ -271,6 +299,8 @@ class MainActivity : ComponentActivity() {
                                     adzanStyle = settings.adzanFile,
                                     adzanVolume = settings.adzanVolume
                                 )
+                                // Reset dismiss state saat masuk waktu sholat
+                                userDismissedRamadhan = false
                                 currentScreen = AppScreen.FOCUS_MODE
                                 break
                             }
@@ -279,7 +309,37 @@ class MainActivity : ComponentActivity() {
                     delay(1000)
                 }
             }
-            
+
+            // ============ RAMADHAN OVERLAY TRIGGER ============
+            LaunchedEffect(
+                settings.ramadhanModeEnabled,
+                secondsToImsak,
+                secondsToMaghrib,
+                currentScreen,
+                userDismissedRamadhan
+            ) {
+                if (!settings.ramadhanModeEnabled) return@LaunchedEffect
+                if (currentScreen != AppScreen.HOME) return@LaunchedEffect
+                if (userDismissedRamadhan) return@LaunchedEffect
+
+                // Trigger 1 jam sebelum Imsak atau Maghrib, dan masih setelahnya (sampai 5 menit)
+                val nearImsak = secondsToImsak in 1..3600
+                val nearMaghrib = secondsToMaghrib in 1..3600
+
+                if (nearImsak || nearMaghrib) {
+                    currentScreen = AppScreen.RAMADHAN
+                }
+            }
+
+            // Auto dismiss Ramadhan overlay kalau waktu sudah terlewat
+            LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
+                if (currentScreen == AppScreen.RAMADHAN) {
+                    if (secondsToImsak <= 0 && secondsToMaghrib <= 0) {
+                        currentScreen = AppScreen.HOME
+                    }
+                }
+            }
+
             MasjidTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -322,6 +382,18 @@ class MainActivity : ComponentActivity() {
                                 settings = settings,
                                 onDismiss = { currentScreen = AppScreen.SETTINGS }
                             )
+                            AppScreen.RAMADHAN -> RamadhanOverlay(
+                                settings = settings,
+                                currentTimeString = currentTimeString,
+                                imsakTime = prayerSchedule.imsak,
+                                maghribTime = prayerSchedule.maghrib,
+                                secondsToImsak = secondsToImsak,
+                                secondsToMaghrib = secondsToMaghrib,
+                                onDismiss = {
+                                    currentScreen = AppScreen.HOME
+                                    userDismissedRamadhan = true
+                                }
+                            )
                         }
                     }
 
@@ -345,7 +417,8 @@ class MainActivity : ComponentActivity() {
                             currentVersion = info.currentVersion,
                             latestVersion = info.latestVersion,
                             releaseNotes = info.releaseNotes,
-                            forceUpdate = false,
+                            // FORCE UPDATE: Debug APK bisa skip, Release APK harus update
+                            forceUpdate = !BuildConfig.DEBUG,
                             downloadProgress = null,
                             isDownloading = false,
                             isInstalling = false,
@@ -387,5 +460,25 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         soundManager.stopAll()
+    }
+
+    // ============================================================
+    // HELPER: HITUNG DETIK KE WAKTU TERTENTU
+    // ============================================================
+    private fun calculateSecondsTo(timeString: String, now: LocalDateTime): Long {
+        return try {
+            val parts = timeString.split(":")
+            if (parts.size < 2) return 0L
+            val targetHour = parts[0].trim().toInt()
+            val targetMinute = parts[1].trim().toInt()
+
+            var target = now.toLocalDate().atTime(targetHour, targetMinute)
+            if (target.isBefore(now)) {
+                target = target.plusDays(1)
+            }
+            Duration.between(now, target).seconds
+        } catch (e: Exception) {
+            0L
+        }
     }
 }
