@@ -50,8 +50,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.content.DzikirStore
+import com.example.data.model.AppSettings
 import com.example.data.model.PrayerId
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
@@ -59,7 +62,7 @@ import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
-private enum class FocusPhase { ADZAN, QOBLIYAH, FARDHU }
+private enum class FocusPhase { ADZAN, QOBLIYAH, FARDHU, DZIKIR }
 
 @Composable
 fun PrayerFocusOverlay(
@@ -68,6 +71,7 @@ fun PrayerFocusOverlay(
     totalDurationMinutes: Int = 30,
     iqamahWaitMinutes: Int = 10,
     qobliyahWaitMinutes: Int = 5,
+    settings: AppSettings? = null,
     onDismiss: () -> Unit
 ) {
     var currentPhase by remember { mutableStateOf(FocusPhase.ADZAN) }
@@ -77,19 +81,26 @@ fun PrayerFocusOverlay(
         FocusPhase.ADZAN -> listOf(Color(0xFF0D1B2A), Color(0xFF1B263B), Color(0xFF0D1B2A))
         FocusPhase.QOBLIYAH -> listOf(Color(0xFF1B3A2E), Color(0xFF2E5F44), Color(0xFF1B3A2E))
         FocusPhase.FARDHU -> listOf(Color(0xFF3A2E1B), Color(0xFF5F442E), Color(0xFF3A2E1B))
+        FocusPhase.DZIKIR -> listOf(Color(0xFF1A0D2A), Color(0xFF2E1B3A), Color(0xFF1A0D2A))
     }
 
     val phaseNum = when (currentPhase) {
         FocusPhase.ADZAN -> 1
         FocusPhase.QOBLIYAH -> 2
         FocusPhase.FARDHU -> 3
+        FocusPhase.DZIKIR -> 4
     }
+
+    // Cek apakah dzikir aktif
+    val dzikirEnabled = settings?.dzikirEnabled == true
+    val totalPhases = if (dzikirEnabled) 4 else 3
 
     LaunchedEffect(currentPhase) {
         when (currentPhase) {
             FocusPhase.ADZAN -> secondsRemaining = iqamahWaitMinutes * 60
             FocusPhase.QOBLIYAH -> secondsRemaining = qobliyahWaitMinutes * 60
             FocusPhase.FARDHU -> secondsRemaining = (totalDurationMinutes - iqamahWaitMinutes - qobliyahWaitMinutes) * 60
+            FocusPhase.DZIKIR -> secondsRemaining = settings?.dzikirDurationSeconds ?: 120
         }
 
         while (secondsRemaining > 0) {
@@ -100,7 +111,11 @@ fun PrayerFocusOverlay(
         when (currentPhase) {
             FocusPhase.ADZAN -> currentPhase = FocusPhase.QOBLIYAH
             FocusPhase.QOBLIYAH -> currentPhase = FocusPhase.FARDHU
-            FocusPhase.FARDHU -> onDismiss()
+            FocusPhase.FARDHU -> {
+                if (dzikirEnabled) currentPhase = FocusPhase.DZIKIR
+                else onDismiss()
+            }
+            FocusPhase.DZIKIR -> onDismiss()
         }
     }
 
@@ -142,7 +157,7 @@ fun PrayerFocusOverlay(
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "MODE FOKUS SHOLAT  •  FASE $phaseNum DARI 3",
+                        text = "MODE FOKUS SHOLAT  •  FASE $phaseNum DARI $totalPhases",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = IslamicGoldLight,
@@ -198,6 +213,10 @@ fun PrayerFocusOverlay(
                         pulseScale = pulseScale
                     )
                     FocusPhase.FARDHU -> FardhuPhase(prayerId = prayerId)
+                    FocusPhase.DZIKIR -> DzikirPhase(
+                        dzikirCountdown = countdownText,
+                        pulseScale = pulseScale
+                    )
                 }
             }
 
@@ -216,6 +235,7 @@ fun PrayerFocusOverlay(
                     FocusPhase.QOBLIYAH -> (iqamahWaitMinutes * 60) + ((qobliyahWaitMinutes * 60) - secondsRemaining)
                     FocusPhase.FARDHU -> (iqamahWaitMinutes * 60) + (qobliyahWaitMinutes * 60) +
                             ((totalDurationMinutes - iqamahWaitMinutes - qobliyahWaitMinutes) * 60 - secondsRemaining)
+                    FocusPhase.DZIKIR -> totalDurationSec - secondsRemaining
                 }
                 val progress = (elapsedSec.toFloat() / totalDurationSec).coerceIn(0f, 1f)
 
@@ -231,7 +251,7 @@ fun PrayerFocusOverlay(
             }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Fase $phaseNum dari 3  •  Total durasi $totalDurationMinutes menit",
+                text = "Fase $phaseNum dari $totalPhases",
                 fontSize = 11.sp,
                 color = Color(0xAAFFFFFF),
                 modifier = Modifier.fillMaxWidth(),
@@ -240,6 +260,7 @@ fun PrayerFocusOverlay(
         }
     }
 }
+
 // ============================================================
 // FASE 1: ADZAN
 // ============================================================
@@ -472,30 +493,151 @@ private fun FardhuPhase(prayerId: PrayerId) {
                 )
             }
         }
+    }
+}
+
+// ============================================================
+// FASE 4: DZIKIR (BARU)
+// ============================================================
+
+@Composable
+private fun DzikirPhase(
+    dzikirCountdown: String,
+    pulseScale: Float
+) {
+    // Rotasi dzikir setiap 8 detik
+    var dzikirIndex by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(8000)
+            dzikirIndex = (dzikirIndex + 1) % DzikirStore.totalDzikir
+        }
+    }
+
+    val dzikir = DzikirStore.getDzikir(dzikirIndex)
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Header
+        Text(
+            text = "📿 DZIKIR SETELAH SHOLAT",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight,
+            letterSpacing = 3.sp,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Dzikir ${dzikirIndex + 1} dari ${DzikirStore.totalDzikir}",
+            fontSize = 13.sp,
+            color = Color(0xAAFFFFFF),
+            fontStyle = FontStyle.Italic
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Card dzikir
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(IslamicGreen.copy(alpha = 0.25f))
-                .border(1.dp, IslamicGreen.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
-                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0x44FFFFFF))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+                .padding(28.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Nama dzikir
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = dzikir.title,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight,
+                        textAlign = TextAlign.Center
+                    )
+                    if (dzikir.repeat.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(IslamicGold)
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = dzikir.repeat,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF09141D)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Arab
+                Text(
+                    text = dzikir.arabic,
+                    fontSize = 32.sp,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 50.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Latin
+                Text(
+                    text = dzikir.latin,
+                    fontSize = 16.sp,
+                    color = IslamicGoldLight,
+                    textAlign = TextAlign.Center,
+                    fontStyle = FontStyle.Italic,
+                    lineHeight = 22.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Arti
+                Text(
+                    text = "\"${dzikir.translation}\"",
+                    fontSize = 15.sp,
+                    color = Color(0xCCFFFFFF),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Countdown
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0x44FFD700))
+                .border(2.dp, IslamicGold, RoundedCornerShape(16.dp))
+                .padding(horizontal = 32.dp, vertical = 14.dp)
+                .scale(pulseScale)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.VolumeOff,
-                    contentDescription = null,
-                    tint = IslamicGreen,
-                    modifier = Modifier.size(20.dp)
+                Text(
+                    text = "⏱️",
+                    fontSize = 22.sp
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "HENINGKAN HP & RAPATKAN SHAF",
-                    fontSize = 15.sp,
+                    text = "Kembali ke Home dalam $dzikirCountdown",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = IslamicGreen,
-                    letterSpacing = 1.5.sp
+                    color = Color.White
                 )
             }
         }
