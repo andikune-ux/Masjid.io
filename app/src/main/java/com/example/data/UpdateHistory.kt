@@ -1,7 +1,18 @@
 package com.example.data
 
+/**
+ * UpdateHistory — Riwayat update aplikasi MASJID.IO.
+ *
+ * Menyimpan semua entri versi + fitur baru.
+ * Dipakai oleh:
+ *   - RiwayatUpdateScreen (UI)
+ *   - BackupManager (generateBackupContent)
+ */
 object UpdateHistory {
 
+    // ============================================================
+    // DATA CLASS
+    // ============================================================
     data class UpdateEntry(
         val version: String,
         val date: String,
@@ -9,11 +20,9 @@ object UpdateHistory {
         val features: List<String>
     )
 
-    /**
-     * Daftar riwayat update MASJID.IO.
-     * Urutan: terbaru di atas.
-     * Setiap update WAJIB ditambahkan di sini.
-     */
+    // ============================================================
+    // DAFTAR ENTRI
+    // ============================================================
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
             version = "V1.28.4",
@@ -116,11 +125,46 @@ object UpdateHistory {
         )
     )
 
-    fun getEntry(version: String): UpdateEntry? {
-        return entries.firstOrNull { it.version == version }
+    // ============================================================
+    // METHOD LAMA (tetap dipertahankan)
+    // ============================================================
+    fun getEntry(version: String): UpdateEntry? =
+        entries.find { it.version.equals(version, ignoreCase = true) }
+
+    fun getLatestVersion(): String =
+        entries.firstOrNull()?.version ?: "V1.0.0"
+
+    // ============================================================
+    // METHOD BARU (untuk BackupManager)
+    // ============================================================
+
+    /** Format lengkap semua entri — dipakai BackupManager. */
+    fun getFullText(): String = buildString {
+        appendLine("Total: ${entries.size} versi tercatat")
+        appendLine()
+        entries.forEach { entry ->
+            appendLine("┌─ ${entry.version}  (${entry.date})")
+            appendLine("│  ${entry.title}")
+            appendLine("│")
+            entry.features.forEach { f ->
+                appendLine("│  • $f")
+            }
+            appendLine("└─")
+            appendLine()
+        }
     }
 
-    fun getLatestVersion(): String {
-        return entries.firstOrNull()?.version ?: "V1.0.0"
+    /** Format ringkas — untuk preview. */
+    fun getSummary(): String = buildString {
+        entries.forEach { entry ->
+            appendLine("${entry.version} (${entry.date})")
+            entry.features.take(5).forEach { f ->
+                appendLine("- $f")
+            }
+            if (entry.features.size > 5) {
+                appendLine("- ... (${entry.features.size - 5} lagi)")
+            }
+            appendLine()
+        }
     }
 }
