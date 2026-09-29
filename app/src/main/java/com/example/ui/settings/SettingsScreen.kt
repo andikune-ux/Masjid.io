@@ -1,6 +1,10 @@
 package com.example.ui.settings
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,6 +52,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -115,13 +121,8 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF142735))
-                        .clickable { onBack() },
-                    contentAlignment = Alignment.Center
+                TopBarIconButton(
+                    onClick = onBack
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -261,6 +262,7 @@ fun SettingsScreen(
                     )
                     SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
                         settings = draftSettings,
+                        onUpdate = { draftSettings = it },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -268,7 +270,6 @@ fun SettingsScreen(
         }
     }
 
-    // DIALOG PIN DEVELOPER
     if (showDeveloperPinDialog) {
         DeveloperPinDialog(
             correctPin = "140399",
@@ -281,6 +282,10 @@ fun SettingsScreen(
     }
 }
 
+// ============================================================
+// SIDEBAR ITEM — DENGAN FOKUS LEBIH TEBAL
+// ============================================================
+
 @Composable
 private fun SidebarItem(
     category: SettingsCategory,
@@ -288,23 +293,54 @@ private fun SidebarItem(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else 1.5.dp,
+        animationSpec = tween(200),
+        label = "sidebar_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.03f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "sidebar_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 12.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "sidebar_shadow"
+    )
+
     val borderColor = when {
-        isFocused -> IslamicGoldLight
-        isSelected -> IslamicGold
-        else -> Color(0x33FFFFFF)
+        isFocused -> Color(0xFFFFE44D)         // Emas muda
+        isSelected -> IslamicGold              // Emas
+        else -> Color(0x33FFFFFF)              // Transparan
     }
+
     val bgColor = when {
         isSelected -> Color(0x44FFD700)
-        isFocused -> Color(0x22FFD700)
+        isFocused -> Color(0x33FFD700)
         else -> Color(0x22000000)
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(12.dp),
+                ambientColor = Color(0x88FFD700),
+                spotColor = Color(0x88FFD700)
+            )
+            .clip(RoundedCornerShape(12.dp))
             .background(bgColor)
-            .border(if (isFocused) 3.dp else 1.5.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(12.dp)
+            )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
@@ -314,22 +350,72 @@ private fun SidebarItem(
         Icon(
             imageVector = category.icon,
             contentDescription = category.label,
-            tint = if (isSelected) IslamicGold else TextPrimary,
+            tint = when {
+                isSelected -> IslamicGold
+                isFocused -> Color(0xFFFFE44D)
+                else -> TextPrimary
+            },
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = category.label,
             fontSize = 14.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) IslamicGoldLight else TextPrimary
+            fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium,
+            color = when {
+                isSelected -> IslamicGoldLight
+                isFocused -> Color(0xFFFFE44D)
+                else -> TextPrimary
+            }
         )
     }
 }
 
 // ============================================================
-// PANE-PANE SEDERHANA (yang belum punya file sendiri)
-// AudioSettingsPane sudah dipindah ke file AudioSettingsPane.kt
+// TOMBOL ICON DENGAN FOKUS LEBIH TEBAL
+// ============================================================
+
+@Composable
+private fun TopBarIconButton(
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "icon_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 1000f),
+        label = "icon_scale"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF142735))
+            .border(
+                width = borderWidth,
+                color = if (isFocused) Color(0xFFFFE44D) else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
+// ============================================================
+// PANE-PANE SEDERHANA
 // ============================================================
 
 @Composable
