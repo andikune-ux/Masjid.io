@@ -9,16 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
@@ -32,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -51,15 +47,11 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 
 /**
- * Dashboard info Remote Control — ditampilkan di Settings.
+ * Dashboard info Remote Control.
  *
- * Menampilkan:
- * - Status server (aktif / tidak)
- * - Alamat IP TV
- * - Port server
- * - Token auth
- * - URL untuk diakses dari HP
- * - QR code kecil (via teks) untuk akses cepat
+ * PENTING: File ini TIDAK menggunakan verticalScroll() karena
+ * dipanggil dari dalam RemoteSettingsPane yang sudah punya verticalScroll().
+ * Nested scroll di Compose akan CRASH!
  */
 @Composable
 fun RemoteDashboard(
@@ -71,37 +63,12 @@ fun RemoteDashboard(
     val localIp = remember { getLocalIpAddress() }
     val isWifiConnected = remember { isWifiOn(context) }
 
+    // CATATAN: Tidak ada verticalScroll di sini. Column biasa.
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ===== HEADER =====
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.PhoneAndroid,
-                contentDescription = null,
-                tint = IslamicGold,
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "REMOTE CONTROL",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
-                Text(
-                    text = "Kontrol aplikasi dari HP via browser",
-                    fontSize = 13.sp,
-                    color = TextSecondary
-                )
-            }
-        }
-
-        // ===== STATUS SERVER =====
+        // STATUS SERVER
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -138,14 +105,14 @@ fun RemoteDashboard(
                     text = if (isServerRunning)
                         "Buka browser HP untuk mengakses remote"
                     else
-                        "Aktifkan di toggle di atas",
+                        "Aktifkan toggle di atas",
                     fontSize = 12.sp,
                     color = TextPrimary
                 )
             }
         }
 
-        // ===== STATUS WIFI =====
+        // STATUS WIFI
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -176,7 +143,7 @@ fun RemoteDashboard(
             )
         }
 
-        // ===== INFO AKSES =====
+        // INFO AKSES
         if (isServerRunning && localIp != null) {
             Text(
                 text = "CARA AKSES DARI HP",
@@ -227,7 +194,6 @@ fun RemoteDashboard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // URL Besar
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -250,7 +216,6 @@ fun RemoteDashboard(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Info IP
                 Text(
                     text = "IP TV: $localIp  •  Port: ${settings.remoteServerPort}",
                     fontSize = 11.sp,
@@ -334,7 +299,7 @@ fun RemoteDashboard(
             }
         }
 
-        // ===== INFO BOX =====
+        // INFO BOX
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -343,17 +308,26 @@ fun RemoteDashboard(
                 .padding(14.dp)
         ) {
             Column {
-                Text(
-                    text = "💡 Tips",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = IslamicGold,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Tips",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "• Pastikan TV dan HP dalam 1 jaringan WiFi\n" +
                             "• Bisa akses dari HP, tablet, atau laptop\n" +
-                            "• Fitur: ubah running text, ganti PIN, lihat status\n" +
+                            "• Fitur: ubah running text, ganti PIN, lihat status, restart app\n" +
                             "• Server otomatis mati saat aplikasi ditutup",
                     fontSize = 12.sp,
                     color = TextPrimary,
@@ -416,7 +390,7 @@ private fun StepCard(
 }
 
 // ============================================================
-// HELPER: DAPATKAN IP LOKAL
+// HELPER
 // ============================================================
 
 fun getLocalIpAddress(): String? {
@@ -437,10 +411,6 @@ fun getLocalIpAddress(): String? {
     }
     return null
 }
-
-// ============================================================
-// HELPER: CEK WIFI
-// ============================================================
 
 @Suppress("DEPRECATION")
 fun isWifiOn(context: Context): Boolean {
