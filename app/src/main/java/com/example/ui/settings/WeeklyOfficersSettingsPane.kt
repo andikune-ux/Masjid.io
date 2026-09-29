@@ -3,6 +3,7 @@ package com.example.ui.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,13 +68,13 @@ fun WeeklyOfficersSettingsPane(
 ) {
     var selectedDayIndex by remember { mutableStateOf(0) }
     val days = listOf("Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu", "Ahad")
-
     var photoTarget by remember { mutableStateOf<String?>(null) }
 
     val currentOfficersList = remember(settings.weeklyOfficers) {
         if (settings.weeklyOfficers.size == 7) settings.weeklyOfficers
         else AppSettings.createDefaultWeeklySchedule()
     }
+
     val currentDaySchedule = currentOfficersList.getOrElse(selectedDayIndex) {
         DailyOfficerItem(dayName = days[selectedDayIndex])
     }
@@ -96,9 +97,9 @@ fun WeeklyOfficersSettingsPane(
             return@rememberLauncherForActivityResult
         }
 
-        // Re-read state agar tidak basi
         val freshList = if (settings.weeklyOfficers.size == 7) settings.weeklyOfficers
                         else AppSettings.createDefaultWeeklySchedule()
+
         val dayItem = freshList.getOrElse(selectedDayIndex) {
             DailyOfficerItem(dayName = days[selectedDayIndex])
         }
@@ -118,6 +119,7 @@ fun WeeklyOfficersSettingsPane(
             "ustadz_kajian"   -> dayItem.copy(fotoUstadzKajian = uri.toString())
             else -> dayItem
         }
+
         val newList = freshList.toMutableList()
         newList[selectedDayIndex] = updated
         onUpdate(settings.copy(weeklyOfficers = newList))
@@ -140,219 +142,214 @@ fun WeeklyOfficersSettingsPane(
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight
         )
-
         // ---------- FOTO DEFAULT (FALLBACK) ----------
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Foto Profil Default Ustadz / Imam",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
+Column(
+    modifier = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(14.dp))
+        .background(Color(0xFF091620))
+        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
+        .padding(16.dp)
+) {
+    Text(
+        text = "Foto Profil Default Ustadz / Imam",
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = TextPrimary
+    )
+    Text(
+        text = "Dipakai sebagai fallback jika foto per sesi belum di-upload.",
+        fontSize = 12.sp,
+        color = TextSecondary
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (!settings.officerPhotoUri.isNullOrBlank()) {
+            AsyncImage(
+                model = settings.officerPhotoUri,
+                contentDescription = "Foto Ustadz",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, IslamicGold, CircleShape)
             )
-            Text(
-                text = "Dipakai sebagai fallback jika foto per sesi belum di-upload.",
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(IslamicGold.copy(alpha = 0.2f))
+                    .border(2.dp, IslamicGold, CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                if (!settings.officerPhotoUri.isNullOrBlank()) {
-                    AsyncImage(
-                        model = settings.officerPhotoUri,
-                        contentDescription = "Foto Ustadz",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, IslamicGold, CircleShape)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(IslamicGold.copy(alpha = 0.2f))
-                            .border(2.dp, IslamicGold, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = IslamicGold,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = { pickPhoto(TARGET_GLOBAL) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = IslamicGold,
-                            contentColor = Color(0xFF09141D)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddPhotoAlternate,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "PILIH FOTO", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    if (!settings.officerPhotoUri.isNullOrBlank()) {
-                        OutlinedButton(
-                            onClick = { onUpdate(settings.copy(officerPhotoUri = null)) },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(
-                                brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "HAPUS", fontSize = 12.sp)
-                        }
-                    }
-                }
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = IslamicGold,
+                    modifier = Modifier.size(32.dp)
+                )
             }
         }
-
-        // ---------- PILIH HARI ----------
-        Text(
-            text = "Pilih Hari untuk Mengatur Jadwal Imam & Muadzin:",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = IslamicGoldLight
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            days.forEachIndexed { index, day ->
-                val isSelected = index == selectedDayIndex
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) IslamicGold else Color(0x33000000))
-                        .border(
-                            1.dp,
-                            if (isSelected) IslamicGold else Color(0x33FFFFFF),
-                            RoundedCornerShape(8.dp)
-                        )
-                        .clickable { selectedDayIndex = index }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(
+                onClick = { pickPhoto(TARGET_GLOBAL) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = IslamicGold,
+                    contentColor = Color(0xFF09141D)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AddPhotoAlternate,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "PILIH FOTO", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            if (!settings.officerPhotoUri.isNullOrBlank()) {
+                OutlinedButton(
+                    onClick = { onUpdate(settings.copy(officerPhotoUri = null)) },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
+                    border = BorderStroke(1.dp, UrgentRed),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(
-                        text = day,
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) Color(0xFF09141D) else TextPrimary
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "HAPUS", fontSize = 12.sp)
                 }
             }
         }
+    }
+}
 
-        Text(
-            text = "Tap foto untuk upload / ganti. Tekan lama untuk hapus.",
-            fontSize = 11.sp,
-            color = TextSecondary
-        )
+// ---------- PILIH HARI ----------
+Text(
+    text = "Pilih Hari untuk Mengatur Jadwal Imam & Muadzin:",
+    fontSize = 14.sp,
+    fontWeight = FontWeight.SemiBold,
+    color = IslamicGoldLight
+)
+Row(
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(6.dp)
+) {
+    days.forEachIndexed { index, day ->
+        val isSelected = index == selectedDayIndex
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (isSelected) IslamicGold else Color(0x33000000))
+                .border(
+                    1.dp,
+                    if (isSelected) IslamicGold else Color(0x33FFFFFF),
+                    RoundedCornerShape(8.dp)
+                )
+                .clickable { selectedDayIndex = index }
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = day,
+                fontSize = 13.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color(0xFF09141D) else TextPrimary
+            )
+        }
+    }
+}
 
-        // ---------- JADWAL PETUGAS PER HARI ----------
-        Text(
-            text = "Jadwal Petugas Hari ${days[selectedDayIndex]}:",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGreen
-        )
+Text(
+    text = "Tap foto untuk upload / ganti. Tekan lama untuk hapus.",
+    fontSize = 11.sp,
+    color = TextSecondary
+)
 
-        PrayerOfficerRow(
-            prayerName = "Subuh",
-            imamValue = currentDaySchedule.imamSubuh,
-            muadzinValue = currentDaySchedule.muadzinSubuh,
-            imamPhotoUri = currentDaySchedule.fotoImamSubuh,
-            muadzinPhotoUri = currentDaySchedule.fotoMuadzinSubuh,
-            onImamChange = { updateDay(currentDaySchedule.copy(imamSubuh = it)) },
-            onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinSubuh = it)) },
-            onImamPhotoClick = { pickPhoto("imam_subuh") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_subuh") },
-            onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamSubuh = null)) },
-            onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinSubuh = null)) }
-        )
+Text(
+    text = "Jadwal Petugas Hari ${days[selectedDayIndex]}:",
+    fontSize = 15.sp,
+    fontWeight = FontWeight.Bold,
+    color = IslamicGreen
+)
 
-        PrayerOfficerRow(
-            prayerName = "Dzuhur",
-            imamValue = currentDaySchedule.imamDzuhur,
-            muadzinValue = currentDaySchedule.muadzinDzuhur,
-            imamPhotoUri = currentDaySchedule.fotoImamDzuhur,
-            muadzinPhotoUri = currentDaySchedule.fotoMuadzinDzuhur,
-            onImamChange = { updateDay(currentDaySchedule.copy(imamDzuhur = it)) },
-            onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinDzuhur = it)) },
-            onImamPhotoClick = { pickPhoto("imam_dzuhur") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_dzuhur") },
-            onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamDzuhur = null)) },
-            onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinDzuhur = null)) }
-        )
+PrayerOfficerRow(
+    prayerName = "Subuh",
+    imamValue = currentDaySchedule.imamSubuh,
+    muadzinValue = currentDaySchedule.muadzinSubuh,
+    imamPhotoUri = currentDaySchedule.fotoImamSubuh,
+    muadzinPhotoUri = currentDaySchedule.fotoMuadzinSubuh,
+    onImamChange = { updateDay(currentDaySchedule.copy(imamSubuh = it)) },
+    onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinSubuh = it)) },
+    onImamPhotoClick = { pickPhoto("imam_subuh") },
+    onMuadzinPhotoClick = { pickPhoto("muadzin_subuh") },
+    onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamSubuh = null)) },
+    onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinSubuh = null)) }
+)
 
-        PrayerOfficerRow(
-            prayerName = "Ashar",
-            imamValue = currentDaySchedule.imamAshar,
-            muadzinValue = currentDaySchedule.muadzinAshar,
-            imamPhotoUri = currentDaySchedule.fotoImamAshar,
-            muadzinPhotoUri = currentDaySchedule.fotoMuadzinAshar,
-            onImamChange = { updateDay(currentDaySchedule.copy(imamAshar = it)) },
-            onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinAshar = it)) },
-            onImamPhotoClick = { pickPhoto("imam_ashar") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_ashar") },
-            onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamAshar = null)) },
-            onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinAshar = null)) }
-        )
+PrayerOfficerRow(
+    prayerName = "Dzuhur",
+    imamValue = currentDaySchedule.imamDzuhur,
+    muadzinValue = currentDaySchedule.muadzinDzuhur,
+    imamPhotoUri = currentDaySchedule.fotoImamDzuhur,
+    muadzinPhotoUri = currentDaySchedule.fotoMuadzinDzuhur,
+    onImamChange = { updateDay(currentDaySchedule.copy(imamDzuhur = it)) },
+    onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinDzuhur = it)) },
+    onImamPhotoClick = { pickPhoto("imam_dzuhur") },
+    onMuadzinPhotoClick = { pickPhoto("muadzin_dzuhur") },
+    onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamDzuhur = null)) },
+    onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinDzuhur = null)) }
+)
 
-        PrayerOfficerRow(
-            prayerName = "Maghrib",
-            imamValue = currentDaySchedule.imamMaghrib,
-            muadzinValue = currentDaySchedule.muadzinMaghrib,
-            imamPhotoUri = currentDaySchedule.fotoImamMaghrib,
-            muadzinPhotoUri = currentDaySchedule.fotoMuadzinMaghrib,
-            onImamChange = { updateDay(currentDaySchedule.copy(imamMaghrib = it)) },
-            onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinMaghrib = it)) },
-            onImamPhotoClick = { pickPhoto("imam_maghrib") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_maghrib") },
-            onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamMaghrib = null)) },
-            onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinMaghrib = null)) }
-        )
+PrayerOfficerRow(
+    prayerName = "Ashar",
+    imamValue = currentDaySchedule.imamAshar,
+    muadzinValue = currentDaySchedule.muadzinAshar,
+    imamPhotoUri = currentDaySchedule.fotoImamAshar,
+    muadzinPhotoUri = currentDaySchedule.fotoMuadzinAshar,
+    onImamChange = { updateDay(currentDaySchedule.copy(imamAshar = it)) },
+    onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinAshar = it)) },
+    onImamPhotoClick = { pickPhoto("imam_ashar") },
+    onMuadzinPhotoClick = { pickPhoto("muadzin_ashar") },
+    onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamAshar = null)) },
+    onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinAshar = null)) }
+)
 
-        PrayerOfficerRow(
-            prayerName = "Isya",
-            imamValue = currentDaySchedule.imamIsya,
-            muadzinValue = currentDaySchedule.muadzinIsya,
-            imamPhotoUri = currentDaySchedule.fotoImamIsya,
-            muadzinPhotoUri = currentDaySchedule.fotoMuadzinIsya,
-            onImamChange = { updateDay(currentDaySchedule.copy(imamIsya = it)) },
-            onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinIsya = it)) },
-            onImamPhotoClick = { pickPhoto("imam_isya") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_isya") },
-            onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamIsya = null)) },
-            onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinIsya = null)) }
-        )
+PrayerOfficerRow(
+    prayerName = "Maghrib",
+    imamValue = currentDaySchedule.imamMaghrib,
+    muadzinValue = currentDaySchedule.muadzinMaghrib,
+    imamPhotoUri = currentDaySchedule.fotoImamMaghrib,
+    muadzinPhotoUri = currentDaySchedule.fotoMuadzinMaghrib,
+    onImamChange = { updateDay(currentDaySchedule.copy(imamMaghrib = it)) },
+    onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinMaghrib = it)) },
+    onImamPhotoClick = { pickPhoto("imam_maghrib") },
+    onMuadzinPhotoClick = { pickPhoto("muadzin_maghrib") },
+    onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamMaghrib = null)) },
+    onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinMaghrib = null)) }
+)
 
+PrayerOfficerRow(
+    prayerName = "Isya",
+    imamValue = currentDaySchedule.imamIsya,
+    muadzinValue = currentDaySchedule.muadzinIsya,
+    imamPhotoUri = currentDaySchedule.fotoImamIsya,
+    muadzinPhotoUri = currentDaySchedule.fotoMuadzinIsya,
+    onImamChange = { updateDay(currentDaySchedule.copy(imamIsya = it)) },
+    onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinIsya = it)) },
+    onImamPhotoClick = { pickPhoto("imam_isya") },
+    onMuadzinPhotoClick = { pickPhoto("muadzin_isya") },
+    onImamPhotoDelete = { updateDay(currentDaySchedule.copy(fotoImamIsya = null)) },
+    onMuadzinPhotoDelete = { updateDay(currentDaySchedule.copy(fotoMuadzinIsya = null)) }
+)
         // ---------- KHATIB & KAJIAN ----------
         Column(
             modifier = Modifier
@@ -370,7 +367,6 @@ fun WeeklyOfficersSettingsPane(
                 color = IslamicGoldLight
             )
 
-            // Khatib Jum'at
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -403,7 +399,6 @@ fun WeeklyOfficersSettingsPane(
                 )
             }
 
-            // Ustadz Kajian
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
