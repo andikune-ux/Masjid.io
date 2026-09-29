@@ -2,214 +2,291 @@ package com.example.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.data.model.*
+import com.example.data.model.AppSettings
+import com.example.data.model.WeeklyOfficer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
-import org.json.JSONObject
 
+/**
+ * SettingsRepository — Simpan/load semua pengaturan aplikasi.
+ * Menggunakan SharedPreferences + StateFlow untuk reactive update.
+ */
 class SettingsRepository(context: Context) {
+
     private val prefs: SharedPreferences =
         context.getSharedPreferences("masjid_io_settings", Context.MODE_PRIVATE)
 
     private val _settings = MutableStateFlow(loadSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
-    val settingsFlow: StateFlow<AppSettings> get() = settings
+    val settingsFlow: StateFlow<AppSettings> = _settings.asStateFlow()
 
+    // ============================================================
+    // PUBLIC — Update Settings
+    // ============================================================
     fun updateSettings(newSettings: AppSettings) {
         saveSettings(newSettings)
         _settings.value = newSettings
     }
 
+    // ============================================================
+    // PRIVATE — Load Settings dari SharedPreferences
+    // ============================================================
     private fun loadSettings(): AppSettings {
-        val jsonStr = prefs.getString("settings_json", null) ?: return AppSettings()
-        return try {
-            val json = JSONObject(jsonStr)
+        return AppSettings(
+            // Identitas
+            mosqueName = prefs.getString("mosqueName", "Masjid Al-Ikhlas") ?: "Masjid Al-Ikhlas",
+            mosqueAddress = prefs.getString("mosqueAddress", "") ?: "",
+            mosqueTakmir = prefs.getString("mosqueTakmir", "") ?: "",
+            logoUri = prefs.getString("logoUri", null),
 
-            // Weekly officers schedule (List of DailyOfficerItem)
-            val weeklyArray = json.optJSONArray("weeklyOfficers")
-            val weeklyList = mutableListOf<DailyOfficerItem>()
-            val defaultList = AppSettings.createDefaultWeeklySchedule()
+            // Lokasi
+            isGpsEnabled = prefs.getBoolean("isGpsEnabled", true),
+            country = prefs.getString("country", "Indonesia") ?: "Indonesia",
+            province = prefs.getString("province", "DKI Jakarta") ?: "DKI Jakarta",
+            city = prefs.getString("city", "Jakarta Pusat") ?: "Jakarta Pusat",
+            district = prefs.getString("district", "") ?: "",
+            latitude = prefs.getFloat("latitude", -6.1754f).toDouble(),
+            longitude = prefs.getFloat("longitude", 106.8272f).toDouble(),
+            calculationMethod = prefs.getString("calculationMethod", "Kemenag") ?: "Kemenag",
 
-            if (weeklyArray != null && weeklyArray.length() > 0) {
-                for (i in 0 until weeklyArray.length()) {
-                    val dJson = weeklyArray.getJSONObject(i)
-                    weeklyList.add(
-                        DailyOfficerItem(
-                            dayName = dJson.optString("dayName", defaultList.getOrNull(i)?.dayName ?: "Hari"),
-                            imamSubuh = dJson.optString("imamSubuh", "Ust. H. Ahmad Fauzi"),
-                            muadzinSubuh = dJson.optString("muadzinSubuh", "Ust. Ridwan Kamil"),
-                            imamDzuhur = dJson.optString("imamDzuhur", "Ust. M. Ridho, M.Ag"),
-                            muadzinDzuhur = dJson.optString("muadzinDzuhur", "Ust. Bilal Sanjaya"),
-                            imamAshar = dJson.optString("imamAshar", "Ust. Dr. H. Lukman"),
-                            muadzinAshar = dJson.optString("muadzinAshar", "Ust. Ilham Pratama"),
-                            imamMaghrib = dJson.optString("imamMaghrib", "Ust. Ahmad Syarifuddin"),
-                            muadzinMaghrib = dJson.optString("muadzinMaghrib", "Ust. Ridwan Ar-Rasyid"),
-                            imamIsya = dJson.optString("imamIsya", "Ust. KH. Abdullah Gymnast"),
-                            muadzinIsya = dJson.optString("muadzinIsya", "Ust. Farhan Azis"),
-                            khatibJumat = dJson.optString("khatibJumat", "Prof. Dr. KH. Zainuddin MZ"),
-                            temaJumat = dJson.optString("temaJumat", "Menjaga Ukhuwah & Istiqomah di Era Modern"),
-                            ustadzKajian = dJson.optString("ustadzKajian", "Ust. Hanan Attaki, Lc"),
-                            temaKajian = dJson.optString("temaKajian", "Tafsir Ayat-Ayat Rahmat & Tazkiyatun Nafs"),
-                            fotoImamSubuh = dJson.optString("fotoImamSubuh", "").ifBlank { null },
-                            fotoMuadzinSubuh = dJson.optString("fotoMuadzinSubuh", "").ifBlank { null },
-                            fotoImamDzuhur = dJson.optString("fotoImamDzuhur", "").ifBlank { null },
-                            fotoMuadzinDzuhur = dJson.optString("fotoMuadzinDzuhur", "").ifBlank { null },
-                            fotoImamAshar = dJson.optString("fotoImamAshar", "").ifBlank { null },
-                            fotoMuadzinAshar = dJson.optString("fotoMuadzinAshar", "").ifBlank { null },
-                            fotoImamMaghrib = dJson.optString("fotoImamMaghrib", "").ifBlank { null },
-                            fotoMuadzinMaghrib = dJson.optString("fotoMuadzinMaghrib", "").ifBlank { null },
-                            fotoImamIsya = dJson.optString("fotoImamIsya", "").ifBlank { null },
-                            fotoMuadzinIsya = dJson.optString("fotoMuadzinIsya", "").ifBlank { null },
-                            fotoKhatibJumat = dJson.optString("fotoKhatibJumat", "").ifBlank { null },
-                            fotoUstadzKajian = dJson.optString("fotoUstadzKajian", "").ifBlank { null }
-                        )
-                    )
-                }
-            } else {
-                weeklyList.addAll(defaultList)
-            }
+            // Running Text
+            runningText = prefs.getString("runningText", "Selamat datang di Masjid") ?: "",
+            runningTextSpeed = prefs.getFloat("runningTextSpeed", 1.0f),
+            runningTextFontSize = prefs.getFloat("runningTextFontSize", 20f),
 
-            val audioModeStr = json.optString("audioMode", AudioMode.BEEP_ONLY.name)
-            val audioMode = try { AudioMode.valueOf(audioModeStr) } catch (e: Exception) { AudioMode.BEEP_ONLY }
+            // Petugas
+            weeklyOfficers = emptyList(),
+            officerPhotoUri = prefs.getString("officerPhotoUri", null),
 
-            val bgModeStr = json.optString("backgroundMode", BackgroundMode.NATURE.name)
-            val bgMode = try { BackgroundMode.valueOf(bgModeStr) } catch (e: Exception) { BackgroundMode.NATURE }
+            // Audio
+            audioMode = prefs.getString("audioMode", "BEEP_ONLY") ?: "BEEP_ONLY",
+            beepVolume = prefs.getFloat("beepVolume", 1.0f),
+            beepCount = prefs.getInt("beepCount", 5),
+            beepDuration = prefs.getInt("beepDuration", 1500),
+            beepGap = prefs.getInt("beepGap", 2000),
+            adzanFile = prefs.getString("adzanFile", "Makkah") ?: "Makkah",
+            adzanVolume = prefs.getFloat("adzanVolume", 0.85f),
 
-            AppSettings(
-                mosqueName = json.optString("mosqueName", "MASJID AL-IKHLAS"),
-                mosqueAddress = json.optString("mosqueAddress", "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat"),
-                mosqueTakmir = json.optString("mosqueTakmir", "H. Muhammad Syarif, S.E."),
-                isGpsEnabled = json.optBoolean("isGpsEnabled", false),
-                country = json.optString("country", "Indonesia"),
-                province = json.optString("province", "DKI Jakarta"),
-                city = json.optString("city", "Jakarta Pusat"),
-                district = json.optString("district", "Gambir"),
-                latitude = json.optDouble("latitude", -6.1754),
-                longitude = json.optDouble("longitude", 106.8272),
-                calculationMethod = json.optString("calculationMethod", "Kementerian Agama RI (Kemenag)"),
-                runningText = json.optString("runningText", "═══ Selamat datang di Masjid Al-Ikhlas ═══ Luruskan dan rapatkan shaf sholat ═══ Harap nonaktifkan nada dering ponsel ═══ Infaq & Shadaqah dapat melalui Rek BSI: 7123-4567-89 a.n Masjid Al-Ikhlas ═══ Kajian Rutin Sabtu Ba'da Maghrib bersama Ust. Hanan Attaki, Lc ═══"),
-                runningTextSpeed = json.optInt("runningTextSpeed", 2),
-                runningTextFontSize = json.optInt("runningTextFontSize", 18),
-                weeklyOfficers = weeklyList,
-                officerPhotoUri = json.optString("officerPhotoUri", "").ifBlank { null },
-                audioMode = audioMode,
-                beepVolume = json.optInt("beepVolume", 70),
-                beepCount = json.optInt("beepCount", 3),
-                adzanFile = json.optString("adzanFile", "Makkah"),
-                adzanVolume = json.optInt("adzanVolume", 85),
-                adzanWaitMinutes = json.optInt("adzanWaitMinutes", 5),
-                iqamahWaitMinutes = json.optInt("iqamahWaitMinutes", 10),
-                qobliyahWaitMinutes = json.optInt("qobliyahWaitMinutes", 5),
-                prayerFocusDurationMinutes = json.optInt("prayerFocusDurationMinutes", 30),
-                focusModeDurationMinutes = json.optInt("focusModeDurationMinutes", 30),
-                backgroundMode = bgMode,
-                customBackgroundUri = json.optString("customBackgroundUri", "").ifBlank { null },
-                animationsEnabled = json.optBoolean("animationsEnabled", true),
-                showBirdsAnimation = json.optBoolean("showBirdsAnimation", true),
-                qrisPhotoUri = json.optString("qrisPhotoUri", "").ifBlank { null },
-                qrisIntervalMinutes = json.optInt("qrisIntervalMinutes", 15),
-                qrisDisplayDurationSeconds = json.optInt("qrisDisplayDurationSeconds", 30),
-                bankName = json.optString("bankName", "Bank Syariah Indonesia (BSI)"),
-                bankAccountNumber = json.optString("bankAccountNumber", "7123-4567-890"),
-                bankAccountHolder = json.optString("bankAccountHolder", "DKM MASJID AL-IKHLAS"),
-                wisdomCardAnimation = json.optString("wisdomCardAnimation", "Fade"),
-                wisdomCardIntervalSeconds = json.optInt("wisdomCardIntervalSeconds", 12),
-                videoEnabled = json.optBoolean("videoEnabled", false),
-                videoUri = json.optString("videoUri", "").ifBlank { null },
-                videoSmartFullscreen = json.optBoolean("videoSmartFullscreen", true),
-                ramadhanModeEnabled = json.optBoolean("ramadhanModeEnabled", false),
-                showImsakIftarCountdown = json.optBoolean("showImsakIftarCountdown", true),
-                pinCode = json.optString("pinCode", "1234"),
-                kioskModeEnabled = json.optBoolean("kioskModeEnabled", true),
-                autoStartOnBoot = json.optBoolean("autoStartOnBoot", true),
-                isManualTimeEnabled = json.optBoolean("isManualTimeEnabled", false),
-                manualTimeOffsetSeconds = json.optLong("manualTimeOffsetSeconds", 0L),
-                keepScreenOn = json.optBoolean("keepScreenOn", true)
-            )
-        } catch (e: Exception) {
-            AppSettings()
-        }
+            // Waktu Fokus
+            adzanWaitMinutes = prefs.getInt("adzanWaitMinutes", 3),
+            iqamahWaitMinutes = prefs.getInt("iqamahWaitMinutes", 10),
+            qobliyahWaitMinutes = prefs.getInt("qobliyahWaitMinutes", 5),
+            prayerFocusDurationMinutes = prefs.getInt("prayerFocusDurationMinutes", 30),
+            focusModeDurationMinutes = prefs.getInt("focusModeDurationMinutes", 30),
+
+            // Tampilan
+            backgroundMode = prefs.getString("backgroundMode", "NATURE") ?: "NATURE",
+            customBackgroundUri = prefs.getString("customBackgroundUri", null),
+            animationsEnabled = prefs.getBoolean("animationsEnabled", true),
+            showBirdsAnimation = prefs.getBoolean("showBirdsAnimation", true),
+
+            // QRIS & Bank
+            qrisPhotoUri = prefs.getString("qrisPhotoUri", null),
+            qrisIntervalMinutes = prefs.getInt("qrisIntervalMinutes", 5),
+            qrisDisplayDurationSeconds = prefs.getInt("qrisDisplayDurationSeconds", 15),
+            bankName = prefs.getString("bankName", "BSI") ?: "BSI",
+            bankAccountNumber = prefs.getString("bankAccountNumber", "") ?: "",
+            bankAccountHolder = prefs.getString("bankAccountHolder", "") ?: "",
+
+            // Nasihat
+            wisdomCardAnimation = prefs.getBoolean("wisdomCardAnimation", true),
+            wisdomCardIntervalSeconds = prefs.getInt("wisdomCardIntervalSeconds", 30),
+
+            // Video
+            videoEnabled = prefs.getBoolean("videoEnabled", true),
+            videoUri = prefs.getString("videoUri", null),
+            videoSmartFullscreen = prefs.getBoolean("videoSmartFullscreen", false),
+
+            // Foto
+            photoSlideshowEnabled = prefs.getBoolean("photoSlideshowEnabled", false),
+            photoIntervalSeconds = prefs.getInt("photoIntervalSeconds", 10),
+
+            // Ramadhan
+            ramadhanModeEnabled = prefs.getBoolean("ramadhanModeEnabled", false),
+            showImsakIftarCountdown = prefs.getBoolean("showImsakIftarCountdown", true),
+
+            // Keamanan & Sistem
+            pinCode = prefs.getString("pinCode", "140399") ?: "140399",
+            kioskModeEnabled = prefs.getBoolean("kioskModeEnabled", true),
+            autoStartOnBoot = prefs.getBoolean("autoStartOnBoot", true),
+            isManualTimeEnabled = prefs.getBoolean("isManualTimeEnabled", false),
+            manualTimeOffsetSeconds = prefs.getInt("manualTimeOffsetSeconds", 0),
+            keepScreenOn = prefs.getBoolean("keepScreenOn", true)
+        )
     }
 
+    // ============================================================
+    // PRIVATE — Save Settings ke SharedPreferences
+    // ============================================================
     private fun saveSettings(s: AppSettings) {
-        val json = JSONObject().apply {
-            put("mosqueName", s.mosqueName)
-            put("mosqueAddress", s.mosqueAddress)
-            put("mosqueTakmir", s.mosqueTakmir)
-            put("isGpsEnabled", s.isGpsEnabled)
-            put("country", s.country)
-            put("province", s.province)
-            put("city", s.city)
-            put("district", s.district)
-            put("latitude", s.latitude)
-            put("longitude", s.longitude)
-            put("calculationMethod", s.calculationMethod)
-            put("runningText", s.runningText)
-            put("runningTextSpeed", s.runningTextSpeed)
-            put("runningTextFontSize", s.runningTextFontSize)
+        prefs.edit().apply {
+            // Identitas
+            putString("mosqueName", s.mosqueName)
+            putString("mosqueAddress", s.mosqueAddress)
+            putString("mosqueTakmir", s.mosqueTakmir)
+            putString("logoUri", s.logoUri)
 
-            // Weekly officers JSON Array
-            val weeklyArray = JSONArray()
-            s.weeklyOfficers.forEach { dayItem ->
-                val dJson = JSONObject().apply {
-                    put("dayName", dayItem.dayName)
-                    put("imamSubuh", dayItem.imamSubuh)
-                    put("muadzinSubuh", dayItem.muadzinSubuh)
-                    put("imamDzuhur", dayItem.imamDzuhur)
-                    put("muadzinDzuhur", dayItem.muadzinDzuhur)
-                    put("imamAshar", dayItem.imamAshar)
-                    put("muadzinAshar", dayItem.muadzinAshar)
-                    put("imamMaghrib", dayItem.imamMaghrib)
-                    put("muadzinMaghrib", dayItem.muadzinMaghrib)
-                    put("imamIsya", dayItem.imamIsya)
-                    put("muadzinIsya", dayItem.muadzinIsya)
-                    put("khatibJumat", dayItem.khatibJumat)
-                    put("temaJumat", dayItem.temaJumat)
-                    put("ustadzKajian", dayItem.ustadzKajian)
-                    put("temaKajian", dayItem.temaKajian)
-                }
-                weeklyArray.put(dJson)
-            }
-            put("weeklyOfficers", weeklyArray)
+            // Lokasi
+            putBoolean("isGpsEnabled", s.isGpsEnabled)
+            putString("country", s.country)
+            putString("province", s.province)
+            putString("city", s.city)
+            putString("district", s.district)
+            putFloat("latitude", s.latitude.toFloat())
+            putFloat("longitude", s.longitude.toFloat())
+            putString("calculationMethod", s.calculationMethod)
 
-            put("officerPhotoUri", s.officerPhotoUri ?: "")
-            put("audioMode", s.audioMode.name)
-            put("beepVolume", s.beepVolume)
-            put("beepCount", s.beepCount)
-            put("adzanFile", s.adzanFile)
-            put("adzanVolume", s.adzanVolume)
-            put("adzanWaitMinutes", s.adzanWaitMinutes)
-            put("iqamahWaitMinutes", s.iqamahWaitMinutes)
-            put("qobliyahWaitMinutes", s.qobliyahWaitMinutes)
-            put("prayerFocusDurationMinutes", s.prayerFocusDurationMinutes)
-            put("focusModeDurationMinutes", s.focusModeDurationMinutes)
-            put("backgroundMode", s.backgroundMode.name)
-            put("customBackgroundUri", s.customBackgroundUri ?: "")
-            put("animationsEnabled", s.animationsEnabled)
-            put("showBirdsAnimation", s.showBirdsAnimation)
-            put("qrisPhotoUri", s.qrisPhotoUri ?: "")
-            put("qrisIntervalMinutes", s.qrisIntervalMinutes)
-            put("qrisDisplayDurationSeconds", s.qrisDisplayDurationSeconds)
-            put("bankName", s.bankName)
-            put("bankAccountNumber", s.bankAccountNumber)
-            put("bankAccountHolder", s.bankAccountHolder)
-            put("wisdomCardAnimation", s.wisdomCardAnimation)
-            put("wisdomCardIntervalSeconds", s.wisdomCardIntervalSeconds)
-            put("videoEnabled", s.videoEnabled)
-            put("videoUri", s.videoUri ?: "")
-            put("videoSmartFullscreen", s.videoSmartFullscreen)
-            put("ramadhanModeEnabled", s.ramadhanModeEnabled)
-            put("showImsakIftarCountdown", s.showImsakIftarCountdown)
-            put("pinCode", s.pinCode)
-            put("kioskModeEnabled", s.kioskModeEnabled)
-            put("autoStartOnBoot", s.autoStartOnBoot)
-            put("isManualTimeEnabled", s.isManualTimeEnabled)
-            put("manualTimeOffsetSeconds", s.manualTimeOffsetSeconds)
-            put("keepScreenOn", s.keepScreenOn)
+            // Running Text
+            putString("runningText", s.runningText)
+            putFloat("runningTextSpeed", s.runningTextSpeed)
+            putFloat("runningTextFontSize", s.runningTextFontSize)
+
+            // Petugas
+            putString("officerPhotoUri", s.officerPhotoUri)
+
+            // Audio
+            putString("audioMode", s.audioMode)
+            putFloat("beepVolume", s.beepVolume)
+            putInt("beepCount", s.beepCount)
+            putInt("beepDuration", s.beepDuration)
+            putInt("beepGap", s.beepGap)
+            putString("adzanFile", s.adzanFile)
+            putFloat("adzanVolume", s.adzanVolume)
+
+            // Waktu Fokus
+            putInt("adzanWaitMinutes", s.adzanWaitMinutes)
+            putInt("iqamahWaitMinutes", s.iqamahWaitMinutes)
+            putInt("qobliyahWaitMinutes", s.qobliyahWaitMinutes)
+            putInt("prayerFocusDurationMinutes", s.prayerFocusDurationMinutes)
+            putInt("focusModeDurationMinutes", s.focusModeDurationMinutes)
+
+            // Tampilan
+            putString("backgroundMode", s.backgroundMode)
+            putString("customBackgroundUri", s.customBackgroundUri)
+            putBoolean("animationsEnabled", s.animationsEnabled)
+            putBoolean("showBirdsAnimation", s.showBirdsAnimation)
+
+            // QRIS & Bank
+            putString("qrisPhotoUri", s.qrisPhotoUri)
+            putInt("qrisIntervalMinutes", s.qrisIntervalMinutes)
+            putInt("qrisDisplayDurationSeconds", s.qrisDisplayDurationSeconds)
+            putString("bankName", s.bankName)
+            putString("bankAccountNumber", s.bankAccountNumber)
+            putString("bankAccountHolder", s.bankAccountHolder)
+
+            // Nasihat
+            putBoolean("wisdomCardAnimation", s.wisdomCardAnimation)
+            putInt("wisdomCardIntervalSeconds", s.wisdomCardIntervalSeconds)
+
+            // Video
+            putBoolean("videoEnabled", s.videoEnabled)
+            putString("videoUri", s.videoUri)
+            putBoolean("videoSmartFullscreen", s.videoSmartFullscreen)
+
+            // Foto
+            putBoolean("photoSlideshowEnabled", s.photoSlideshowEnabled)
+            putInt("photoIntervalSeconds", s.photoIntervalSeconds)
+
+            // Ramadhan
+            putBoolean("ramadhanModeEnabled", s.ramadhanModeEnabled)
+            putBoolean("showImsakIftarCountdown", s.showImsakIftarCountdown)
+
+            // Keamanan & Sistem
+            putString("pinCode", s.pinCode)
+            putBoolean("kioskModeEnabled", s.kioskModeEnabled)
+            putBoolean("autoStartOnBoot", s.autoStartOnBoot)
+            putBoolean("isManualTimeEnabled", s.isManualTimeEnabled)
+            putInt("manualTimeOffsetSeconds", s.manualTimeOffsetSeconds)
+            putBoolean("keepScreenOn", s.keepScreenOn)
+        }.apply()
+    }
+
+    // ============================================================
+    // BARU — Export Ringkasan untuk Backup Aman
+    // ============================================================
+    fun exportSummary(): String {
+        val s = _settings.value
+        return buildString {
+            // Identitas
+            appendLine("IDENTITAS MASJID")
+            appendLine("- Nama Masjid : ${s.mosqueName}")
+            appendLine("- Alamat      : ${s.mosqueAddress}")
+            appendLine("- Takmir      : ${s.mosqueTakmir}")
+            appendLine()
+
+            // Lokasi
+            appendLine("LOKASI")
+            appendLine("- Kota        : ${s.city}")
+            appendLine("- Provinsi    : ${s.province}")
+            appendLine("- Latitude    : ${s.latitude}")
+            appendLine("- Longitude   : ${s.longitude}")
+            appendLine("- Metode      : ${s.calculationMethod}")
+            appendLine()
+
+            // Tampilan
+            appendLine("TAMPILAN")
+            appendLine("- Background Mode : ${s.backgroundMode}")
+            appendLine("- Keep Screen On  : ${s.keepScreenOn}")
+            appendLine("- Kiosk Mode      : ${s.kioskModeEnabled}")
+            appendLine("- Animasi         : ${s.animationsEnabled}")
+            appendLine("- Burung Terbang  : ${s.showBirdsAnimation}")
+            appendLine()
+
+            // Audio
+            appendLine("AUDIO")
+            appendLine("- Mode Audio    : ${s.audioMode}")
+            appendLine("- Volume Beep   : ${(s.beepVolume * 100).toInt()}%")
+            appendLine("- Jumlah Beep   : ${s.beepCount}x")
+            appendLine("- Durasi Beep   : ${s.beepDuration}ms")
+            appendLine("- Jeda Beep     : ${s.beepGap}ms")
+            appendLine("- File Adzan    : ${s.adzanFile}")
+            appendLine("- Volume Adzan  : ${(s.adzanVolume * 100).toInt()}%")
+            appendLine()
+
+            // Video & Foto
+            appendLine("VIDEO & FOTO")
+            appendLine("- Video Enabled     : ${s.videoEnabled}")
+            appendLine("- Video Smart Full  : ${s.videoSmartFullscreen}")
+            appendLine("- Photo Slideshow   : ${s.photoSlideshowEnabled}")
+            appendLine("- Interval Foto     : ${s.photoIntervalSeconds} detik")
+            appendLine()
+
+            // Running Text
+            appendLine("RUNNING TEXT")
+            appendLine("- Isi Running Text : ${s.runningText}")
+            appendLine("- Kecepatan        : ${s.runningTextSpeed}x")
+            appendLine("- Ukuran Font      : ${s.runningTextFontSize}")
+            appendLine()
+
+            // Mode Fokus
+            appendLine("MODE FOKUS")
+            appendLine("- Durasi Mode Fokus  : ${s.focusModeDurationMinutes} menit")
+            appendLine("- Jeda Iqamah        : ${s.iqamahWaitMinutes} menit")
+            appendLine("- Countdown Qobliyah : ${s.qobliyahWaitMinutes} menit")
+            appendLine()
+
+            // QRIS
+            appendLine("DONASI QRIS")
+            appendLine("- Bank         : ${s.bankName}")
+            appendLine("- No Rekening  : ${s.bankAccountNumber}")
+            appendLine("- Atas Nama    : ${s.bankAccountHolder}")
+            appendLine("- QRIS Foto    : ${if (s.qrisPhotoUri.isNullOrEmpty()) "(kosong)" else "ADA"}")
+            appendLine()
+
+            // Keamanan
+            appendLine("KEAMANAN")
+            appendLine("- PIN           : ${s.pinCode}")
+            appendLine("- Kiosk Mode    : ${s.kioskModeEnabled}")
+            appendLine("- Auto Start    : ${s.autoStartOnBoot}")
+            appendLine("- Manual Time   : ${s.isManualTimeEnabled}")
+            appendLine()
+
+            // WhatsApp Fonnte
+            appendLine("WHATSAPP FONNTE")
+            appendLine("- WA Report Enabled : (lihat di Opsi Developer)")
+            appendLine("- Token Fonnte      : (lihat di Opsi Developer)")
+            appendLine("- Group ID          : (lihat di Opsi Developer)")
         }
-
-        prefs.edit().putString("settings_json", json.toString()).apply()
     }
 }
