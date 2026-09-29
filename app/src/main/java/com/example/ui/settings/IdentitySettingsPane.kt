@@ -40,8 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -83,7 +81,7 @@ fun IdentitySettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ===== HEADER =====
+        // HEADER
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Mosque,
@@ -107,7 +105,7 @@ fun IdentitySettingsPane(
             }
         }
 
-        // ===== LOGO MASJID =====
+        // LOGO MASJID
         Text(
             text = "LOGO MASJID",
             fontSize = 14.sp,
@@ -136,7 +134,6 @@ fun IdentitySettingsPane(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Preview logo
                 Box(
                     modifier = Modifier
                         .size(120.dp)
@@ -196,7 +193,7 @@ fun IdentitySettingsPane(
             }
         }
 
-        // ===== NAMA MASJID =====
+        // NAMA MASJID
         Text(
             text = "INFORMASI MASJID",
             fontSize = 14.sp,
@@ -263,21 +260,9 @@ private fun TvActionButton(
         label = "btn_scale"
     )
 
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isFocused) 12.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "btn_shadow"
-    )
-
     Row(
         modifier = Modifier
             .scale(scale)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(10.dp),
-                ambientColor = Color(0x88FFD700),
-                spotColor = Color(0x88FFD700)
-            )
             .clip(RoundedCornerShape(10.dp))
             .background(if (isOutlined) Color.Transparent else backgroundColor)
             .border(
