@@ -38,6 +38,8 @@ import com.example.ui.remote.RemoteServer
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.MasjidTheme
 import com.example.ui.theme.MosqueDeepBg
+import com.example.util.CrashAutoShowHelper
+import com.example.util.CrashLogDialog
 import com.example.util.CrashReporter
 import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
@@ -69,8 +71,17 @@ class MainActivity : ComponentActivity() {
         settingsRepository = SettingsRepository(this)
         soundManager = SoundManager(this)
 
+        // ============ CEK PENDING CRASH ============
+        val hasPendingCrash = CrashAutoShowHelper.hasPendingCrash(this)
+        val pendingCrashLog = if (hasPendingCrash) {
+            CrashAutoShowHelper.getLastCrashLog(this)
+        } else ""
+
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
+
+            // ============ DIALOG CRASH AUTO-SHOW ============
+            var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
             // ============ SYNC FONNTE ============
             LaunchedEffect(
@@ -193,7 +204,7 @@ class MainActivity : ComponentActivity() {
                     }
                 } catch (_: Exception) { }
             }
-
+            
             // ============ WEATHER ============
             var currentTemperature by remember { mutableStateOf(30) }
             var currentWeatherCondition by remember { mutableStateOf("Cerah") }
@@ -247,7 +258,7 @@ class MainActivity : ComponentActivity() {
                 val hDate = IslamicCalendar.getHijriDate(today)
                 IslamicCalendar.getUpcomingEvent(hDate)
             }
-            
+
             LaunchedEffect(
                 settings.latitude,
                 settings.longitude,
@@ -345,90 +356,101 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MosqueDeepBg
                 ) {
-                    Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                        when (screen) {
-                            AppScreen.HOME -> HomeScreen(
-                                settings = settings,
-                                schedule = prayerSchedule,
-                                currentTimeString = currentTimeString,
-                                hijriDateString = hijriDateString,
-                                gregorianDateString = gregorianDateString,
-                                upcomingEvent = upcomingEvent,
-                                temperature = currentTemperature,
-                                weatherCondition = currentWeatherCondition,
-                                onSettingsClick = { showPinDialog = true }
-                            )
-                            AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-                                prayerId = focusPrayerId,
-                                prayerTimeFormatted = focusPrayerTime,
-                                totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                                iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                                qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                                settings = settings,
-                                onDismiss = { currentScreen = AppScreen.HOME }
-                            )
-                            AppScreen.SETTINGS -> SettingsScreen(
-                                currentSettings = settings,
-                                soundManager = soundManager,
-                                isRemoteServerRunning = isRemoteServerRunning,
-                                onSaveSettings = { updated ->
-                                    settingsRepository.updateSettings(updated)
-                                    currentScreen = AppScreen.HOME
+                    // ============ DIALOG CRASH (PALING ATAS) ============
+                    if (showCrashDialog) {
+                        CrashLogDialog(
+                            log = pendingCrashLog,
+                            onDismiss = {
+                                CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                                showCrashDialog = false
+                            }
+                        )
+                    } else {
+                        Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                            when (screen) {
+                                AppScreen.HOME -> HomeScreen(
+                                    settings = settings,
+                                    schedule = prayerSchedule,
+                                    currentTimeString = currentTimeString,
+                                    hijriDateString = hijriDateString,
+                                    gregorianDateString = gregorianDateString,
+                                    upcomingEvent = upcomingEvent,
+                                    temperature = currentTemperature,
+                                    weatherCondition = currentWeatherCondition,
+                                    onSettingsClick = { showPinDialog = true }
+                                )
+                                AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                                    prayerId = focusPrayerId,
+                                    prayerTimeFormatted = focusPrayerTime,
+                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                                    settings = settings,
+                                    onDismiss = { currentScreen = AppScreen.HOME }
+                                )
+                                AppScreen.SETTINGS -> SettingsScreen(
+                                    currentSettings = settings,
+                                    soundManager = soundManager,
+                                    isRemoteServerRunning = isRemoteServerRunning,
+                                    onSaveSettings = { updated ->
+                                        settingsRepository.updateSettings(updated)
+                                        currentScreen = AppScreen.HOME
+                                    },
+                                    onBack = { currentScreen = AppScreen.HOME },
+                                    onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW }
+                                )
+                                AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                                    settings = settings,
+                                    onDismiss = { currentScreen = AppScreen.SETTINGS }
+                                )
+                                AppScreen.RAMADHAN -> RamadhanOverlay(
+                                    settings = settings,
+                                    currentTimeString = currentTimeString,
+                                    imsakTime = prayerSchedule.imsak,
+                                    maghribTime = prayerSchedule.maghrib,
+                                    secondsToImsak = secondsToImsak,
+                                    secondsToMaghrib = secondsToMaghrib,
+                                    onDismiss = {
+                                        currentScreen = AppScreen.HOME
+                                        userDismissedRamadhan = true
+                                    }
+                                )
+                            }
+                        }
+
+                        // PIN DIALOG
+                        if (showPinDialog) {
+                            PinDialog(
+                                correctPin = settings.pinCode,
+                                onSuccess = {
+                                    showPinDialog = false
+                                    if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
+                                    else currentScreen = AppScreen.SETTINGS
                                 },
-                                onBack = { currentScreen = AppScreen.HOME },
-                                onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW }
-                            )
-                            AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-                                settings = settings,
-                                onDismiss = { currentScreen = AppScreen.SETTINGS }
-                            )
-                            AppScreen.RAMADHAN -> RamadhanOverlay(
-                                settings = settings,
-                                currentTimeString = currentTimeString,
-                                imsakTime = prayerSchedule.imsak,
-                                maghribTime = prayerSchedule.maghrib,
-                                secondsToImsak = secondsToImsak,
-                                secondsToMaghrib = secondsToMaghrib,
-                                onDismiss = {
-                                    currentScreen = AppScreen.HOME
-                                    userDismissedRamadhan = true
-                                }
+                                onDismiss = { showPinDialog = false }
                             )
                         }
-                    }
 
-                    // PIN DIALOG
-                    if (showPinDialog) {
-                        PinDialog(
-                            correctPin = settings.pinCode,
-                            onSuccess = {
-                                showPinDialog = false
-                                if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
-                                else currentScreen = AppScreen.SETTINGS
-                            },
-                            onDismiss = { showPinDialog = false }
-                        )
-                    }
-
-                    // UPDATE DIALOG
-                    if (showUpdateDialog && updateInfo != null) {
-                        val info = updateInfo!!
-                        UpdateDialog(
-                            currentVersion = info.currentVersion,
-                            latestVersion = info.latestVersion,
-                            releaseNotes = info.releaseNotes,
-                            // FORCE UPDATE: Debug APK bisa skip, Release APK harus update
-                            forceUpdate = !BuildConfig.DEBUG,
-                            downloadProgress = null,
-                            isDownloading = false,
-                            isInstalling = false,
-                            onUpdateClick = {
-                                showUpdateDialog = false
-                                currentScreen = AppScreen.SETTINGS
-                            },
-                            onLaterClick = { showUpdateDialog = false },
-                            onSkipClick = { showUpdateDialog = false }
-                        )
+                        // UPDATE DIALOG
+                        if (showUpdateDialog && updateInfo != null) {
+                            val info = updateInfo!!
+                            UpdateDialog(
+                                currentVersion = info.currentVersion,
+                                latestVersion = info.latestVersion,
+                                releaseNotes = info.releaseNotes,
+                                // FORCE UPDATE: Debug APK bisa skip, Release APK harus update
+                                forceUpdate = !BuildConfig.DEBUG,
+                                downloadProgress = null,
+                                isDownloading = false,
+                                isInstalling = false,
+                                onUpdateClick = {
+                                    showUpdateDialog = false
+                                    currentScreen = AppScreen.SETTINGS
+                                },
+                                onLaterClick = { showUpdateDialog = false },
+                                onSkipClick = { showUpdateDialog = false }
+                            )
+                        }
                     }
                 }
             }
