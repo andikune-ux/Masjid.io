@@ -2,8 +2,6 @@ package com.example.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
+import com.example.ui.components.TvSlider
 import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
@@ -56,7 +55,7 @@ fun RamadhanSettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // HEADER
+        // ===== HEADER =====
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.NightsStay,
@@ -82,15 +81,15 @@ fun RamadhanSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // TOGGLE AKTIF
+        // ===== MASTER TOGGLE =====
         TvToggle(
             label = "Aktifkan Mode Ramadhan",
-            description = "Aktifkan fitur khusus bulan Ramadhan",
+            description = "Fitur khusus Ramadhan akan tampil otomatis",
             isChecked = settings.ramadhanModeEnabled,
             onToggle = { onUpdate(settings.copy(ramadhanModeEnabled = it)) }
         )
 
-        // SECTION COUNTDOWN
+        // ===== COUNTDOWN & JADWAL =====
         Text(
             text = "COUNTDOWN & JADWAL",
             fontSize = 14.sp,
@@ -106,6 +105,32 @@ fun RamadhanSettingsPane(
             enabled = settings.ramadhanModeEnabled
         )
 
+        TvToggle(
+            label = "Tampilkan Imsak Besar",
+            description = "Waktu imsak tampil besar di overlay",
+            isChecked = settings.showImsakBesar,
+            onToggle = { onUpdate(settings.copy(showImsakBesar = it)) },
+            enabled = settings.ramadhanModeEnabled
+        )
+
+        TvToggle(
+            label = "Tampilkan Iftar Besar",
+            description = "Waktu iftar tampil besar di overlay",
+            isChecked = settings.showIftarBesar,
+            onToggle = { onUpdate(settings.copy(showIftarBesar = it)) },
+            enabled = settings.ramadhanModeEnabled
+        )
+
+        TvSlider(
+            label = "Jeda Imsak (menit)",
+            value = settings.ramadhanImsakOffsetMinutes.toFloat(),
+            onValueChange = { onUpdate(settings.copy(ramadhanImsakOffsetMinutes = it.toInt())) },
+            valueRange = 0f..30f,
+            steps = 29,
+            unit = " menit sebelum Subuh"
+        )
+
+        // ===== JADWAL TARAWIH =====
         TvToggle(
             label = "Jadwal Tarawih",
             description = "Tampilkan jadwal sholat tarawih",
@@ -129,6 +154,7 @@ fun RamadhanSettingsPane(
             )
         }
 
+        // ===== JADWAL KULTUM =====
         TvToggle(
             label = "Jadwal Kultum",
             description = "Tampilkan jadwal kultum Ramadhan",
@@ -158,6 +184,7 @@ fun RamadhanSettingsPane(
             )
         }
 
+        // ===== MENU SAHUR & IFTAR =====
         TvToggle(
             label = "Menu Sahur & Iftar",
             description = "Tampilkan menu sahur & iftar masjid",
@@ -166,7 +193,22 @@ fun RamadhanSettingsPane(
             enabled = settings.ramadhanModeEnabled
         )
 
-        // INFO
+        if (settings.showMenuSahurIftar && settings.ramadhanModeEnabled) {
+            SettingsInput(
+                label = "Menu Sahur",
+                value = settings.menuSahurText,
+                placeholder = "Contoh: Nasi uduk, telur balado, air mineral",
+                onValueChange = { onUpdate(settings.copy(menuSahurText = it)) }
+            )
+            SettingsInput(
+                label = "Menu Iftar",
+                value = settings.menuIftarText,
+                placeholder = "Contoh: Kolak, kurma, nasi kebuli",
+                onValueChange = { onUpdate(settings.copy(menuIftarText = it)) }
+            )
+        }
+        
+        // ===== INFO =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -183,7 +225,9 @@ fun RamadhanSettingsPane(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Pengaturan di sini akan otomatis tersimpan setelah Anda tekan SIMPAN PENGATURAN di atas.",
+                    text = "Mode Ramadhan akan otomatis muncul 1 jam sebelum Imsak " +
+                            "dan 1 jam sebelum Maghrib (Iftar). " +
+                            "Setelah Imsak/Iftar terlewati, overlay akan tertutup otomatis.",
                     fontSize = 12.sp,
                     color = TextPrimary,
                     lineHeight = 18.sp
@@ -192,6 +236,10 @@ fun RamadhanSettingsPane(
         }
     }
 }
+
+// ============================================================
+// KOMPONEN: INPUT TEKS
+// ============================================================
 
 @Composable
 private fun SettingsInput(
@@ -215,24 +263,24 @@ private fun SettingsInput(
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color(0x22000000))
                 .border(
-                    if (isFocused) 3.dp else 1.dp,
-                    if (isFocused) IslamicGoldLight else Color(0x44FFFFFF),
-                    RoundedCornerShape(10.dp)
+                    width = if (isFocused) 4.dp else 1.dp,
+                    color = if (isFocused) Color(0xFFFFE44D) else Color(0x44FFFFFF),
+                    shape = RoundedCornerShape(10.dp)
                 )
                 .padding(14.dp)
         ) {
             if (value.isEmpty()) {
                 Text(
                     text = placeholder,
-                    fontSize = 15.sp,
-                    color = TextSecondary
+                    fontSize = 14.sp,
+                    color = TextSecondary.copy(alpha = 0.5f)
                 )
             }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 textStyle = TextStyle(
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     color = TextPrimary
                 ),
                 modifier = Modifier
