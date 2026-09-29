@@ -140,6 +140,7 @@ dependencies {
     // ===== EXOPLAYER (MEDIA3) =====
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.4.1")
 
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.androidx.core)
