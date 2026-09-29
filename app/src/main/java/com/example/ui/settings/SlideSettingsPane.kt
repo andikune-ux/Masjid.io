@@ -3,6 +3,7 @@ package com.example.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,7 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
-import com.example.data.model.LaporanKeuangan
 import com.example.ui.components.TvSlider
 import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
@@ -57,7 +57,7 @@ fun SlideSettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ===== HEADER =====
+        // HEADER
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Slideshow,
@@ -81,7 +81,7 @@ fun SlideSettingsPane(
             }
         }
 
-        // ===== MASTER TOGGLE =====
+        // MASTER TOGGLE
         TvToggle(
             label = "Aktifkan Slide Otomatis",
             description = "Slide akan tampil bergantian saat tidak ada waktu sholat",
@@ -89,7 +89,7 @@ fun SlideSettingsPane(
             onToggle = { onUpdate(settings.copy(slideEnabled = it)) }
         )
 
-        // ===== PILIH SLIDE =====
+        // PILIH SLIDE
         Text(
             text = "PILIH SLIDE YANG DITAMPILKAN",
             fontSize = 14.sp,
@@ -121,7 +121,7 @@ fun SlideSettingsPane(
             enabled = settings.slideEnabled
         )
 
-        // ===== INTERVAL =====
+        // INTERVAL
         if (settings.slideEnabled) {
             Text(
                 text = "PENGATURAN ROTASI",
@@ -147,7 +147,7 @@ fun SlideSettingsPane(
             )
         }
 
-        // ===== DATA LAPORAN KEUANGAN =====
+        // DATA LAPORAN KEUANGAN
         if (settings.slideEnabled && settings.laporanSlideEnabled) {
             Text(
                 text = "DATA LAPORAN KEUANGAN",
@@ -211,7 +211,6 @@ fun SlideSettingsPane(
                 }
             )
 
-            // Periode
             TextInputField(
                 label = "Periode Mulai",
                 value = settings.laporanKeuangan.periodeMulai,
@@ -231,7 +230,7 @@ fun SlideSettingsPane(
             )
         }
 
-        // ===== INFO =====
+        // INFO
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -316,7 +315,6 @@ private fun LaporanInputField(
             BasicTextField(
                 value = textValue,
                 onValueChange = { newText ->
-                    // Hanya angka
                     val filtered = newText.filter { it.isDigit() }
                     textValue = filtered
                     filtered.toLongOrNull()?.let { onValueChange(it) }
