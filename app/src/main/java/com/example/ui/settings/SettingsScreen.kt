@@ -283,7 +283,7 @@ fun SettingsScreen(
 }
 
 // ============================================================
-// SIDEBAR ITEM — DENGAN FOKUS LEBIH TEBAL
+// SIDEBAR ITEM
 // ============================================================
 
 @Composable
@@ -313,9 +313,9 @@ private fun SidebarItem(
     )
 
     val borderColor = when {
-        isFocused -> Color(0xFFFFE44D)         // Emas muda
-        isSelected -> IslamicGold              // Emas
-        else -> Color(0x33FFFFFF)              // Transparan
+        isFocused -> Color(0xFFFFE44D)
+        isSelected -> IslamicGold
+        else -> Color(0x33FFFFFF)
     }
 
     val bgColor = when {
@@ -415,53 +415,8 @@ private fun TopBarIconButton(
 }
 
 // ============================================================
-// PANE-PANE SEDERHANA
+// PANE: RUNNING TEXT (yang masih di file ini)
 // ============================================================
-
-@Composable
-fun LocationSettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "LOKASI & WAKTU SHOLAT",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight
-        )
-        Text(
-            text = "Atur lokasi masjid untuk perhitungan jadwal sholat.",
-            fontSize = 13.sp,
-            color = TextSecondary
-        )
-        Text("Kota: ${settings.city}", fontSize = 15.sp, color = TextPrimary)
-        Text("Latitude: ${settings.latitude}", fontSize = 14.sp, color = TextPrimary)
-        Text("Longitude: ${settings.longitude}", fontSize = 14.sp, color = TextPrimary)
-    }
-}
-
-@Composable
-fun IdentitySettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "IDENTITAS MASJID",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight
-        )
-        Text("Nama Masjid: ${settings.mosqueName}", fontSize = 15.sp, color = TextPrimary)
-    }
-}
 
 @Composable
 fun RunningTextSettingsPane(
@@ -478,6 +433,15 @@ fun RunningTextSettingsPane(
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight
         )
-        Text("Isi: ${settings.runningText}", fontSize = 14.sp, color = TextPrimary)
+        Text(
+            text = "Teks berjalan di bagian bawah layar utama.",
+            fontSize = 13.sp,
+            color = TextSecondary
+        )
+        Text(
+            text = "Isi: ${settings.runningText}",
+            fontSize = 14.sp,
+            color = TextPrimary
+        )
     }
 }
