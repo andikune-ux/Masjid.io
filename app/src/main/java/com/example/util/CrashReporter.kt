@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.example.BuildConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -20,12 +23,16 @@ object CrashReporter {
     private var appContext: Context? = null
     private var previousHandler: Thread.UncaughtExceptionHandler? = null
 
+    // Konfigurasi Fonnte (WA)
+    @Volatile private var fonnteToken: String = ""
+    @Volatile private var fonnteGroupId: String = ""
+    @Volatile private var waReportEnabled: Boolean = false
+
     /**
      * Inisialisasi CrashReporter. Panggil di MainActivity.onCreate().
      */
     fun init(context: Context) {
         appContext = context.applicationContext
-
         previousHandler = Thread.getDefaultUncaughtExceptionHandler()
 
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -34,12 +41,19 @@ object CrashReporter {
             } catch (e: Exception) {
                 Log.e(TAG, "Gagal menyimpan crash: ${e.message}")
             }
-
-            // Teruskan ke handler sebelumnya (agar sistem tetap proses crash)
             previousHandler?.uncaughtException(thread, throwable)
         }
-
         Log.d(TAG, "CrashReporter aktif")
+    }
+
+    /**
+     * Update konfigurasi Fonnte — dipanggil dari MainActivity
+     * setiap kali Settings berubah.
+     */
+    fun updateFonnteConfig(token: String, groupId: String, enabled: Boolean) {
+        fonnteToken = token
+        fonnteGroupId = groupId
+        waReportEnabled = enabled
     }
 
     private fun saveCrashLog(throwable: Throwable, thread: Thread) {
@@ -86,7 +100,41 @@ $stackTrace
 
         Log.d(TAG, "Crash tersimpan: ${file.absolutePath}")
 
+        // Kirim ke WA Fonnte (kalau aktif)
+        sendCrashToWhatsApp(throwable, stackTrace)
+
         cleanupOldCrashes(crashDir)
+    }
+
+    private fun sendCrashToWhatsApp(throwable: Throwable, stackTrace: String) {
+        if (!waReportEnabled) {
+            Log.d(TAG, "WA report tidak aktif, skip kirim")
+            return
+        }
+        if (fonnteToken.isBlank() || fonnteGroupId.isBlank()) {
+            Log.w(TAG, "Fonnte token/group kosong, skip kirim")
+            return
+        }
+
+        val errorType = throwable.javaClass.simpleName
+        val errorMessage = throwable.message ?: "(tidak ada pesan)"
+        val token = fonnteToken
+        val groupId = fonnteGroupId
+
+        // Panggil di background thread (tidak boleh block main)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val message = FonnteSender.formatCrashMessage(
+                    errorType = errorType,
+                    errorMessage = errorMessage,
+                    stackTrace = stackTrace
+                )
+                val result = FonnteSender.sendToGroup(token, groupId, message)
+                Log.d(TAG, "WA send result: ${result.success} - ${result.message}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Gagal kirim WA: ${e.message}", e)
+            }
+        }
     }
 
     private fun cleanupOldCrashes(dir: File) {
@@ -152,6 +200,14 @@ $stackTrace
     fun hasAnyCrash(context: Context): Boolean {
         val crashDir = File(context.filesDir, CRASH_FOLDER)
         return crashDir.exists() && (crashDir.listFiles()?.isNotEmpty() == true)
+    }
+
+    /**
+     * Test kirim WA Fonnte — dipanggil dari DeveloperSettingsPane.
+     */
+    fun testFonnteConnection(): Boolean {
+        if (fonnteToken.isBlank() || fonnteGroupId.isBlank()) return false
+        return true
     }
 }
 
