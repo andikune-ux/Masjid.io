@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -95,11 +94,18 @@ fun SettingsScreen(
 ) {
     var selectedCategory by remember { mutableStateOf(SettingsCategory.LOCATION) }
     var draftSettings by remember { mutableStateOf(currentSettings) }
-    var showChangePinDialog by remember { mutableStateOf(false) }
     var showDeveloperPinDialog by remember { mutableStateOf(false) }
+    var showRiwayatUpdate by remember { mutableStateOf(false) }
+
+    if (showRiwayatUpdate) {
+        RiwayatUpdateScreen(
+            onBack = { showRiwayatUpdate = false }
+        )
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MosqueDeepBg)) {
-        // TOP BAR
+        // ============ TOP BAR ============
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -157,7 +163,7 @@ fun SettingsScreen(
             }
         }
 
-        // BODY
+        // ============ BODY ============
         Row(modifier = Modifier.fillMaxSize()) {
             // SIDEBAR
             Column(
@@ -237,10 +243,22 @@ fun SettingsScreen(
                         soundManager = soundManager,
                         onUpdate = { draftSettings = it }
                     )
-                    SettingsCategory.RAMADHAN -> SimplePlaceholder("Mode Ramadhan")
-                    SettingsCategory.SECURITY -> SimplePlaceholder("Keamanan")
-                    SettingsCategory.POWER -> SimplePlaceholder("Daya & Booting")
-                    SettingsCategory.ABOUT -> SimplePlaceholder("Tentang Aplikasi")
+                    SettingsCategory.RAMADHAN -> RamadhanSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.SECURITY -> SecuritySettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it },
+                        onChangePinClick = { /* placeholder */ }
+                    )
+                    SettingsCategory.POWER -> PowerSettingsPane(
+                        settings = draftSettings,
+                        onUpdate = { draftSettings = it }
+                    )
+                    SettingsCategory.ABOUT -> AboutSettingsPane(
+                        onOpenRiwayatUpdate = { showRiwayatUpdate = true }
+                    )
                     SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
                         settings = draftSettings,
                         modifier = Modifier.fillMaxSize()
@@ -260,12 +278,6 @@ fun SettingsScreen(
             },
             onDismiss = { showDeveloperPinDialog = false }
         )
-    }
-
-    // DIALOG UBAH PIN
-    if (showChangePinDialog) {
-        SimplePlaceholder("Ubah PIN (placeholder)")
-        showChangePinDialog = false
     }
 }
 
@@ -315,6 +327,11 @@ private fun SidebarItem(
     }
 }
 
+// ============================================================
+// PANE-PANE SEDERHANA (yang belum punya file sendiri)
+// AudioSettingsPane sudah dipindah ke file AudioSettingsPane.kt
+// ============================================================
+
 @Composable
 fun LocationSettingsPane(
     settings: AppSettings,
@@ -324,8 +341,17 @@ fun LocationSettingsPane(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("LOKASI & WAKTU SHOLAT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-        Text("Atur lokasi masjid untuk perhitungan jadwal sholat.", fontSize = 13.sp, color = TextSecondary)
+        Text(
+            text = "LOKASI & WAKTU SHOLAT",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
+        Text(
+            text = "Atur lokasi masjid untuk perhitungan jadwal sholat.",
+            fontSize = 13.sp,
+            color = TextSecondary
+        )
         Text("Kota: ${settings.city}", fontSize = 15.sp, color = TextPrimary)
         Text("Latitude: ${settings.latitude}", fontSize = 14.sp, color = TextPrimary)
         Text("Longitude: ${settings.longitude}", fontSize = 14.sp, color = TextPrimary)
@@ -341,7 +367,12 @@ fun IdentitySettingsPane(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("IDENTITAS MASJID", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text(
+            text = "IDENTITAS MASJID",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
         Text("Nama Masjid: ${settings.mosqueName}", fontSize = 15.sp, color = TextPrimary)
     }
 }
@@ -355,46 +386,12 @@ fun RunningTextSettingsPane(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("RUNNING TEXT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text(
+            text = "RUNNING TEXT",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
         Text("Isi: ${settings.runningText}", fontSize = 14.sp, color = TextPrimary)
-    }
-}
-
-@Composable
-fun AudioSettingsPane(
-    settings: AppSettings,
-    soundManager: SoundManager,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("AUDIO & ADZAN", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-        Text("Mode: ${settings.audioMode}", fontSize = 15.sp, color = TextPrimary)
-        Text("Volume Beep: ${settings.beepVolume}%", fontSize = 14.sp, color = TextPrimary)
-    }
-}
-
-@Composable
-private fun SimplePlaceholder(title: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Panel ini belum diimplementasi",
-                fontSize = 13.sp,
-                color = TextSecondary
-            )
-        }
     }
 }
