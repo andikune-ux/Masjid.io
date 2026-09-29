@@ -1,18 +1,38 @@
 package com.example.ui.home
 
-import android.net.Uri
-import androidx.compose.animation.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,18 +41,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
+import com.example.data.content.AsmaulHusnaStore
+import com.example.data.content.AyatStore
+import com.example.data.content.ContentRotationStore
+import com.example.data.content.HaditsStore
+import com.example.data.content.RotationType
 import com.example.data.local.DynamicSkyTheme
 import com.example.data.local.IslamicEvent
 import com.example.data.model.AppSettings
 import com.example.data.model.BackgroundMode
 import com.example.data.model.PrayerId
 import com.example.data.model.PrayerSchedule
+import com.example.ui.cctv.CctvWidget
 import com.example.ui.components.*
 import com.example.ui.focus.QRISFocusOverlay
+import com.example.ui.slides.SlideManager
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
 import java.time.LocalTime
@@ -51,11 +79,46 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     var showQrisModal by remember { mutableStateOf(false) }
+    var showSlideOverlay by remember { mutableStateOf(false) }
     var userDismissedVideoFullscreen by remember { mutableStateOf(false) }
+    var userDismissedSlide by remember { mutableStateOf(false) }
 
-    // Automatic periodic QRIS Focus trigger
-    if (settings.qrisIntervalMinutes > 0) {
-        LaunchedEffect(settings.qrisIntervalMinutes) {
+    // ============ SLIDE FULLSCREEN TRIGGER ============
+    // Slide muncul otomatis kalau:
+    // - slideEnabled = true
+    // - Tidak ada waktu sholat dekat (idle > 5 menit) ATAU slideShowOnlyWhenIdle = false
+    // - User belum dismiss slide ini
+    LaunchedEffect(
+        settings.slideEnabled,
+        settings.slideShowOnlyWhenIdle,
+        schedule.secondsToNext,
+        userDismissedSlide
+    ) {
+        if (!settings.slideEnabled) {
+            showSlideOverlay = false
+            return@LaunchedEffect
+        }
+
+        val canShow = if (settings.slideShowOnlyWhenIdle) {
+            schedule.secondsToNext > 300  // lebih dari 5 menit ke sholat berikutnya
+        } else true
+
+        if (canShow && !userDismissedSlide) {
+            showSlideOverlay = true
+        } else {
+            showSlideOverlay = false
+        }
+    }
+
+    // Reset userDismissedSlide kalau slide dimatikan
+    LaunchedEffect(settings.slideEnabled) {
+        if (!settings.slideEnabled) userDismissedSlide = false
+    }
+
+    // Automatic periodic QRIS Focus trigger (kalau tidak dalam mode slide)
+    if (settings.qrisIntervalMinutes > 0 && !showSlideOverlay) {
+        LaunchedEffect(settings.qrisIntervalMinutes, showSlideOverlay) {
+            if (showSlideOverlay) return@LaunchedEffect
             val intervalMs = settings.qrisIntervalMinutes * 60 * 1000L
             while (true) {
                 delay(intervalMs)
@@ -66,24 +129,20 @@ fun HomeScreen(
         }
     }
 
-    // Smart video mode: Fullscreen if enabled + > 30 min to next prayer
     val isSmartVideoFullscreen = settings.videoEnabled &&
             !settings.videoUri.isNullOrBlank() &&
             settings.videoSmartFullscreen &&
             schedule.secondsToNext > 1800 &&
             !userDismissedVideoFullscreen
 
-    // Split mode: video enabled tapi tidak fullscreen
     val isSplitVideo = settings.videoEnabled &&
             !settings.videoUri.isNullOrBlank() &&
             !settings.videoSmartFullscreen
 
-    // Split mode untuk FOTO: video tidak aktif + slideshow aktif + ada foto
     val isSplitPhoto = !settings.videoEnabled &&
             settings.photoSlideshowEnabled &&
             settings.photoSlideshowUris.isNotEmpty()
 
-    // Mode split apapun (video atau foto)
     val isSplitMode = isSplitVideo || isSplitPhoto
 
     val now = LocalTime.now()
@@ -94,7 +153,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color(0xFF071219))
     ) {
-        // --- 1. BACKGROUND LAYER ---
+        // ============ BACKGROUND LAYER ============
         when (settings.backgroundMode) {
             BackgroundMode.CUSTOM -> {
                 if (!settings.customBackgroundUri.isNullOrBlank()) {
@@ -134,7 +193,7 @@ fun HomeScreen(
             }
         }
 
-        // Tint overlay for readability
+        // Tint overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -153,8 +212,16 @@ fun HomeScreen(
                 showBirds = settings.showBirdsAnimation
             )
         }
+        
+        // ============ CCTV WIDGET (selalu tampil kalau aktif) ============
+        if (settings.cctvEnabled && settings.cctvUrl.isNotBlank()) {
+            CctvWidget(
+                settings = settings,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
-        // --- SMART FULLSCREEN VIDEO MODE ---
+        // ============ SMART FULLSCREEN VIDEO MODE ============
         if (isSmartVideoFullscreen) {
             Box(modifier = Modifier.fillMaxSize()) {
                 MasjidVideoPlayer(
@@ -182,7 +249,7 @@ fun HomeScreen(
                     val nextName = schedule.nextPrayer?.id?.displayName ?: "Sholat"
                     val mm = schedule.secondsToNext / 60
                     Text(
-                        text = "$nextName dalam $mm menit • Sentuh / Tekan OK untuk Tampilan Penuh",
+                        text = "$nextName dalam $mm menit • Sentuh untuk tampilan penuh",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = IslamicGoldLight
@@ -190,12 +257,12 @@ fun HomeScreen(
                 }
             }
         } else {
-            // --- MAIN UI ---
+            // ============ MAIN UI ============
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // [A] TOP BAR (7%)
+                // [A] TOP BAR
                 TopBar(
                     locationName = "${settings.city}, ${settings.province}",
                     dayDateString = gregorianDateString,
@@ -206,7 +273,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.07f)
                 )
 
-                // [B] MIDDLE: JAM + (Video / Foto / Full)
+                // [B] MIDDLE: JAM + Video/Foto
                 if (isSplitMode) {
                     Row(
                         modifier = Modifier
@@ -216,7 +283,6 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Kiri: Jam (38%)
                         Column(
                             modifier = Modifier.weight(0.38f),
                             verticalArrangement = Arrangement.Center,
@@ -230,7 +296,6 @@ fun HomeScreen(
                                 gregorianDateString = gregorianDateString
                             )
                         }
-                        // Kanan: Video atau Foto (62%)
                         Box(
                             modifier = Modifier
                                 .weight(0.62f)
@@ -269,15 +334,16 @@ fun HomeScreen(
                     }
                 }
 
-                // [C] 6 KARTU SHOLAT (28%)
+                // [C] 6 KARTU SHOLAT (passing settings!)
                 PrayerCardsRow(
                     prayerItems = schedule.items,
+                    settings = settings,
                     modifier = Modifier
                         .weight(0.28f)
                         .fillMaxWidth(if (isSplitMode) 0.62f else 1f)
                 )
 
-                // [D] PROGRESS COUNTDOWN (5%)
+                // [D] PROGRESS COUNTDOWN
                 PrayerProgressBar(
                     nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
                     secondsRemaining = schedule.secondsToNext,
@@ -285,15 +351,23 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.05f)
                 )
 
-                // [E] KARTU MUTIARA NASIHAT / EVENT ISLAMI (6%)
-                WisdomCardCarousel(
-                    upcomingEvent = upcomingEvent,
-                    intervalSeconds = settings.wisdomCardIntervalSeconds,
-                    animationType = settings.wisdomCardAnimation,
-                    modifier = Modifier.weight(0.06f)
-                )
+                // [E] KONTEN ROTASI (Ayat/Hadits/Asmaul Husna) ATAU Wisdom Card
+                if (settings.contentRotationEnabled) {
+                    ContentRotationCard(
+                        settings = settings,
+                        intervalSeconds = settings.contentRotationIntervalSeconds,
+                        modifier = Modifier.weight(0.06f)
+                    )
+                } else {
+                    WisdomCardCarousel(
+                        upcomingEvent = upcomingEvent,
+                        intervalSeconds = settings.wisdomCardIntervalSeconds,
+                        animationType = settings.wisdomCardAnimation,
+                        modifier = Modifier.weight(0.06f)
+                    )
+                }
 
-                // [F] JADWAL PETUGAS HARI INI & FOTO USTADZ (24%)
+                // [F] PANEL IMAM & MUADZIN
                 OfficerCarousel(
                     officers = settings.officers,
                     weeklyOfficers = settings.weeklyOfficers,
@@ -302,7 +376,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.24f)
                 )
 
-                // [G] RUNNING TEXT MARQUEE (6%)
+                // [G] RUNNING TEXT
                 RunningTextMarquee(
                     text = settings.runningText,
                     speed = settings.runningTextSpeed,
@@ -312,18 +386,125 @@ fun HomeScreen(
             }
         }
 
-        // --- QRIS FOCUS MODAL OVERLAY ---
-        if (showQrisModal) {
+        // ============ QRIS FOCUS MODAL ============
+        if (showQrisModal && !showSlideOverlay) {
             QRISFocusOverlay(
                 settings = settings,
                 onDismiss = { showQrisModal = false }
             )
         }
+
+        // ============ SLIDE MANAGER OVERLAY ============
+        if (showSlideOverlay) {
+            SlideManager(
+                settings = settings,
+                nextPrayerSeconds = schedule.secondsToNext,
+                onDismiss = {
+                    showSlideOverlay = false
+                    userDismissedSlide = true
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
+
 // ============================================================
-// CATATAN: Fungsi ini sebelumnya TIDAK ADA di HomeScreen.kt
-// Sekarang kita pisah, jadi bersih.
-// Semua komponen lain (TopBar, ClockAndDate, PrayerCardsRow, dll)
-// sudah ada di file masing-masing di folder ui/components/.
+// KONTEN ROTASI CARD — Ayat / Hadits / Asmaul Husna
 // ============================================================
+
+@Composable
+private fun ContentRotationCard(
+    settings: AppSettings,
+    intervalSeconds: Int,
+    modifier: Modifier = Modifier
+) {
+    var currentIndex by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(intervalSeconds) {
+        val safeInterval = intervalSeconds.coerceIn(5, 120)
+        while (true) {
+            delay(safeInterval * 1000L)
+            currentIndex = (currentIndex + 1) % 3
+        }
+    }
+
+    val content = remember(currentIndex, settings) {
+        ContentRotationStore.getContent(settings, currentIndex)
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (content == null) {
+            // Tidak ada konten aktif
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x33FFD700)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Aktifkan konten rotasi di pengaturan",
+                    fontSize = 13.sp,
+                    color = TextSecondary
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x33000000))
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Icon berdasarkan tipe
+                Text(
+                    text = when (content.type) {
+                        RotationType.AYAT -> "📖"
+                        RotationType.HADITS -> "📜"
+                        RotationType.ASMAUL_HUSNA -> "✨"
+                        else -> "💎"
+                    },
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    // Arab (kalau ada)
+                    if (!content.arabic.isNullOrBlank()) {
+                        Text(
+                            text = content.arabic,
+                            fontSize = 14.sp,
+                            color = IslamicGoldLight,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                    }
+                    // Latin atau terjemahan
+                    Text(
+                        text = content.latin ?: content.translation ?: "",
+                        fontSize = 12.sp,
+                        color = TextPrimary,
+                        maxLines = 1
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Source
+                Text(
+                    text = content.source ?: "",
+                    fontSize = 11.sp,
+                    color = IslamicGold,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
