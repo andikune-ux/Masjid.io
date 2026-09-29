@@ -1,9 +1,10 @@
 package com.example.ui.remote
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.example.data.local.SettingsRepository
-import com.example.data.model.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,27 +17,22 @@ import java.net.Socket
 import java.net.URLDecoder
 
 /**
- * HTTP Server mini yang berjalan di background untuk Remote Control via HP.
+ * HTTP Server mini untuk Remote Control via HP.
  *
- * Cara pakai:
- * 1. Aktifkan di Settings → Remote Control
- * 2. Buka browser di HP (satu WiFi dengan TV)
- * 3. Akses: http://[IP_TV]:8080
- * 4. Login dengan token (default: masjid-io)
- *
- * Endpoint yang tersedia:
- * - GET  /                    → Dashboard HTML
- * - GET  /api/status          → JSON status app
- * - POST /api/running-text    → Update running text
- * - POST /api/pin             → Update PIN
- * - GET  /api/settings        → JSON semua settings
- * - POST /api/restart         → Restart app (placeholder)
+ * Endpoint:
+ * - GET  /                    -> Dashboard HTML
+ * - GET  /api/status          -> JSON status app
+ * - GET  /api/settings        -> JSON semua settings
+ * - POST /api/running-text    -> Update running text
+ * - POST /api/pin             -> Update PIN
+ * - POST /api/restart         -> Restart app
  */
 class RemoteServer(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val port: Int = 8080,
-    private val authToken: String = "masjid-io"
+    private val authToken: String = "masjid-io",
+    private val onRestart: (() -> Unit)? = null
 ) {
 
     companion object {
@@ -118,7 +114,7 @@ class RemoteServer(
                 }
             }
 
-            // Baca body (kalau ada Content-Length)
+            // Baca body
             val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
             val body = if (contentLength > 0) {
                 val buffer = CharArray(contentLength)
@@ -126,7 +122,7 @@ class RemoteServer(
                 String(buffer)
             } else ""
 
-            // Auth check (kecuali endpoint /)
+            // Auth check
             val authHeader = headers["authorization"]
             val urlToken = path.substringAfter("token=", "").substringBefore("&")
             val isAuthorized = authHeader == "Bearer $authToken" ||
@@ -163,11 +159,32 @@ class RemoteServer(
                         updatePin(newPin)
                         sendResponse(writer, 200, "application/json", """{"success":true}""")
                     } else {
-                        sendResponse(writer, 400, "application/json", """{"success":false,"error":"PIN harus 4 digit"}""")
+                        sendResponse(writer, 400, "application/json",
+                            """{"success":false,"error":"PIN harus 4 digit"}""")
                     }
                 }
                 method == "POST" && path.startsWith("/api/restart") -> {
-                    sendResponse(writer, 200, "application/json", """{"success":true,"message":"Restart dijadwalkan"}""")
+                    // Kirim response dulu, baru restart
+                    sendResponse(writer, 200, "application/json",
+                        """{"success":true,"message":"Restart dijadwalkan"}""")
+                    writer.flush()
+                    client.close()
+
+                    // Restart setelah 1 detik (biar response terkirim)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try {
+                            Log.d(TAG, "Restarting app via Remote Control...")
+                            if (onRestart != null) {
+                                onRestart.invoke()
+                            } else {
+                                // Fallback: kill process
+                                android.os.Process.killProcess(android.os.Process.myPid())
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Restart error: ${e.message}")
+                        }
+                    }, 1000)
+                    return
                 }
                 else -> {
                     sendResponse(writer, 404, "text/plain", "Not Found")
@@ -315,6 +332,10 @@ class RemoteServer(
     cursor: pointer;
   }
   button:active { transform: scale(0.98); }
+  button.danger {
+    background: #C62828;
+    color: #fff;
+  }
   .status { padding: 10px; border-radius: 8px; margin-top: 10px; display: none; }
   .status.success { background: #2E7D32; display: block; }
   .status.error { background: #C62828; display: block; }
@@ -339,6 +360,14 @@ class RemoteServer(
     <div class="card">
       <h2>📊 Status</h2>
       <div id="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔄 Restart Aplikasi</h2>
+      <p style="font-size:13px;color:#aaa;margin-bottom:10px;">
+        Restart aplikasi MASJID.IO. Aplikasi akan menutup dan membuka lagi.
+      </p>
+      <button class="danger" onclick="restartApp()">RESTART SEKARANG</button>
     </div>
 
     <div class="card">
@@ -378,6 +407,16 @@ async function updatePin() {
       body: 'pin=' + pin
     });
     showStatus(res.ok ? 'PIN berhasil diubah!' : 'Gagal ubah PIN', res.ok);
+  } catch(e) {
+    showStatus('Error: ' + e.message, false);
+  }
+}
+
+async function restartApp() {
+  if (!confirm('Yakin mau restart aplikasi MASJID.IO?')) return;
+  try {
+    await fetch('/api/restart?token=' + TOKEN, { method: 'POST' });
+    showStatus('Restart dijadwalkan. Aplikasi akan menutup...', true);
   } catch(e) {
     showStatus('Error: ' + e.message, false);
   }
