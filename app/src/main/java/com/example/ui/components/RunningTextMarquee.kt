@@ -28,8 +28,14 @@ fun RunningTextMarquee(
     fontSize: Int = 20,
     modifier: Modifier = Modifier
 ) {
+    // GUARD: Kalau text kosong, jangan render apapun
+    // (cegah crash divide by zero di animation tween)
+    if (text.isBlank()) return
+
     // Duration depends on text length and speed
-    val baseDurationMs = (text.length * 350) / speed.coerceIn(1, 4)
+    // GUARD: coerceAtLeast(1000) → minimal 1 detik, tidak boleh 0
+    val safeSpeed = speed.coerceIn(1, 4)
+    val baseDurationMs = ((text.length * 350) / safeSpeed).coerceAtLeast(1000)
 
     val infiniteTransition = rememberInfiniteTransition(label = "marquee")
     val scrollOffset by infiniteTransition.animateFloat(
@@ -55,7 +61,11 @@ fun RunningTextMarquee(
                     )
                 )
             )
-            .border(1.dp, Color(0x33FFD700), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+            .border(
+                1.dp,
+                Color(0x33FFD700),
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+            )
             .padding(horizontal = 16.dp, vertical = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -79,7 +89,6 @@ fun RunningTextMarquee(
                     letterSpacing = 1.sp
                 )
             }
-
             Spacer(modifier = Modifier.width(14.dp))
 
             // Marquee Content Container
@@ -88,7 +97,6 @@ fun RunningTextMarquee(
                     .weight(1f)
                     .clipToBounds()
             ) {
-                // Layout modifier that moves the text horizontally across the parent width
                 Text(
                     text = text,
                     fontSize = fontSize.sp,
@@ -103,7 +111,6 @@ fun RunningTextMarquee(
                         val containerWidth = constraints.maxWidth
                         val totalDistance = containerWidth + placeable.width
                         val currentX = containerWidth - (totalDistance * scrollOffset).toInt()
-
                         layout(placeable.width, placeable.height) {
                             placeable.placeRelative(currentX, 0)
                         }
