@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -262,7 +263,10 @@ private fun TvActionButton(
 
     Row(
         modifier = Modifier
-            .scale(scale)
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale
+            )
             .clip(RoundedCornerShape(10.dp))
             .background(if (isOutlined) Color.Transparent else backgroundColor)
             .border(
