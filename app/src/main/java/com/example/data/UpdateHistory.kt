@@ -25,6 +25,21 @@ object UpdateHistory {
     // ============================================================
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.29.3",
+            date = "29 September 2026",
+            title = "Fix Crash Scroll & Fade Animasi Manual",
+            features = listOf(
+                "Fix crash: 'Vertically scrollable component was measured with infinity maximum height'",
+                "Ganti Crossfade ke Box + key + alpha fade manual (300ms)",
+                "Pertahankan animasi fade antar pane tanpa nested scroll",
+                "Update BackupManager: pertahankan semua method lama + fetch source code dari GitHub",
+                "Update SettingsRepository: tambah exportSummary() + load/save semua field AppSettings",
+                "Update UpdateHistory: tambah getFullText() dan getSummary()",
+                "Update AppKnowledge: tambah BAGIAN 15 (link GitHub) + aturan anti-truncation",
+                "Update AppKnowledge: tambah alias STRUCTURE & FEATURES + MEMORY_KNOWLEDGE"
+            )
+        ),
+        UpdateEntry(
             version = "V1.28.4",
             date = "29 September 2026",
             title = "Slide Fullscreen, CCTV, Remote Control & Konten Rotasi",
