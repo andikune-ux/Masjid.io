@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,7 +60,6 @@ fun TvSlider(
     var isFocused by remember { mutableStateOf(false) }
     var isSliderActive by remember { mutableStateOf(false) }
 
-    // Border warna: hijau kalau aktif, emas terang kalau fokus, emas redup default
     val borderColor by animateColorAsState(
         targetValue = when {
             isSliderActive -> IslamicGreen
@@ -192,7 +190,6 @@ fun TvSlider(
                 .height(32.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            // Background track
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,7 +198,6 @@ fun TvSlider(
                     .background(Color(0x33FFFFFF))
             )
 
-            // Progress track
             val progressFraction = if (valueRange.endInclusive > valueRange.start) {
                 (value - valueRange.start) / (valueRange.endInclusive - valueRange.start)
             } else 0f
@@ -214,7 +210,6 @@ fun TvSlider(
                     .background(if (isSliderActive) IslamicGreen else IslamicGold)
             )
 
-            // Thumb
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
