@@ -24,33 +24,36 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.rtsp.RtspMediaSource
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import com.example.data.model.AppSettings
 import com.example.data.model.CctvPosition
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.TextSecondary
 
 /**
  * Widget CCTV PiP (Picture in Picture) di sudut layar.
  *
- * Mendukung 3 mode URL:
- * 1. Snapshot JPG (auto-refresh) — contoh: http://ip/cgi-bin/snapshot.cgi
- * 2. Stream HTTP MJPEG — contoh: http://ip:8080/video
- * 3. Web page embed — contoh: http://ip (dashboard DVR)
- *
- * Catatan: RTSP tidak didukung di WebView. Untuk RTSP, butuh ExoPlayer
- * dengan extension RTSP (bisa ditambahkan di update berikutnya).
+ * Support 4 mode:
+ * 1. RTSP Stream — via ExoPlayer (rtsp://user:pass@ip:554/stream)
+ * 2. Snapshot JPG — via WebView (http://ip/snapshot.jpg)
+ * 3. MJPEG Stream — via WebView (http://ip:8080/video)
+ * 4. Web DVR Dashboard — via WebView (http://ip)
  */
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun CctvWidget(
     settings: AppSettings,
@@ -68,11 +71,13 @@ fun CctvWidget(
         CctvPosition.BOTTOM_RIGHT -> Alignment.BottomEnd
     }
 
-    // Ukuran widget: persen dari lebar layar (baseline 20% = ± 320dp)
+    // Ukuran widget: persen dari lebar layar
     val sizePercent = settings.cctvSizePercent.coerceIn(10, 40)
-    // Konversi: asumsi 1920dp lebar TV, 20% = 384dp
-    val widgetWidth = (sizePercent * 19).dp   // 20% → 380dp
-    val widgetHeight = widgetWidth * 9 / 16    // rasio 16:9
+    val widgetWidth = (sizePercent * 19).dp
+    val widgetHeight = widgetWidth * 9 / 16
+
+    // Deteksi tipe URL
+    val urlType = detectCctvType(settings.cctvUrl)
 
     Box(
         modifier = modifier
@@ -95,7 +100,6 @@ fun CctvWidget(
                     .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icon CCTV + indikator LIVE
                 Box(
                     modifier = Modifier
                         .size(8.dp)
@@ -119,7 +123,7 @@ fun CctvWidget(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = "LIVE",
+                    text = urlType.displayLabel,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFFEF5350),
@@ -138,17 +142,104 @@ fun CctvWidget(
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
-                CctvWebView(
-                    url = settings.cctvUrl,
-                    modifier = Modifier.fillMaxSize()
-                )
+                when (urlType) {
+                    CctvType.RTSP -> CctvRtspPlayer(
+                        url = settings.cctvUrl,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    else -> CctvWebView(
+                        url = settings.cctvUrl,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }
 }
 
 // ============================================================
-// WEBVIEW UNTUK CCTV
+// TIPE URL CCTV
+// ============================================================
+
+enum class CctvType(val displayLabel: String) {
+    RTSP("RTSP"),
+    HTTP("LIVE"),
+    UNKNOWN("N/A")
+}
+
+private fun detectCctvType(url: String): CctvType {
+    return try {
+        val uri = Uri.parse(url)
+        when (uri.scheme?.lowercase()) {
+            "rtsp", "rtsps" -> CctvType.RTSP
+            "http", "https" -> CctvType.HTTP
+            else -> CctvType.UNKNOWN
+        }
+    } catch (e: Exception) {
+        CctvType.UNKNOWN
+    }
+}
+
+// ============================================================
+// RTSP PLAYER (via ExoPlayer)
+// ============================================================
+
+@Composable
+private fun CctvRtspPlayer(
+    url: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // Buat ExoPlayer khusus RTSP
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+            repeatMode = ExoPlayer.REPEAT_MODE_ALL
+            volume = 0f
+        }
+    }
+
+    // Load RTSP URL saat komposisi pertama
+    DisposableEffect(url) {
+        try {
+            val mediaItem = MediaItem.fromUri(url)
+            val rtspSource = RtspMediaSource.Factory()
+                .setForceUseRtpTcp(true)  // Fallback ke TCP kalau UDP diblokir
+                .setTimeoutMs(10_000)
+                .createMediaSource(mediaItem)
+            exoPlayer.setMediaSource(rtspSource)
+            exoPlayer.prepare()
+            exoPlayer.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        onDispose {
+            try {
+                exoPlayer.stop()
+                exoPlayer.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                player = exoPlayer
+                setBackgroundColor(android.graphics.Color.BLACK)
+            }
+        }
+    )
+}
+
+// ============================================================
+// WEBVIEW UNTUK HTTP (Snapshot / MJPEG / DVR Dashboard)
 // ============================================================
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -169,7 +260,6 @@ private fun CctvWebView(
                     builtInZoomControls = false
                     displayZoomControls = false
                     mediaPlaybackRequiresUserGesture = false
-                    // Cache untuk stream
                     cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                 }
 
@@ -182,7 +272,6 @@ private fun CctvWebView(
                     }
                 }
 
-                // Background hitam biar tidak putih saat loading
                 setBackgroundColor(android.graphics.Color.BLACK)
             }
         },
@@ -197,18 +286,4 @@ private fun CctvWebView(
             }
         }
     )
-}
-
-// ============================================================
-// HELPER: VALIDASI URL CCTV
-// ============================================================
-
-fun isValidCctvUrl(url: String): Boolean {
-    return try {
-        val uri = Uri.parse(url)
-        val scheme = uri.scheme?.lowercase()
-        scheme in listOf("http", "https")
-    } catch (e: Exception) {
-        false
-    }
 }
