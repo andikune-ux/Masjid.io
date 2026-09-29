@@ -3,9 +3,15 @@ package com.example.ui.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,20 +33,25 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.VideoFile
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -98,14 +109,14 @@ fun VideoSettingsPane(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Video Kegiatan & Rutinitas Masjid (Bebas Durasi & Ukuran)",
+            text = "Video Kegiatan & Rutinitas Masjid",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight
         )
 
         // ============================================================
-        // 1. VIDEO SECTION (existing)
+        // 1. VIDEO SECTION
         // ============================================================
         Row(
             modifier = Modifier
@@ -127,7 +138,8 @@ fun VideoSettingsPane(
                 Text(
                     text = "Menayangkan rekaman kegiatan, kajian, atau dokumentasi masjid secara berulang (looping) tanpa suara.",
                     fontSize = 12.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 16.sp
                 )
             }
             Switch(
@@ -194,59 +206,38 @@ fun VideoSettingsPane(
                 ) {
                     Text(
                         text = if (!settings.videoUri.isNullOrBlank())
-                            "Video terpilih: ${settings.videoUri?.takeLast(30)}"
+                            "Video terpilih"
                         else "Belum ada file video yang dipilih.",
                         fontSize = 12.sp,
                         color = if (!settings.videoUri.isNullOrBlank()) IslamicGreen else TextSecondary
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { videoPickerLauncher.launch("video/*") },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = IslamicGold,
-                                contentColor = Color(0xFF09141D)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.VideoFile,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "PILIH DARI PENYIMPANAN",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        TvActionButton(
+                            icon = Icons.Default.VideoFile,
+                            label = "PILIH VIDEO",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            onClick = { videoPickerLauncher.launch("video/*") }
+                        )
 
                         if (!settings.videoUri.isNullOrBlank()) {
-                            OutlinedButton(
+                            TvActionButton(
+                                icon = Icons.Default.Delete,
+                                label = "HAPUS",
+                                backgroundColor = Color.Transparent,
+                                textColor = UrgentRed,
+                                isOutlined = true,
                                 onClick = {
                                     onUpdate(settings.copy(videoUri = null, videoEnabled = false))
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                                border = ButtonDefaults.outlinedButtonBorder.copy(
-                                    brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "HAPUS", fontSize = 12.sp)
-                            }
+                                }
+                            )
                         }
                     }
                 }
             }
         }
-
+        
         // ============================================================
         // 2. MODE TAMPILAN CERDAS
         // ============================================================
@@ -266,83 +257,27 @@ fun VideoSettingsPane(
                 color = IslamicGoldLight
             )
 
+            // Opsi Split
             val isSplit = !settings.videoSmartFullscreen
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSplit) Color(0x33FFD700) else Color(0x22000000))
-                    .border(
-                        1.dp,
-                        if (isSplit) IslamicGold else Color(0x22FFFFFF),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .clickable { onUpdate(settings.copy(videoSmartFullscreen = false)) }
-                    .padding(14.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = isSplit,
-                        onClick = { onUpdate(settings.copy(videoSmartFullscreen = false)) },
-                        colors = RadioButtonDefaults.colors(selectedColor = IslamicGold)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Mode Panel Kanan (Split Screen Harmonis)",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSplit) IslamicGoldLight else TextPrimary
-                        )
-                        Text(
-                            text = "Video tayang di sisi kanan area tengah. Jam digital dan info masjid otomatis menyesuaikan tata letak agar rapi dan tidak saling bertabrakan.",
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            }
+            RadioOption(
+                title = "Mode Panel Kanan (Split Screen)",
+                description = "Video tayang di sisi kanan area tengah. Jam digital menyesuaikan tata letak.",
+                isSelected = isSplit,
+                onClick = { onUpdate(settings.copy(videoSmartFullscreen = false)) }
+            )
 
+            // Opsi Fullscreen
             val isSmartFullscreen = settings.videoSmartFullscreen
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSmartFullscreen) Color(0x33FFD700) else Color(0x22000000))
-                    .border(
-                        1.dp,
-                        if (isSmartFullscreen) IslamicGold else Color(0x22FFFFFF),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .clickable { onUpdate(settings.copy(videoSmartFullscreen = true)) }
-                    .padding(14.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = isSmartFullscreen,
-                        onClick = { onUpdate(settings.copy(videoSmartFullscreen = true)) },
-                        colors = RadioButtonDefaults.colors(selectedColor = IslamicGold)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Mode Cerdas Layar Penuh (Smart Fullscreen)",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSmartFullscreen) IslamicGoldLight else TextPrimary
-                        )
-                        Text(
-                            text = "Video otomatis diputar layar penuh saat waktu sholat masih lama (> 30 menit). Saat mendekati sholat (< 30 menit), layar otomatis kembali ke tampilan masjid.",
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            }
+            RadioOption(
+                title = "Mode Cerdas Layar Penuh",
+                description = "Video otomatis layar penuh saat waktu sholat masih >30 menit. Mendekati sholat, layar kembali ke tampilan masjid.",
+                isSelected = isSmartFullscreen,
+                onClick = { onUpdate(settings.copy(videoSmartFullscreen = true)) }
+            )
         }
-        
+
         // ============================================================
-        // 3. FOTO SLIDESHOW (NEW)
+        // 3. FOTO SLIDESHOW
         // ============================================================
         Text(
             text = "Foto Kegiatan Masjid (Slideshow)",
@@ -351,7 +286,6 @@ fun VideoSettingsPane(
             color = IslamicGoldLight
         )
 
-        // Master Switch Foto
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -370,9 +304,10 @@ fun VideoSettingsPane(
                     color = TextPrimary
                 )
                 Text(
-                    text = "Menampilkan foto kegiatan masjid secara bergantian. Foto akan tampil di posisi video kalau video tidak aktif.",
+                    text = "Foto akan tampil di posisi video kalau video tidak aktif.",
                     fontSize = 12.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 16.sp
                 )
             }
             Switch(
@@ -407,22 +342,14 @@ fun VideoSettingsPane(
                     color = IslamicGoldLight
                 )
                 if (settings.photoSlideshowUris.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = { onUpdate(settings.copy(photoSlideshowUris = emptyList())) },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "HAPUS SEMUA", fontSize = 12.sp)
-                    }
+                    TvActionButton(
+                        icon = Icons.Default.DeleteSweep,
+                        label = "HAPUS SEMUA",
+                        backgroundColor = Color.Transparent,
+                        textColor = UrgentRed,
+                        isOutlined = true,
+                        onClick = { onUpdate(settings.copy(photoSlideshowUris = emptyList())) }
+                    )
                 }
             }
 
@@ -445,7 +372,6 @@ fun VideoSettingsPane(
                                 modifier = Modifier.fillMaxSize()
                             )
 
-                            // Nomor urut
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
@@ -462,7 +388,6 @@ fun VideoSettingsPane(
                                 )
                             }
 
-                            // Tombol hapus
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
@@ -505,28 +430,13 @@ fun VideoSettingsPane(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { photoPickerLauncher.launch("image/*") },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = IslamicGold,
-                        contentColor = Color(0xFF09141D)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "TAMBAH FOTO",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            TvActionButton(
+                icon = Icons.Default.AddPhotoAlternate,
+                label = "TAMBAH FOTO",
+                backgroundColor = IslamicGold,
+                textColor = Color(0xFF09141D),
+                onClick = { photoPickerLauncher.launch("image/*") }
+            )
         }
 
         // Interval Ganti Foto
@@ -568,5 +478,168 @@ fun VideoSettingsPane(
                 )
             }
         }
+    }
+}
+
+// ============================================================
+// KOMPONEN PENDUKUNG
+// ============================================================
+
+@Composable
+private fun RadioOption(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "radio_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.02f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "radio_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 10.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "radio_shadow"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(10.dp),
+                ambientColor = Color(0x66FFD700),
+                spotColor = Color(0x66FFD700)
+            )
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                when {
+                    isSelected -> Color(0x33FFD700)
+                    isFocused -> Color(0x22FFD700)
+                    else -> Color(0x22000000)
+                }
+            )
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isSelected -> IslamicGold
+                    else -> Color(0x22FFFFFF)
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = IslamicGold)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        isSelected -> IslamicGoldLight
+                        isFocused -> Color(0xFFFFE44D)
+                        else -> TextPrimary
+                    }
+                )
+                Text(
+                    text = description,
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvActionButton(
+    icon: ImageVector,
+    label: String,
+    backgroundColor: Color,
+    textColor: Color,
+    onClick: () -> Unit,
+    isOutlined: Boolean = false
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else if (isOutlined) 1.5.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "btn_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "btn_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 12.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "btn_shadow"
+    )
+
+    Row(
+        modifier = Modifier
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(10.dp),
+                ambientColor = Color(0x88FFD700),
+                spotColor = Color(0x88FFD700)
+            )
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isOutlined) Color.Transparent else backgroundColor)
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isOutlined -> textColor.copy(alpha = 0.6f)
+                    else -> Color.Transparent
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = textColor,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor
+        )
     }
 }
