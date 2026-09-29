@@ -39,9 +39,7 @@ import com.example.ui.theme.MosqueDeepBg
 import com.example.util.CrashReporter
 import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 enum class AppScreen {
@@ -60,7 +58,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Init Crash Reporter — simpan log kalau ada error
+        // Init Crash Reporter
         CrashReporter.init(this)
 
         settingsRepository = SettingsRepository(this)
@@ -69,7 +67,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
 
-            // === KIOSK MODE ===
+            // ============ SYNC FONNTE CONFIG ============
+            LaunchedEffect(
+                settings.fonnteToken,
+                settings.fonnteGroupId,
+                settings.whatsappReportEnabled
+            ) {
+                CrashReporter.updateFonnteConfig(
+                    token = settings.fonnteToken,
+                    groupId = settings.fonnteGroupId,
+                    enabled = settings.whatsappReportEnabled
+                )
+            }
+
+            // ============ KIOSK MODE ============
             LaunchedEffect(settings.kioskModeEnabled) {
                 if (settings.kioskModeEnabled) {
                     KioskManager.enableKiosk(this@MainActivity)
@@ -78,7 +89,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // === WATCHDOG SERVICE ===
+            // ============ WATCHDOG SERVICE ============
             DisposableEffect(settings.kioskModeEnabled) {
                 val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
                 if (settings.kioskModeEnabled) {
@@ -91,7 +102,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // === PERMISSIONS ===
+            // ============ PERMISSIONS ============
             val permissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
             ) { }
@@ -111,7 +122,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // === KEEP SCREEN ON ===
+            // ============ KEEP SCREEN ON ============
             DisposableEffect(settings.keepScreenOn) {
                 if (settings.keepScreenOn) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -126,13 +137,14 @@ class MainActivity : ComponentActivity() {
             var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
             var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-            // === UPDATE STATE ===
+            // ============ UPDATE STATE ============
             var showUpdateDialog by remember { mutableStateOf(false) }
             var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
 
-            // Cek update otomatis saat app dibuka
+            // Cek update otomatis saat app dibuka (delay 3 detik biar UI ready dulu)
             LaunchedEffect(Unit) {
                 try {
+                    delay(3000)
                     val info = UpdateManager.checkForUpdate()
                     if (info.available) {
                         updateInfo = info
@@ -141,20 +153,22 @@ class MainActivity : ComponentActivity() {
                 } catch (_: Exception) { }
             }
 
-            // === WEATHER ===
+            // ============ WEATHER ============
             var currentTemperature by remember { mutableStateOf(30) }
             var currentWeatherCondition by remember { mutableStateOf("Cerah") }
 
             LaunchedEffect(settings.latitude, settings.longitude) {
                 while (true) {
-                    val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
-                    currentTemperature = weather.temperature
-                    currentWeatherCondition = weather.condition
+                    try {
+                        val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
+                        currentTemperature = weather.temperature
+                        currentWeatherCondition = weather.condition
+                    } catch (_: Exception) { }
                     delay(30 * 60 * 1000L)
                 }
             }
 
-            // === BACK PRESS ===
+            // ============ BACK PRESS ============
             DisposableEffect(settings.kioskModeEnabled, currentScreen) {
                 val callback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
@@ -175,7 +189,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { callback.remove() }
             }
 
-            // === CLOCK & SCHEDULE ===
+            // ============ CLOCK & SCHEDULE ============
             var currentTimeString by remember { mutableStateOf("12:00:00") }
             var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
             var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
@@ -187,7 +201,12 @@ class MainActivity : ComponentActivity() {
                 IslamicCalendar.getUpcomingEvent(hDate)
             }
 
-            LaunchedEffect(settings.latitude, settings.longitude, settings.isManualTimeEnabled, settings.manualTimeOffsetSeconds) {
+            LaunchedEffect(
+                settings.latitude,
+                settings.longitude,
+                settings.isManualTimeEnabled,
+                settings.manualTimeOffsetSeconds
+            ) {
                 val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
                 var lastTriggeredPrayerMinute: String? = null
 
@@ -224,6 +243,8 @@ class MainActivity : ComponentActivity() {
                                     mode = settings.audioMode,
                                     beepVolume = settings.beepVolume,
                                     beepCount = settings.beepCount,
+                                    beepDurationMs = settings.beepDurationMs,
+                                    beepIntervalMs = settings.beepIntervalMs,
                                     adzanStyle = settings.adzanFile,
                                     adzanVolume = settings.adzanVolume
                                 )
@@ -279,7 +300,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // PIN DIALOG (untuk masuk Settings)
+                    // PIN DIALOG
                     if (showPinDialog) {
                         PinDialog(
                             correctPin = settings.pinCode,
@@ -292,21 +313,20 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // UPDATE DIALOG (mode: Harus Update)
+                    // UPDATE DIALOG
                     if (showUpdateDialog && updateInfo != null) {
                         val info = updateInfo!!
                         UpdateDialog(
                             currentVersion = info.currentVersion,
                             latestVersion = info.latestVersion,
                             releaseNotes = info.releaseNotes,
-                            forceUpdate = true, // Mode: HARUS UPDATE
+                            forceUpdate = false,
                             downloadProgress = null,
                             isDownloading = false,
                             isInstalling = false,
                             onUpdateClick = {
-                                // TODO: Download & install APK dari info.downloadUrl
-                                // Fitur download akan diimplementasi di batch berikutnya
                                 showUpdateDialog = false
+                                currentScreen = AppScreen.SETTINGS
                             },
                             onLaterClick = { showUpdateDialog = false },
                             onSkipClick = { showUpdateDialog = false }
