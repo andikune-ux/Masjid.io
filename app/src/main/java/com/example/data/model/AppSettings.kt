@@ -49,6 +49,13 @@ enum class BackgroundMode {
     CUSTOM_GALLERY
 }
 
+enum class CctvPosition {
+    TOP_LEFT,
+    TOP_RIGHT,
+    BOTTOM_LEFT,
+    BOTTOM_RIGHT
+}
+
 data class OfficerSchedule(
     val imamSubuh: String = "Ust. H. Ahmad Fauzi",
     val muadzinSubuh: String = "Ust. Ridwan Kamil",
@@ -97,6 +104,21 @@ data class DailyOfficerItem(
     val fotoUstadzKajian: String? = null
 )
 
+data class LaporanKeuangan(
+    val saldoSebelumnya: Long = 41_000,
+    val pemasukanJumat: Long = 5_100_000,
+    val pemasukanUmum: Long = 236_000,
+    val pengeluaranDakwah: Long = 2_900_000,
+    val pengeluaranSosial: Long = 1_800_000,
+    val pengeluaranOperasional: Long = 656_000,
+    val periodeMulai: String = "11 September 2026",
+    val periodeSelesai: String = "17 September 2026"
+) {
+    val totalPemasukan: Long get() = pemasukanJumat + pemasukanUmum
+    val totalPengeluaran: Long get() = pengeluaranDakwah + pengeluaranSosial + pengeluaranOperasional
+    val saldoAkhir: Long get() = saldoSebelumnya + totalPemasukan - totalPengeluaran
+}
+
 data class AppSettings(
     // ===== Mosque Identity =====
     val mosqueName: String = "MASJID AL-IKHLAS",
@@ -113,12 +135,15 @@ data class AppSettings(
     val longitude: Double = 106.8272,
     val calculationMethod: String = "Kementerian Agama RI (Kemenag)",
 
+    // ===== Language (Fitur 3) =====
+    val languageCode: String = "id",
+
     // ===== Running text =====
     val runningText: String = "═══ Selamat datang di Masjid Al-Ikhlas ═══ Luruskan dan rapatkan shaf sholat ═══ Harap nonaktifkan nada dering ponsel ═══ Infaq & Shadaqah dapat melalui Rek BSI: 7123-4567-89 a.n Masjid Al-Ikhlas ═══ Kajian Rutin Sabtu Ba'da Maghrib bersama Ust. Hanan Attaki, Lc ═══",
     val runningTextSpeed: Int = 2,
     val runningTextFontSize: Int = 18,
 
-    // ===== Officers & 7 Days Schedule =====
+    // ===== Officers =====
     val officers: OfficerSchedule = OfficerSchedule(),
     val weeklyOfficers: List<DailyOfficerItem> = createDefaultWeeklySchedule(),
     val officerPhotoUri: String? = null,
@@ -143,7 +168,7 @@ data class AppSettings(
     val animationsEnabled: Boolean = true,
     val showBirdsAnimation: Boolean = true,
 
-    // ===== QRIS Donation Card =====
+    // ===== QRIS Donation =====
     val qrisPhotoUri: String? = null,
     val qrisImageUri: String = "",
     val qrisIntervalMinutes: Int = 15,
@@ -161,22 +186,64 @@ data class AppSettings(
     val videoUri: String? = null,
     val videoSmartFullscreen: Boolean = true,
 
-    // ===== Photo Slideshow (Widget Foto) =====
+    // ===== Photo Slideshow =====
     val photoSlideshowEnabled: Boolean = false,
     val photoSlideshowUris: List<String> = emptyList(),
     val photoSlideshowIntervalSeconds: Int = 10,
 
-    // ===== Ramadhan Mode =====
+    // ===== FITUR 1: SLIDE FULLSCREEN =====
+    val slideEnabled: Boolean = false,
+    val slideIntervalSeconds: Int = 15,
+    val qrisSlideEnabled: Boolean = true,
+    val laporanSlideEnabled: Boolean = true,
+    val kajianSlideEnabled: Boolean = true,
+    val slideShowOnlyWhenIdle: Boolean = true,
+    val laporanKeuangan: LaporanKeuangan = LaporanKeuangan(),
+
+    // ===== FITUR 2: WIDGET FOTO DI KARTU SHOLAT =====
+    val prayerCardPhotoEnabled: Boolean = false,
+    val prayerCardPhotoUri: String? = null,
+    val prayerCardPhotoAlpha: Float = 0.35f,
+
+    // ===== FITUR 4: MODE RAMADHAN LENGKAP =====
     val ramadhanModeEnabled: Boolean = false,
     val showImsakIftarCountdown: Boolean = true,
     val showTarawihSchedule: Boolean = true,
     val showKultumSchedule: Boolean = true,
     val showMenuSahurIftar: Boolean = false,
+    val showImsakBesar: Boolean = true,
+    val showIftarBesar: Boolean = true,
+    val ramadhanImsakOffsetMinutes: Int = 10,
     val tarawihTime: String = "19:30",
     val tarawihImam: String = "",
     val kultumTitle: String = "",
     val kultumUstadz: String = "",
     val kultumTime: String = "17:30",
+    val menuSahurText: String = "",
+    val menuIftarText: String = "",
+    
+    // ===== FITUR 5: DZIKIR SETELAH SHOLAT =====
+    val dzikirEnabled: Boolean = true,
+    val dzikirDurationSeconds: Int = 120,
+    val dzikirAutoShowAfterPrayer: Boolean = true,
+
+    // ===== FITUR 6: KONTEN ROTASI =====
+    val contentRotationEnabled: Boolean = false,
+    val contentRotationShowAyat: Boolean = true,
+    val contentRotationShowHadits: Boolean = true,
+    val contentRotationShowAsmaulHusna: Boolean = true,
+    val contentRotationIntervalSeconds: Int = 20,
+
+    // ===== FITUR 7: CCTV MASJID (PiP) =====
+    val cctvEnabled: Boolean = false,
+    val cctvUrl: String = "",
+    val cctvPosition: CctvPosition = CctvPosition.TOP_RIGHT,
+    val cctvSizePercent: Int = 20,
+
+    // ===== FITUR 8: REMOTE CONTROL via HP =====
+    val remoteControlEnabled: Boolean = false,
+    val remoteServerPort: Int = 8080,
+    val remoteAuthToken: String = "masjid-io",
 
     // ===== Security & Kiosk =====
     val pinCode: String = "1234",
@@ -186,7 +253,7 @@ data class AppSettings(
     val disableBackButton: Boolean = true,
     val lockTaskMode: Boolean = true,
 
-    // ===== Manual Offline Time & Date Setting =====
+    // ===== Manual Time & Date =====
     val isManualTimeEnabled: Boolean = false,
     val manualTimeOffsetSeconds: Long = 0L,
 
@@ -200,7 +267,7 @@ data class AppSettings(
     val autoBrightness: Boolean = true,
     val saveBatteryMode: Boolean = false,
 
-    // ===== WhatsApp Fonnte Integration =====
+    // ===== WhatsApp Fonnte =====
     val fonnteToken: String = "",
     val fonnteGroupId: String = "",
     val whatsappReportEnabled: Boolean = false
