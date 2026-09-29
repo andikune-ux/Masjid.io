@@ -33,12 +33,14 @@ import com.example.ui.components.UpdateDialog
 import com.example.ui.focus.PrayerFocusOverlay
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.home.HomeScreen
+import com.example.ui.remote.RemoteServer
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.MasjidTheme
 import com.example.ui.theme.MosqueDeepBg
 import com.example.util.CrashReporter
 import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -58,7 +60,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Init Crash Reporter
         CrashReporter.init(this)
 
         settingsRepository = SettingsRepository(this)
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
 
-            // ============ SYNC FONNTE CONFIG ============
+            // ============ SYNC FONNTE ============
             LaunchedEffect(
                 settings.fonnteToken,
                 settings.fonnteGroupId,
@@ -99,6 +100,29 @@ class MainActivity : ComponentActivity() {
                 }
                 onDispose {
                     try { stopService(serviceIntent) } catch (_: Exception) {}
+                }
+            }
+
+            // ============ REMOTE SERVER ============
+            val remoteServer = remember { RemoteServer(this@MainActivity, settingsRepository) }
+            var isRemoteServerRunning by remember { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
+                if (settings.remoteControlEnabled) {
+                    remoteServer.stop()
+                    delay(300)
+                    remoteServer.start(scope)
+                    isRemoteServerRunning = true
+                } else {
+                    remoteServer.stop()
+                    isRemoteServerRunning = false
+                }
+            }
+
+            DisposableEffect(Unit) {
+                onDispose {
+                    remoteServer.stop()
                 }
             }
 
@@ -141,7 +165,6 @@ class MainActivity : ComponentActivity() {
             var showUpdateDialog by remember { mutableStateOf(false) }
             var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
 
-            // Cek update otomatis saat app dibuka (delay 3 detik biar UI ready dulu)
             LaunchedEffect(Unit) {
                 try {
                     delay(3000)
@@ -256,7 +279,7 @@ class MainActivity : ComponentActivity() {
                     delay(1000)
                 }
             }
-
+            
             MasjidTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -281,11 +304,13 @@ class MainActivity : ComponentActivity() {
                                 totalDurationMinutes = settings.prayerFocusDurationMinutes,
                                 iqamahWaitMinutes = settings.iqamahWaitMinutes,
                                 qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                                settings = settings,
                                 onDismiss = { currentScreen = AppScreen.HOME }
                             )
                             AppScreen.SETTINGS -> SettingsScreen(
                                 currentSettings = settings,
                                 soundManager = soundManager,
+                                isRemoteServerRunning = isRemoteServerRunning,
                                 onSaveSettings = { updated ->
                                     settingsRepository.updateSettings(updated)
                                     currentScreen = AppScreen.HOME
