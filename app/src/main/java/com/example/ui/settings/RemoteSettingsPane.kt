@@ -67,7 +67,7 @@ fun RemoteSettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ===== HEADER =====
+        // HEADER
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.PhoneAndroid,
@@ -91,7 +91,7 @@ fun RemoteSettingsPane(
             }
         }
 
-        // ===== MASTER TOGGLE =====
+        // MASTER TOGGLE
         TvToggle(
             label = "Aktifkan Remote Control",
             description = "HTTP Server berjalan di background untuk kontrol via HP",
@@ -99,7 +99,7 @@ fun RemoteSettingsPane(
             onToggle = { onUpdate(settings.copy(remoteControlEnabled = it)) }
         )
 
-        // ===== KONFIGURASI SERVER =====
+        // KONFIGURASI SERVER
         if (settings.remoteControlEnabled) {
             Text(
                 text = "KONFIGURASI SERVER",
@@ -108,13 +108,11 @@ fun RemoteSettingsPane(
                 color = IslamicGoldLight
             )
 
-            // Port
             RemoteInputField(
                 icon = Icons.Default.SettingsEthernet,
                 label = "Port Server",
                 value = portInput,
                 placeholder = "8080",
-                isPassword = false,
                 onValueChange = { newValue ->
                     val filtered = newValue.filter { it.isDigit() }.take(5)
                     portInput = filtered
@@ -133,13 +131,11 @@ fun RemoteSettingsPane(
                 modifier = Modifier.padding(start = 4.dp)
             )
 
-            // Token
             RemoteInputField(
                 icon = Icons.Default.Lock,
                 label = "Token Akses",
                 value = tokenInput,
                 placeholder = "masjid-io",
-                isPassword = false,
                 onValueChange = { newValue ->
                     tokenInput = newValue
                     onUpdate(settings.copy(remoteAuthToken = newValue))
@@ -155,7 +151,7 @@ fun RemoteSettingsPane(
             )
         }
 
-        // ===== DASHBOARD INFO =====
+        // DASHBOARD INFO
         if (settings.remoteControlEnabled) {
             Text(
                 text = "INFORMASI AKSES",
@@ -164,14 +160,15 @@ fun RemoteSettingsPane(
                 color = IslamicGoldLight
             )
 
+            // RemoteDashboard dipanggil TANPA modifier fillMaxSize
+            // supaya tidak nested scroll dengan Column di atas
             RemoteDashboard(
                 settings = settings,
-                isServerRunning = isServerRunning,
-                modifier = Modifier.fillMaxWidth()
+                isServerRunning = isServerRunning
             )
         }
 
-        // ===== INFO UMUM =====
+        // INFO UMUM
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -220,7 +217,6 @@ private fun RemoteInputField(
     label: String,
     value: String,
     placeholder: String,
-    isPassword: Boolean,
     onValueChange: (String) -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
