@@ -3,10 +3,25 @@ package com.example.ui.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -14,12 +29,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,7 +113,6 @@ fun CustomBackgroundPane(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Preview
                 Box(
                     modifier = Modifier
                         .size(width = 160.dp, height = 90.dp)
@@ -116,25 +140,26 @@ fun CustomBackgroundPane(
                     Text(
                         text = "Unggah foto resolusi tinggi (1920x1080 Full HD atau 4K) interior masjid, arsitektur kubah, atau motif kaligrafi pilihan Anda.",
                         fontSize = 12.sp,
-                        color = TextSecondary
+                        color = TextSecondary,
+                        lineHeight = 16.sp
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { bgPickerLauncher.launch("image/*") },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = IslamicGold,
-                                contentColor = Color(0xFF09141D)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "PILIH DARI GALERI", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
+                        TvActionButton(
+                            icon = Icons.Default.AddPhotoAlternate,
+                            label = "PILIH DARI GALERI",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            onClick = { bgPickerLauncher.launch("image/*") }
+                        )
 
                         if (!settings.customBackgroundUri.isNullOrBlank()) {
-                            OutlinedButton(
+                            TvActionButton(
+                                icon = Icons.Default.Delete,
+                                label = "HAPUS",
+                                backgroundColor = Color.Transparent,
+                                textColor = UrgentRed,
+                                isOutlined = true,
                                 onClick = {
                                     onUpdate(
                                         settings.copy(
@@ -142,15 +167,8 @@ fun CustomBackgroundPane(
                                             backgroundMode = BackgroundMode.NATURE
                                         )
                                     )
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(UrgentRed)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "HAPUS", fontSize = 12.sp)
-                            }
+                                }
+                            )
                         }
                     }
                 }
@@ -184,54 +202,197 @@ fun CustomBackgroundPane(
             Triple(
                 BackgroundMode.CUSTOM,
                 "Gambar Kustom Pengguna",
-                if (!settings.customBackgroundUri.isNullOrBlank()) "Menggunakan foto dari galeri yang telah Anda pilih." else "Pilih foto dari galeri pada menu di atas terlebih dahulu."
+                if (!settings.customBackgroundUri.isNullOrBlank())
+                    "Menggunakan foto dari galeri yang telah Anda pilih."
+                else
+                    "Pilih foto dari galeri pada menu di atas terlebih dahulu."
             )
         )
 
         for ((mode, title, desc) in presetList) {
-            val isSelected = settings.backgroundMode == mode
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isSelected) Color(0x33FFD700) else Color(0xFF091620))
-                    .border(
-                        width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) IslamicGold else Color(0x22FFFFFF),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable { onUpdate(settings.copy(backgroundMode = mode)) }
-                    .padding(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = title,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) IslamicGoldLight else TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = desc,
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
+            PresetBackgroundItem(
+                title = title,
+                description = desc,
+                isSelected = settings.backgroundMode == mode,
+                onClick = { onUpdate(settings.copy(backgroundMode = mode)) }
+            )
+        }
+    }
+}
 
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Terpilih",
-                            tint = IslamicGold,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+// ============================================================
+// KOMPONEN: TOMBOL DENGAN FOKUS LEBIH TEBAL
+// ============================================================
+
+@Composable
+private fun TvActionButton(
+    icon: ImageVector,
+    label: String,
+    backgroundColor: Color,
+    textColor: Color,
+    onClick: () -> Unit,
+    isOutlined: Boolean = false
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else if (isOutlined) 1.5.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "btn_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "btn_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 12.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "btn_shadow"
+    )
+
+    Row(
+        modifier = Modifier
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(10.dp),
+                ambientColor = Color(0x88FFD700),
+                spotColor = Color(0x88FFD700)
+            )
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (isOutlined) Color.Transparent
+                else backgroundColor
+            )
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isOutlined -> textColor.copy(alpha = 0.6f)
+                    else -> Color.Transparent
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = textColor,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor
+        )
+    }
+}
+
+// ============================================================
+// KOMPONEN: PRESET BACKGROUND ITEM
+// ============================================================
+
+@Composable
+private fun PresetBackgroundItem(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused || isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "preset_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.02f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "preset_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 10.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "preset_shadow"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(12.dp),
+                ambientColor = Color(0x66FFD700),
+                spotColor = Color(0x66FFD700)
+            )
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                when {
+                    isSelected -> Color(0x33FFD700)
+                    isFocused -> Color(0x22FFD700)
+                    else -> Color(0xFF091620)
                 }
+            )
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isSelected -> IslamicGold
+                    else -> Color(0x22FFFFFF)
+                },
+                shape = RoundedCornerShape(12.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        isSelected -> IslamicGoldLight
+                        isFocused -> Color(0xFFFFE44D)
+                        else -> TextPrimary
+                    }
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+            }
+
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Terpilih",
+                    tint = IslamicGold,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
