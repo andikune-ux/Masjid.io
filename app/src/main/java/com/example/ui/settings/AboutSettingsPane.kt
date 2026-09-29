@@ -28,10 +28,10 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,7 +79,6 @@ fun AboutSettingsPane(
 
     val currentVersion = try { BuildConfig.VERSION_NAME } catch (e: Exception) { "Unknown" }
 
-    // Cek APK yang sudah pernah di-download saat pertama buka
     LaunchedEffect(Unit) {
         downloadedApkPath = ApkDownloader.getDownloadedApkPath(context)
     }
@@ -90,7 +89,6 @@ fun AboutSettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // HEADER
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Info,
@@ -116,7 +114,6 @@ fun AboutSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // LOGO & NAMA
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -161,7 +158,6 @@ fun AboutSettingsPane(
             }
         }
 
-        // PERIKSA UPDATE
         Text(
             text = "UPDATE APLIKASI",
             fontSize = 14.sp,
@@ -195,7 +191,6 @@ fun AboutSettingsPane(
             }
         )
 
-        // HASIL PERIKSA
         if (checkResult != null) {
             Box(
                 modifier = Modifier
@@ -217,7 +212,6 @@ fun AboutSettingsPane(
             }
         }
 
-        // TOMBOL DOWNLOAD (kalau update tersedia)
         if (isUpdateAvailable) {
             ActionButton(
                 icon = Icons.Default.Download,
@@ -230,18 +224,12 @@ fun AboutSettingsPane(
                     if (isDownloading) return@ActionButton
                     val url = downloadUrl
                     if (url.isNullOrBlank()) {
-                        Toast.makeText(
-                            context,
-                            "URL download belum tersedia",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, "URL download belum tersedia", Toast.LENGTH_LONG).show()
                         return@ActionButton
                     }
-
                     isDownloading = true
                     downloadProgress = 0f
                     downloadedApkPath = null
-
                     scope.launch {
                         ApkDownloader.downloadApk(
                             context = context,
@@ -250,21 +238,13 @@ fun AboutSettingsPane(
                         ).collect { state ->
                             if (state.errorMessage != null) {
                                 isDownloading = false
-                                Toast.makeText(
-                                    context,
-                                    "Download gagal: ${state.errorMessage}",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                Toast.makeText(context, "Download gagal: ${state.errorMessage}", Toast.LENGTH_LONG).show()
                             } else {
                                 downloadProgress = state.progress
                                 if (state.isFinished && state.savedFilePath != null) {
                                     isDownloading = false
                                     downloadedApkPath = state.savedFilePath
-                                    Toast.makeText(
-                                        context,
-                                        "Download selesai! Siap install.",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    Toast.makeText(context, "Download selesai! Siap install.", Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
@@ -272,18 +252,13 @@ fun AboutSettingsPane(
                 }
             )
 
-            // PROGRESS BAR
             if (isDownloading || downloadProgress > 0f) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Progress Download",
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
+                        Text(text = "Progress Download", fontSize = 12.sp, color = TextSecondary)
                         Text(
                             text = "${(downloadProgress * 100).toInt()}%",
                             fontSize = 12.sp,
@@ -310,7 +285,6 @@ fun AboutSettingsPane(
                 }
             }
 
-            // TOMBOL INSTALL (kalau sudah di-download)
             if (downloadedApkPath != null && !isDownloading) {
                 ActionButton(
                     icon = Icons.Default.CheckCircle,
@@ -325,26 +299,14 @@ fun AboutSettingsPane(
                             Toast.makeText(context, "Path APK tidak ditemukan", Toast.LENGTH_SHORT).show()
                             return@ActionButton
                         }
-
-                        // Cek izin install APK
                         if (!ApkDownloader.canInstallApk(context)) {
-                            Toast.makeText(
-                                context,
-                                "Beri izin 'Install unknown apps' dulu",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            Toast.makeText(context, "Beri izin 'Install unknown apps' dulu", Toast.LENGTH_LONG).show()
                             ApkDownloader.openInstallPermissionSettings(context)
                             return@ActionButton
                         }
-
-                        // Install
                         val ok = ApkDownloader.installApk(context, path)
                         if (!ok) {
-                            Toast.makeText(
-                                context,
-                                "Gagal membuka installer APK",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            Toast.makeText(context, "Gagal membuka installer APK", Toast.LENGTH_LONG).show()
                         }
                     }
                 )
@@ -373,10 +335,8 @@ fun AboutSettingsPane(
                 }
             }
         }
+                Spacer(modifier = Modifier.height(4.dp))
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // RIWAYAT UPDATE
         Text(
             text = "RIWAYAT UPDATE",
             fontSize = 14.sp,
@@ -396,7 +356,6 @@ fun AboutSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // SOSMED
         Text(
             text = "IKUTI KAMI",
             fontSize = 14.sp,
@@ -439,7 +398,6 @@ fun AboutSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // INFO DEVELOPER
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -480,10 +438,6 @@ fun AboutSettingsPane(
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
-
-// ============================================================
-// KOMPONEN
-// ============================================================
 
 @Composable
 private fun ActionButton(
