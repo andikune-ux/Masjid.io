@@ -1,6 +1,5 @@
 package com.example.ui.settings
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -197,12 +196,13 @@ fun SettingsScreen(
                 }
             }
 
-            Crossfade(
-                targetState = selectedCategory,
-                modifier = Modifier.weight(0.68f).fillMaxHeight().padding(24.dp),
-                label = "settings_pane"
-            ) { category ->
-                when (category) {
+            Box(
+                modifier = Modifier
+                    .weight(0.68f)
+                    .fillMaxHeight()
+                    .padding(24.dp)
+            ) {
+                when (selectedCategory) {
                     SettingsCategory.LOCATION -> LocationSettingsPane(
                         settings = draftSettings,
                         onUpdate = { draftSettings = it }
