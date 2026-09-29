@@ -47,12 +47,15 @@ import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -202,87 +205,100 @@ fun SettingsScreen(
                     .fillMaxHeight()
                     .padding(24.dp)
             ) {
-                when (selectedCategory) {
-                    SettingsCategory.LOCATION -> LocationSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
+                key(selectedCategory) {
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        visible = true
+                    }
+                    val alpha by animateFloatAsState(
+                        targetValue = if (visible) 1f else 0f,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "pane_fade"
                     )
-                    SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.COUNTDOWN -> CountdownSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.IDENTITY -> IdentitySettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.QRIS_DONATION -> QrisSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it },
-                        onTestQrisFocus = onTestQrisFocus
-                    )
-                    SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.APPEARANCE -> CustomBackgroundPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.AUDIO -> AudioSettingsPane(
-                        settings = draftSettings,
-                        soundManager = soundManager,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.RAMADHAN -> RamadhanSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.SECURITY -> SecuritySettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it },
-                        onChangePinClick = { showChangePinDialog = true }
-                    )
-                    SettingsCategory.POWER -> PowerSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.SLIDESHOW -> SlideSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.CCTV -> CctvSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
-                        settings = draftSettings,
-                        isServerRunning = isRemoteServerRunning,
-                        onUpdate = { draftSettings = it }
-                    )
-                    SettingsCategory.ABOUT -> AboutSettingsPane(
-                        onOpenRiwayatUpdate = { showRiwayatUpdate = true }
-                    )
-                    SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
-                        settings = draftSettings,
-                        onUpdate = { draftSettings = it },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Box(modifier = Modifier.fillMaxSize().alpha(alpha)) {
+                        when (selectedCategory) {
+                            SettingsCategory.LOCATION -> LocationSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.COUNTDOWN -> CountdownSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.IDENTITY -> IdentitySettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.QRIS_DONATION -> QrisSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it },
+                                onTestQrisFocus = onTestQrisFocus
+                            )
+                            SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.APPEARANCE -> CustomBackgroundPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.AUDIO -> AudioSettingsPane(
+                                settings = draftSettings,
+                                soundManager = soundManager,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.RAMADHAN -> RamadhanSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.SECURITY -> SecuritySettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it },
+                                onChangePinClick = { showChangePinDialog = true }
+                            )
+                            SettingsCategory.POWER -> PowerSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.SLIDESHOW -> SlideSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.CCTV -> CctvSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
+                                settings = draftSettings,
+                                isServerRunning = isRemoteServerRunning,
+                                onUpdate = { draftSettings = it }
+                            )
+                            SettingsCategory.ABOUT -> AboutSettingsPane(
+                                onOpenRiwayatUpdate = { showRiwayatUpdate = true }
+                            )
+                            SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
+                                settings = draftSettings,
+                                onUpdate = { draftSettings = it },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                 }
             }
         }
