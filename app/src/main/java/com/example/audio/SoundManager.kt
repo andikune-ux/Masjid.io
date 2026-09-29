@@ -3,8 +3,8 @@ package com.example.audio
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioTrack
 import android.media.AudioManager
+import android.media.AudioTrack
 import android.media.ToneGenerator
 import android.util.Log
 import com.example.data.model.AudioMode
@@ -19,22 +19,29 @@ class SoundManager(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.Default)
     private var activeJob: Job? = null
-    private var isPlaying = false
 
+    /**
+     * Mainkan alert saat masuk waktu sholat.
+     */
     fun playPrayerAlert(
         mode: AudioMode,
-        beepVolume: Int = 70,
-        beepCount: Int = 3,
+        beepVolume: Int = 100,
+        beepCount: Int = 5,
+        beepDurationMs: Int = 1500,
+        beepIntervalMs: Int = 2000,
         adzanStyle: String = "Makkah",
         adzanVolume: Int = 85
     ) {
         stopAll()
         when (mode) {
-            AudioMode.SILENT -> {
-                // No sound
-            }
+            AudioMode.SILENT -> { /* tanpa suara */ }
             AudioMode.BEEP_ONLY -> {
-                playBeeps(count = beepCount, volumePercent = beepVolume)
+                playBeeps(
+                    count = beepCount,
+                    volumePercent = beepVolume,
+                    durationMs = beepDurationMs,
+                    intervalMs = beepIntervalMs
+                )
             }
             AudioMode.FULL_ADZAN -> {
                 playAdzanAudio(style = adzanStyle, volumePercent = adzanVolume)
@@ -42,11 +49,27 @@ class SoundManager(private val context: Context) {
         }
     }
 
-    fun testBeep(count: Int, volumePercent: Int) {
+    /**
+     * Test beep — dipanggil dari tombol TEST SUARA di AudioSettingsPane.
+     */
+    fun testBeep(
+        count: Int,
+        volumePercent: Int,
+        durationMs: Int = 1500,
+        intervalMs: Int = 2000
+    ) {
         stopAll()
-        playBeeps(count = count, volumePercent = volumePercent)
+        playBeeps(
+            count = count,
+            volumePercent = volumePercent,
+            durationMs = durationMs,
+            intervalMs = intervalMs
+        )
     }
 
+    /**
+     * Test adzan — kalau ada (opsional).
+     */
     fun testAdzan(style: String, volumePercent: Int) {
         stopAll()
         playAdzanAudio(style = style, volumePercent = volumePercent)
@@ -55,45 +78,57 @@ class SoundManager(private val context: Context) {
     fun stopAll() {
         activeJob?.cancel()
         activeJob = null
-        isPlaying = false
     }
 
-    /**
-     * Suara beep untuk masjid:
-     * - Tone: TONE_CDMA_ALERT_CALL_GUARD (nada serius seperti alarm, bukan nada mainan)
-     * - Stream: STREAM_ALARM (volume maksimal menembus speaker TV)
-     * - Durasi: 1200ms per beep (lebih panjang dari sebelumnya 600ms)
-     * - Jeda: 1600ms antar beep (terputus-putus jelas)
-     */
-    private fun playBeeps(count: Int, volumePercent: Int) {
+    // ============================================================
+    // BEEP — pola bip...bip...bip dengan durasi & jeda dinamis
+    // ============================================================
+    private fun playBeeps(
+        count: Int,
+        volumePercent: Int,
+        durationMs: Int,
+        intervalMs: Int
+    ) {
         activeJob = scope.launch {
+            var toneGenerator: ToneGenerator? = null
             try {
-                isPlaying = true
-                val toneVolume = volumePercent.coerceIn(10, 100)
-                val tg = ToneGenerator(AudioManager.STREAM_ALARM, toneVolume)
-                for (i in 1..count) {
-                    tg.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1200)
-                    delay(1600)
+                val safeVolume = volumePercent.coerceIn(10, 100)
+
+                // Coba pakai STREAM_ALARM (volume maksimal menembus speaker TV)
+                toneGenerator = try {
+                    ToneGenerator(AudioManager.STREAM_ALARM, safeVolume)
+                } catch (e: Exception) {
+                    // Fallback ke STREAM_MUSIC
+                    ToneGenerator(AudioManager.STREAM_MUSIC, safeVolume)
                 }
-                delay(400)
-                tg.release()
+
+                val safeDuration = durationMs.coerceIn(200, 3000)
+                val safeInterval = intervalMs.coerceIn(200, 5000)
+
+                repeat(count) { index ->
+                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, safeDuration)
+                    // Tunggu durasi bip selesai + jeda
+                    delay(safeDuration.toLong() + safeInterval.toLong())
+                }
             } catch (e: Exception) {
-                Log.e("SoundManager", "ToneGenerator error: ${e.message}")
+                Log.e("SoundManager", "Beep error: ${e.message}")
             } finally {
-                isPlaying = false
+                try {
+                    toneGenerator?.release()
+                } catch (_: Exception) {}
             }
         }
     }
 
+    // ============================================================
+    // ADZAN — pakai harmonic melody (kalau tidak dipakai, biarkan)
+    // ============================================================
     private fun playAdzanAudio(style: String, volumePercent: Int) {
         activeJob = scope.launch {
             try {
-                isPlaying = true
                 playAdzanHarmonicMelody(volumePercent, style)
             } catch (e: Exception) {
-                Log.e("SoundManager", "Adzan audio error: ${e.message}")
-            } finally {
-                isPlaying = false
+                Log.e("SoundManager", "Adzan error: ${e.message}")
             }
         }
     }
@@ -147,7 +182,8 @@ class SoundManager(private val context: Context) {
                 val releaseSamples = (sampleRate * 0.2).toInt()
                 val envelope = when {
                     i < attackSamples -> i.toDouble() / attackSamples
-                    i > numSamples - releaseSamples -> (numSamples - i).toDouble() / releaseSamples
+                    i > numSamples - releaseSamples ->
+                        (numSamples - i).toDouble() / releaseSamples
                     else -> 1.0
                 }
                 val sample = (wave * envelope * Short.MAX_VALUE * vol).toInt().toShort()
