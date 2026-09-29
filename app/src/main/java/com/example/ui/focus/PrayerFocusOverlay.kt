@@ -79,6 +79,12 @@ fun PrayerFocusOverlay(
         FocusPhase.FARDHU -> listOf(Color(0xFF3A2E1B), Color(0xFF5F442E), Color(0xFF3A2E1B))
     }
 
+    val phaseNum = when (currentPhase) {
+        FocusPhase.ADZAN -> 1
+        FocusPhase.QOBLIYAH -> 2
+        FocusPhase.FARDHU -> 3
+    }
+
     LaunchedEffect(currentPhase) {
         when (currentPhase) {
             FocusPhase.ADZAN -> secondsRemaining = iqamahWaitMinutes * 60
@@ -123,32 +129,25 @@ fun PrayerFocusOverlay(
                 .fillMaxSize()
                 .padding(32.dp)
         ) {
-            // ============ HEADER ============
+            // HEADER
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val phaseNum = when (currentPhase) {
-                        FocusPhase.ADZAN -> 1
-                        FocusPhase.QOBLIYAH -> 2
-                        FocusPhase.FARDHU -> 3
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(IslamicGold.copy(alpha = 0.2f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "MODE FOKUS SHOLAT  •  FASE $phaseNum DARI 3",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = IslamicGoldLight,
-                            letterSpacing = 1.sp
-                        )
-                    }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(IslamicGold.copy(alpha = 0.2f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "MODE FOKUS SHOLAT  •  FASE $phaseNum DARI 3",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight,
+                        letterSpacing = 1.sp
+                    )
                 }
 
                 Box(
@@ -170,7 +169,7 @@ fun PrayerFocusOverlay(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ============ KONTEN UTAMA ============
+            // KONTEN UTAMA
             AnimatedContent(
                 targetState = currentPhase,
                 transitionSpec = {
@@ -202,7 +201,7 @@ fun PrayerFocusOverlay(
                 }
             }
 
-            // ============ PROGRESS BAR ============
+            // PROGRESS BAR
             Spacer(modifier = Modifier.height(16.dp))
             Box(
                 modifier = Modifier
@@ -211,11 +210,6 @@ fun PrayerFocusOverlay(
                     .clip(RoundedCornerShape(3.dp))
                     .background(Color(0x33FFFFFF))
             ) {
-                val phaseNum = when (currentPhase) {
-                    FocusPhase.ADZAN -> 1
-                    FocusPhase.QOBLIYAH -> 2
-                    FocusPhase.FARDHU -> 3
-                }
                 val totalDurationSec = totalDurationMinutes * 60
                 val elapsedSec = when (currentPhase) {
                     FocusPhase.ADZAN -> (iqamahWaitMinutes * 60) - secondsRemaining
@@ -262,10 +256,7 @@ private fun AdzanPhase(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "🕌",
-            fontSize = 64.sp
-        )
+        Text(text = "🕌", fontSize = 64.sp)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "WAKTU ${prayerId.displayName.uppercase()} TELAH TIBA",
@@ -348,10 +339,7 @@ private fun QobliyahPhase(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "🕌",
-            fontSize = 56.sp
-        )
+        Text(text = "🕌", fontSize = 56.sp)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "SHOLAT SUNNAH QOBLIYAH",
@@ -426,6 +414,7 @@ private fun QobliyahPhase(
         }
     }
 }
+
 // ============================================================
 // FASE 3: FARDHU
 // ============================================================
@@ -437,10 +426,7 @@ private fun FardhuPhase(prayerId: PrayerId) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "🕌",
-            fontSize = 72.sp
-        )
+        Text(text = "🕌", fontSize = 72.sp)
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "DIRIKAN SHOLAT ${prayerId.displayName.uppercase()}",
