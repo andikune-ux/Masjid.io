@@ -3,6 +3,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.Properties
+import java.util.TimeZone
 
 plugins {
     alias(libs.plugins.android.application)
@@ -19,8 +20,17 @@ if (versionPropsFile.exists()) {
     versionProps.load(versionPropsFile.inputStream())
 }
 
-val currentDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-val currentDay = SimpleDateFormat("dd", Locale.getDefault()).format(Date())
+// ============================================================
+// TIMEZONE: Asia/Jakarta (WIB) — biar tanggal tidak geser ke UTC
+// ============================================================
+val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
+val currentDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+    .apply { timeZone = jakartaTz }
+    .format(Date())
+val currentDay = SimpleDateFormat("dd", Locale.getDefault())
+    .apply { timeZone = jakartaTz }
+    .format(Date())
+
 val lastBuildDate = versionProps.getProperty("lastBuildDate", "")
 var buildCount = versionProps.getProperty("buildCount", "0").toInt()
 
