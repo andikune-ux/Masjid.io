@@ -161,6 +161,11 @@ data class AppSettings(
     val videoUri: String? = null,
     val videoSmartFullscreen: Boolean = true,
 
+    // ===== Photo Slideshow (Widget Foto) =====
+    val photoSlideshowEnabled: Boolean = false,
+    val photoSlideshowUris: List<String> = emptyList(),
+    val photoSlideshowIntervalSeconds: Int = 10,
+
     // ===== Ramadhan Mode =====
     val ramadhanModeEnabled: Boolean = false,
     val showImsakIftarCountdown: Boolean = true,
