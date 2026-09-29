@@ -413,35 +413,3 @@ private fun TopBarIconButton(
         content()
     }
 }
-
-// ============================================================
-// PANE: RUNNING TEXT (yang masih di file ini)
-// ============================================================
-
-@Composable
-fun RunningTextSettingsPane(
-    settings: AppSettings,
-    onUpdate: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "RUNNING TEXT",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight
-        )
-        Text(
-            text = "Teks berjalan di bagian bawah layar utama.",
-            fontSize = 13.sp,
-            color = TextSecondary
-        )
-        Text(
-            text = "Isi: ${settings.runningText}",
-            fontSize = 14.sp,
-            color = TextPrimary
-        )
-    }
-}
