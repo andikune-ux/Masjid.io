@@ -18,14 +18,6 @@ import java.net.URLDecoder
 
 /**
  * HTTP Server mini untuk Remote Control via HP.
- *
- * Endpoint:
- * - GET  /                    -> Dashboard HTML
- * - GET  /api/status          -> JSON status app
- * - GET  /api/settings        -> JSON semua settings
- * - POST /api/running-text    -> Update running text
- * - POST /api/pin             -> Update PIN
- * - POST /api/restart         -> Restart app
  */
 class RemoteServer(
     private val context: Context,
@@ -83,16 +75,11 @@ class RemoteServer(
 
     fun isRunning(): Boolean = isRunning
 
-    // ============================================================
-    // HANDLE CLIENT
-    // ============================================================
-
     private fun handleClient(client: Socket) {
         try {
             val reader = BufferedReader(InputStreamReader(client.getInputStream()))
             val writer = OutputStreamWriter(client.getOutputStream())
 
-            // Baca request line
             val requestLine = reader.readLine() ?: return
             val parts = requestLine.split(" ")
             if (parts.size < 2) {
@@ -103,7 +90,6 @@ class RemoteServer(
             val method = parts[0]
             val path = parts[1]
 
-            // Baca headers
             val headers = mutableMapOf<String, String>()
             var line: String?
             while (reader.readLine().also { line = it } != null) {
@@ -114,7 +100,6 @@ class RemoteServer(
                 }
             }
 
-            // Baca body
             val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
             val body = if (contentLength > 0) {
                 val buffer = CharArray(contentLength)
@@ -122,7 +107,6 @@ class RemoteServer(
                 String(buffer)
             } else ""
 
-            // Auth check
             val authHeader = headers["authorization"]
             val urlToken = path.substringAfter("token=", "").substringBefore("&")
             val isAuthorized = authHeader == "Bearer $authToken" ||
@@ -135,7 +119,6 @@ class RemoteServer(
                 return
             }
 
-            // Routing
             when {
                 method == "GET" && path == "/" -> {
                     sendResponse(writer, 200, "text/html", getDashboardHtml())
@@ -164,20 +147,17 @@ class RemoteServer(
                     }
                 }
                 method == "POST" && path.startsWith("/api/restart") -> {
-                    // Kirim response dulu, baru restart
                     sendResponse(writer, 200, "application/json",
                         """{"success":true,"message":"Restart dijadwalkan"}""")
                     writer.flush()
                     client.close()
 
-                    // Restart setelah 1 detik (biar response terkirim)
                     Handler(Looper.getMainLooper()).postDelayed({
                         try {
                             Log.d(TAG, "Restarting app via Remote Control...")
                             if (onRestart != null) {
                                 onRestart.invoke()
                             } else {
-                                // Fallback: kill process
                                 android.os.Process.killProcess(android.os.Process.myPid())
                             }
                         } catch (e: Exception) {
@@ -195,15 +175,9 @@ class RemoteServer(
             client.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error handling client: ${e.message}")
-            try {
-                client.close()
-            } catch (_: Exception) { }
+            try { client.close() } catch (_: Exception) { }
         }
     }
-
-    // ============================================================
-    // RESPONSE HELPER
-    // ============================================================
 
     private fun sendResponse(
         writer: OutputStreamWriter,
@@ -240,10 +214,6 @@ class RemoteServer(
         }
         return result
     }
-
-    // ============================================================
-    // API HANDLERS
-    // ============================================================
 
     private fun updateRunningText(text: String) {
         val current = settingsRepository.settingsFlow.value
@@ -283,10 +253,6 @@ class RemoteServer(
         }
         """.trimIndent()
     }
-
-    // ============================================================
-    // DASHBOARD HTML
-    // ============================================================
 
     private fun getDashboardHtml(): String = """
 <!DOCTYPE html>
@@ -387,14 +353,11 @@ async function updateRunningText() {
   const text = document.getElementById('runningText').value;
   try {
     const res = await fetch('/api/running-text?token=' + TOKEN, {
-      method: 'POST',
-      headers,
+      method: 'POST', headers,
       body: 'text=' + encodeURIComponent(text)
     });
     showStatus(res.ok ? 'Teks berhasil disimpan!' : 'Gagal simpan', res.ok);
-  } catch(e) {
-    showStatus('Error: ' + e.message, false);
-  }
+  } catch(e) { showStatus('Error: ' + e.message, false); }
 }
 
 async function updatePin() {
@@ -402,14 +365,10 @@ async function updatePin() {
   if (pin.length !== 4) { showStatus('PIN harus 4 digit', false); return; }
   try {
     const res = await fetch('/api/pin?token=' + TOKEN, {
-      method: 'POST',
-      headers,
-      body: 'pin=' + pin
+      method: 'POST', headers, body: 'pin=' + pin
     });
     showStatus(res.ok ? 'PIN berhasil diubah!' : 'Gagal ubah PIN', res.ok);
-  } catch(e) {
-    showStatus('Error: ' + e.message, false);
-  }
+  } catch(e) { showStatus('Error: ' + e.message, false); }
 }
 
 async function restartApp() {
@@ -417,9 +376,7 @@ async function restartApp() {
   try {
     await fetch('/api/restart?token=' + TOKEN, { method: 'POST' });
     showStatus('Restart dijadwalkan. Aplikasi akan menutup...', true);
-  } catch(e) {
-    showStatus('Error: ' + e.message, false);
-  }
+  } catch(e) { showStatus('Error: ' + e.message, false); }
 }
 
 function showStatus(msg, ok) {
