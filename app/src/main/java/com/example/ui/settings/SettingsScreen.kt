@@ -120,7 +120,7 @@ fun SettingsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MosqueDeepBg)) {
-        // ============ TOP BAR ============
+        // TOP BAR
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -130,9 +130,7 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TopBarIconButton(
-                    onClick = onBack
-                ) {
+                TopBarIconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Kembali",
@@ -173,9 +171,8 @@ fun SettingsScreen(
             }
         }
 
-        // ============ BODY ============
+        // BODY
         Row(modifier = Modifier.fillMaxSize()) {
-            // SIDEBAR
             Column(
                 modifier = Modifier
                     .weight(0.32f)
@@ -200,7 +197,6 @@ fun SettingsScreen(
                 }
             }
 
-            // CONTENT
             Crossfade(
                 targetState = selectedCategory,
                 modifier = Modifier.weight(0.68f).fillMaxHeight().padding(24.dp),
@@ -292,7 +288,6 @@ fun SettingsScreen(
         }
     }
 
-    // ============ DIALOG PIN DEVELOPER ============
     if (showDeveloperPinDialog) {
         DeveloperPinDialog(
             correctPin = "140399",
@@ -304,7 +299,6 @@ fun SettingsScreen(
         )
     }
 
-    // ============ DIALOG UBAH PIN ============
     if (showChangePinDialog) {
         ChangePinDialog(
             currentPin = draftSettings.pinCode,
@@ -316,10 +310,6 @@ fun SettingsScreen(
         )
     }
 }
-
-// ============================================================
-// SIDEBAR ITEM
-// ============================================================
 
 @Composable
 private fun SidebarItem(
@@ -371,11 +361,7 @@ private fun SidebarItem(
             )
             .clip(RoundedCornerShape(12.dp))
             .background(bgColor)
-            .border(
-                width = borderWidth,
-                color = borderColor,
-                shape = RoundedCornerShape(12.dp)
-            )
+            .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
@@ -405,10 +391,6 @@ private fun SidebarItem(
         )
     }
 }
-
-// ============================================================
-// TOMBOL ICON
-// ============================================================
 
 @Composable
 private fun TopBarIconButton(
