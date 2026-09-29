@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.audio.SoundManager
 import com.example.data.model.AppSettings
+import com.example.ui.components.ChangePinDialog
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.MosqueDeepBg
@@ -108,6 +109,7 @@ fun SettingsScreen(
     var selectedCategory by remember { mutableStateOf(SettingsCategory.LOCATION) }
     var draftSettings by remember { mutableStateOf(currentSettings) }
     var showDeveloperPinDialog by remember { mutableStateOf(false) }
+    var showChangePinDialog by remember { mutableStateOf(false) }
     var showRiwayatUpdate by remember { mutableStateOf(false) }
 
     if (showRiwayatUpdate) {
@@ -258,7 +260,7 @@ fun SettingsScreen(
                     SettingsCategory.SECURITY -> SecuritySettingsPane(
                         settings = draftSettings,
                         onUpdate = { draftSettings = it },
-                        onChangePinClick = { /* placeholder */ }
+                        onChangePinClick = { showChangePinDialog = true }
                     )
                     SettingsCategory.POWER -> PowerSettingsPane(
                         settings = draftSettings,
@@ -290,6 +292,7 @@ fun SettingsScreen(
         }
     }
 
+    // ============ DIALOG PIN DEVELOPER ============
     if (showDeveloperPinDialog) {
         DeveloperPinDialog(
             correctPin = "140399",
@@ -298,6 +301,18 @@ fun SettingsScreen(
                 selectedCategory = SettingsCategory.DEVELOPER
             },
             onDismiss = { showDeveloperPinDialog = false }
+        )
+    }
+
+    // ============ DIALOG UBAH PIN ============
+    if (showChangePinDialog) {
+        ChangePinDialog(
+            currentPin = draftSettings.pinCode,
+            onPinChanged = { newPin ->
+                draftSettings = draftSettings.copy(pinCode = newPin)
+                showChangePinDialog = false
+            },
+            onDismiss = { showChangePinDialog = false }
         )
     }
 }
