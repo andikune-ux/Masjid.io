@@ -12,27 +12,68 @@ object UpdateHistory {
     /**
      * Daftar riwayat update MASJID.IO.
      * Urutan: terbaru di atas.
-     * Setiap update WAJIB ditambahkan di sini (tidak bisa dihapus).
+     * Setiap update WAJIB ditambahkan di sini.
      */
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.28.4",
+            date = "29 September 2026",
+            title = "Slide Fullscreen, CCTV, Remote Control & Konten Rotasi",
+            features = listOf(
+                "Menambahkan Slide Fullscreen (QRIS Infaq)",
+                "Menambahkan Slide Laporan Keuangan",
+                "Menambahkan Slide Jadwal Kajian",
+                "Menambahkan SlideManager (rotasi otomatis)",
+                "Menambahkan Konten Rotasi (Ayat/Hadits/Asmaul Husna)",
+                "Menambahkan data DzikirStore (8 dzikir)",
+                "Menambahkan data AyatStore (10 ayat)",
+                "Menambahkan data HaditsStore (10 hadits)",
+                "Menambahkan data AsmaulHusnaStore (99 nama Allah)",
+                "Menambahkan Mode Ramadhan Overlay (countdown Imsak/Iftar)",
+                "Menambahkan CCTV Widget (RTSP + HTTP support)",
+                "Menambahkan ExoPlayer RTSP (untuk CCTV RTSP)",
+                "Menambahkan Remote Control (HTTP server)",
+                "Menambahkan Remote Dashboard (info akses)",
+                "Menambahkan background foto di PrayerCard",
+                "Menambahkan Phase 4 Dzikir di PrayerFocusOverlay",
+                "Menambahkan SlideSettingsPane",
+                "Menambahkan CctvSettingsPane",
+                "Menambahkan RemoteSettingsPane",
+                "Update SettingsScreen (menu baru: Slide, CCTV, Remote)",
+                "Update MainActivity (integrasi RemoteServer)"
+            )
+        ),
+        UpdateEntry(
+            version = "V1.28.3",
+            date = "29 September 2026",
+            title = "Fokus D-pad, Pane Lengkap & Restore Fitur",
+            features = listOf(
+                "Fokus D-pad lebih tebal (TvFocusHelper)",
+                "TvSlider + TvToggle (remote-friendly)",
+                "LocationSettingsPane lengkap (GPS + manual + Kemenag)",
+                "IdentitySettingsPane lengkap (nama, alamat, logo, takmir)",
+                "RunningTextSettingsPane lengkap",
+                "Fix warning Locale deprecated",
+                "Fix warning BorderStroke deprecated",
+                "Restore fitur Location & Identity yang hilang"
+            )
+        ),
+        UpdateEntry(
             version = "V1.28.2",
             date = "28 September 2026",
-            title = "Perbaikan & Fitur Baru",
+            title = "Versioning, Keystore & Fitur Inti",
             features = listOf(
-                "Memperbaiki Bug Backup Aman (izin penyimpanan)",
-                "Menambahkan fitur Backup Aman ke file TXT",
-                "Menambahkan fitur Log Crash otomatis",
-                "Menambahkan fitur Riwayat Crash di Opsi Developer",
-                "Menambahkan fitur Periksa Update dari GitHub",
-                "Menambahkan fitur Riwayat Update dengan detail fitur",
-                "Memulihkan panel Mode Ramadhan (jadwal tarawih, kultum)",
-                "Memulihkan panel Keamanan (PIN, kiosk, auto-start)",
-                "Memulihkan panel Daya & Booting (auto on/off, idle screen)",
-                "Memulihkan panel Tentang Aplikasi + icon sosmed",
                 "Implementasi versioning otomatis (format V1.28.2)",
                 "Setup keystore permanen (update tanpa uninstall)",
-                "Auto GitHub Release setiap build"
+                "Auto GitHub Release setiap build",
+                "Fitur Backup Aman (TXT)",
+                "Fitur Log Crash + Riwayat Crash",
+                "Fitur Periksa Update + Riwayat Update",
+                "Fitur ApkDownloader (download + install APK)",
+                "Fitur WhatsApp Fonnte (crash → grup admin)",
+                "Fitur Foto Slideshow",
+                "Fitur Build History Fetcher",
+                "Restore 4 pane: Ramadhan, Keamanan, Daya, Tentang"
             )
         ),
         UpdateEntry(
@@ -40,16 +81,13 @@ object UpdateHistory {
             date = "28 September 2026",
             title = "Perbaikan Tampilan & Petugas",
             features = listOf(
-                "Menambahkan fitur upload foto per sesi petugas",
-                "Setiap imam/muadzin/khatib/ustadz bisa punya foto sendiri",
-                "Foto profil kotak sudut tumpul (dari lingkaran)",
-                "HomeScreen: video kegiatan masjid diperbesar",
-                "HomeScreen: jam digital diperkecil",
-                "Kartu sholat digeser ke kiri saat video aktif",
-                "Memperbaiki suara beep (lebih nyaring, panjang, serius)",
-                "Menambahkan integrasi KioskManager",
-                "Menambahkan WatchdogService untuk auto-restart",
-                "Memperbaiki detect crash di MainActivity"
+                "Upload foto per sesi petugas",
+                "Foto profil kotak sudut tumpul",
+                "HomeScreen: video diperbesar, jam diperkecil",
+                "Kartu sholat digeser kiri saat video aktif",
+                "Suara beep diperbaiki (nyaring, panjang, serius)",
+                "Integrasi KioskManager & WatchdogService",
+                "Deteksi crash di MainActivity"
             )
         ),
         UpdateEntry(
@@ -57,19 +95,19 @@ object UpdateHistory {
             date = "27 September 2026",
             title = "Versi Dasar",
             features = listOf(
-                "Jadwal sholat 6 waktu (Subuh, Syuruq, Dzuhur, Ashar, Maghrib, Isya)",
-                "Jam digital besar + tanggal Hijriah & Masehi",
-                "Kartu 6 waktu sholat sejajar horizontal",
-                "Panel Imam & Muadzin dengan auto-slide",
+                "Jadwal sholat 6 waktu",
+                "Jam digital + tanggal Hijriah",
+                "Kartu 6 waktu sholat sejajar",
+                "Panel Imam & Muadzin auto-slide",
                 "Running text pengumuman",
-                "Mode fokus 30 menit (Adzan, Qobliyah, Fardhu)",
-                "Audio: Beep Only / Full Adzan / Silent",
-                "Pengaturan lengkap via ikon gerigi (dengan PIN)",
-                "Jadwal petugas mingguan (imam, muadzin, khatib, ustadz)",
-                "Kiosk mode + auto-start on boot",
+                "Mode fokus 30 menit",
+                "Audio: Beep / Full Adzan / Silent",
+                "Pengaturan lengkap dengan PIN",
+                "Jadwal petugas mingguan",
+                "Kiosk mode + auto-start",
                 "Auto-build APK via GitHub Actions",
-                "Bisa jadi launcher default Android TV",
-                "Background 3 mode (Alam, Kakbah, Custom)",
+                "Launcher default Android TV",
+                "Background 3 mode",
                 "Mode Ramadhan (dasar)",
                 "Donasi QRIS & Rekening",
                 "Video kegiatan masjid",
@@ -78,16 +116,10 @@ object UpdateHistory {
         )
     )
 
-    /**
-     * Ambil riwayat update untuk versi tertentu.
-     */
     fun getEntry(version: String): UpdateEntry? {
         return entries.firstOrNull { it.version == version }
     }
 
-    /**
-     * Ambil versi terbaru.
-     */
     fun getLatestVersion(): String {
         return entries.firstOrNull()?.version ?: "V1.0.0"
     }
