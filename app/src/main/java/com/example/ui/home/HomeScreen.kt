@@ -73,6 +73,19 @@ fun HomeScreen(
             schedule.secondsToNext > 1800 &&
             !userDismissedVideoFullscreen
 
+    // Split mode: video enabled tapi tidak fullscreen
+    val isSplitVideo = settings.videoEnabled &&
+            !settings.videoUri.isNullOrBlank() &&
+            !settings.videoSmartFullscreen
+
+    // Split mode untuk FOTO: video tidak aktif + slideshow aktif + ada foto
+    val isSplitPhoto = !settings.videoEnabled &&
+            settings.photoSlideshowEnabled &&
+            settings.photoSlideshowUris.isNotEmpty()
+
+    // Mode split apapun (video atau foto)
+    val isSplitMode = isSplitVideo || isSplitPhoto
+
     val now = LocalTime.now()
     val realTimeSkyBrush = DynamicSkyTheme.getSkyBrush(now)
 
@@ -193,13 +206,8 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.07f)
                 )
 
-                // [B] MIDDLE CLOCK & VIDEO SECTION (24%)
-                // PERUBAHAN: 38% jam + 62% video (sebelumnya 58% + 42%)
-                val isSplitVideo = settings.videoEnabled &&
-                        !settings.videoUri.isNullOrBlank() &&
-                        !settings.videoSmartFullscreen
-
-                if (isSplitVideo) {
+                // [B] MIDDLE: JAM + (Video / Foto / Full)
+                if (isSplitMode) {
                     Row(
                         modifier = Modifier
                             .weight(0.24f)
@@ -208,7 +216,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Kiri: Jam (diperkecil dari 58% jadi 38%)
+                        // Kiri: Jam (38%)
                         Column(
                             modifier = Modifier.weight(0.38f),
                             verticalArrangement = Arrangement.Center,
@@ -222,17 +230,26 @@ fun HomeScreen(
                                 gregorianDateString = gregorianDateString
                             )
                         }
-                        // Kanan: Video (diperbesar dari 42% jadi 62%)
+                        // Kanan: Video atau Foto (62%)
                         Box(
                             modifier = Modifier
                                 .weight(0.62f)
                                 .fillMaxHeight(0.95f)
                         ) {
-                            MasjidVideoPlayer(
-                                videoUriString = settings.videoUri,
-                                isFullscreen = false,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            if (isSplitVideo) {
+                                MasjidVideoPlayer(
+                                    videoUriString = settings.videoUri,
+                                    isFullscreen = false,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                PhotoSlideshow(
+                                    photoUris = settings.photoSlideshowUris,
+                                    intervalSeconds = settings.photoSlideshowIntervalSeconds,
+                                    isFullscreen = false,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 } else {
@@ -253,12 +270,11 @@ fun HomeScreen(
                 }
 
                 // [C] 6 KARTU SHOLAT (28%)
-                // PERUBAHAN: Digeser ke kiri & diperkecil saat video aktif
                 PrayerCardsRow(
                     prayerItems = schedule.items,
                     modifier = Modifier
                         .weight(0.28f)
-                        .fillMaxWidth(if (isSplitVideo) 0.62f else 1f)
+                        .fillMaxWidth(if (isSplitMode) 0.62f else 1f)
                 )
 
                 // [D] PROGRESS COUNTDOWN (5%)
@@ -305,3 +321,9 @@ fun HomeScreen(
         }
     }
 }
+// ============================================================
+// CATATAN: Fungsi ini sebelumnya TIDAK ADA di HomeScreen.kt
+// Sekarang kita pisah, jadi bersih.
+// Semua komponen lain (TopBar, ClockAndDate, PrayerCardsRow, dll)
+// sudah ada di file masing-masing di folder ui/components/.
+// ============================================================
