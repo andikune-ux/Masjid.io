@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
@@ -19,8 +20,12 @@ import java.net.URLDecoder
 /**
  * HTTP Server mini untuk Remote Control via HP.
  *
- * FIX: Parse path & query string dengan benar,
- *      biar "/?token=xxx" tetap match dengan route "/".
+ * FIX V3:
+ *   - Tambah property `lastError` — pesan error saat bind gagal
+ *   - Tambah property `actualPort` — port yang benar-benar terpakai
+ *   - Log stack trace lengkap saat bind gagal (ketahuan penyebabnya)
+ *   - reuseAddress = true (biar bisa rebind cepat)
+ *   - TIDAK ganti port default (tetap dari settings)
  */
 class RemoteServer(
     private val context: Context,
@@ -40,13 +45,28 @@ class RemoteServer(
     private var isRunning = false
     private var serverJob: Job? = null
 
+    /** Pesan error terakhir saat bind gagal — null kalau sukses. */
+    @Volatile
+    var lastError: String? = null
+        private set
+
+    /** Port yang benar-benar terpakai — -1 kalau belum start. */
+    @Volatile
+    var actualPort: Int = -1
+        private set
+
     fun start(scope: CoroutineScope) {
         if (isRunning) return
         serverJob = scope.launch(Dispatchers.IO) {
             try {
-                serverSocket = ServerSocket(port)
+                val socket = ServerSocket()
+                socket.reuseAddress = true
+                socket.bind(InetSocketAddress(port))
+                serverSocket = socket
                 isRunning = true
-                Log.d(TAG, "Remote Server started on port $port")
+                actualPort = port
+                lastError = null
+                Log.d(TAG, "✅ Server STARTED on port $port")
                 while (isRunning) {
                     try {
                         val client = serverSocket?.accept() ?: break
@@ -58,8 +78,10 @@ class RemoteServer(
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Server error: ${e.message}")
+                lastError = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
                 isRunning = false
+                actualPort = -1
+                Log.e(TAG, "❌ Server FAILED bind port $port → $lastError", e)
             }
         }
     }
@@ -72,6 +94,7 @@ class RemoteServer(
             Log.e(TAG, "Error closing server: ${e.message}")
         }
         serverSocket = null
+        actualPort = -1
         serverJob?.cancel()
         Log.d(TAG, "Remote Server stopped")
     }
@@ -93,10 +116,7 @@ class RemoteServer(
             val method = parts[0]
             val fullPath = parts[1]
 
-            // ============================================================
-            // PARSE PATH & QUERY STRING
-            // Contoh: "/?token=masjid-io" → path="/", query="token=masjid-io"
-            // ============================================================
+            // PARSE PATH & QUERY
             val pathOnly: String
             val queryString: String
             val qIndex = fullPath.indexOf('?')
@@ -108,7 +128,7 @@ class RemoteServer(
                 queryString = ""
             }
 
-            // ============ BACA HEADER ============
+            // BACA HEADER
             val headers = mutableMapOf<String, String>()
             var line: String?
             while (reader.readLine().also { line = it } != null) {
@@ -119,7 +139,7 @@ class RemoteServer(
                 }
             }
 
-            // ============ BACA BODY ============
+            // BACA BODY
             val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
             val body = if (contentLength > 0) {
                 val buffer = CharArray(contentLength)
@@ -127,7 +147,7 @@ class RemoteServer(
                 String(buffer)
             } else ""
 
-            // ============ AUTH ============
+            // AUTH
             val authHeader = headers["authorization"]
             val urlToken = queryString
                 .split("&")
@@ -147,32 +167,23 @@ class RemoteServer(
                 return
             }
 
-            // ============ ROUTING ============
+            // ROUTING
             when {
-                // ---- Root: Dashboard HTML ----
                 method == "GET" && (pathOnly == "/" || pathOnly.isEmpty()) -> {
                     sendResponse(writer, 200, "text/html", getDashboardHtml())
                 }
-
-                // ---- Status JSON ----
                 method == "GET" && pathOnly == "/api/status" -> {
                     sendResponse(writer, 200, "application/json", getStatusJson())
                 }
-
-                // ---- Settings JSON ----
                 method == "GET" && pathOnly == "/api/settings" -> {
                     sendResponse(writer, 200, "application/json", getSettingsJson())
                 }
-
-                // ---- Update Running Text ----
                 method == "POST" && pathOnly == "/api/running-text" -> {
                     val params = parseFormData(body)
                     val text = params["text"] ?: ""
                     updateRunningText(text)
                     sendResponse(writer, 200, "application/json", """{"success":true}""")
                 }
-
-                // ---- Update PIN ----
                 method == "POST" && pathOnly == "/api/pin" -> {
                     val params = parseFormData(body)
                     val newPin = params["pin"] ?: ""
@@ -186,8 +197,6 @@ class RemoteServer(
                         )
                     }
                 }
-
-                // ---- Restart App ----
                 method == "POST" && pathOnly == "/api/restart" -> {
                     sendResponse(
                         writer, 200, "application/json",
@@ -209,16 +218,12 @@ class RemoteServer(
                     }, 1000)
                     return
                 }
-
-                // ---- iO Control: handshake ----
                 method == "POST" && pathOnly == "/api/io/handshake" -> {
                     sendResponse(
                         writer, 200, "application/json",
-                        """{"success":true,"app":"MASJID.IO"}"""
+                        """{"success":true,"app":"MASJID.IO","port":$actualPort}"""
                     )
                 }
-
-                // ---- iO Control: receive settings ----
                 method == "POST" && pathOnly == "/api/io/receive" -> {
                     sendResponse(
                         writer, 200, "application/json",
@@ -251,8 +256,6 @@ class RemoteServer(
                     }, 200)
                     return
                 }
-
-                // ---- Not Found ----
                 else -> {
                     Log.w(TAG, "Not found: method=$method path=$pathOnly")
                     sendResponse(writer, 404, "text/plain", "Not Found: $pathOnly")
@@ -263,13 +266,10 @@ class RemoteServer(
             client.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error handling client: ${e.message}")
-            try {
-                client.close()
-            } catch (_: Exception) {
-            }
+            try { client.close() } catch (_: Exception) {}
         }
     }
-
+    
     private fun sendResponse(
         writer: OutputStreamWriter,
         code: Int,
@@ -283,7 +283,6 @@ class RemoteServer(
             404 -> "Not Found"
             else -> "Unknown"
         }
-
         val bodyBytes = body.toByteArray(Charsets.UTF_8)
         writer.write("HTTP/1.1 $code $statusText\r\n")
         writer.write("Content-Type: $contentType; charset=utf-8\r\n")
@@ -326,7 +325,10 @@ class RemoteServer(
                 "mosque":"${settings.mosqueName}",
                 "city":"${settings.city}",
                 "kioskMode":${settings.kioskModeEnabled},
-                "waReport":${settings.whatsappReportEnabled}
+                "waReport":${settings.whatsappReportEnabled},
+                "port":$actualPort,
+                "running":$isRunning,
+                "lastError":"${lastError ?: ""}"
             }
         """.trimIndent()
     }
@@ -360,8 +362,6 @@ class RemoteServer(
                 button:hover { background: #1976D2; }
                 input, textarea { background: #132F4C; color: #fff; border: 1px solid #2196F3; padding: 10px; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 14px; }
                 .card { background: #132F4C; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
-                .success { color: #4CAF50; }
-                .error { color: #FF5252; }
             </style>
         </head>
         <body>
@@ -388,14 +388,8 @@ class RemoteServer(
 
             <div class="card">
                 <h2>Restart Aplikasi</h2>
-                <p>Restart aplikasi MASJID.IO. Aplikasi akan menutup dan membuka lagi.</p>
+                <p>Restart aplikasi MASJID.IO.</p>
                 <button onclick="restart()">RESTART SEKARANG</button>
-            </div>
-
-            <div class="card">
-                <h2>ℹ️ Info</h2>
-                <p>Remote ini untuk mengatur aplikasi MASJID.IO dari HP.<br>
-                Pastikan HP dan TV dalam 1 WiFi yang sama.</p>
             </div>
 
             <script>
@@ -414,7 +408,7 @@ class RemoteServer(
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: 'text=' + encodeURIComponent(text)
-                    }).then(r => r.json()).then(d => alert('OK! Running text disimpan.')).catch(e => alert('Gagal: ' + e));
+                    }).then(r => r.json()).then(d => alert('OK!')).catch(e => alert('Gagal: ' + e));
                 }
                 function savePin() {
                     const pin = document.getElementById('pin').value;
@@ -422,15 +416,11 @@ class RemoteServer(
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: 'pin=' + encodeURIComponent(pin)
-                    }).then(r => r.json()).then(d => {
-                        if (d.success) alert('PIN berhasil diganti!');
-                        else alert('Gagal: ' + (d.error || 'Unknown'));
-                    }).catch(e => alert('Gagal: ' + e));
+                    }).then(r => r.json()).then(d => alert(d.success ? 'OK!' : 'Gagal: ' + d.error)).catch(e => alert('Gagal: ' + e));
                 }
                 function restart() {
                     if (!confirm('Yakin restart aplikasi?')) return;
                     fetch('/api/restart?token=' + token, {method: 'POST'});
-                    alert('Aplikasi akan restart dalam 3 detik...');
                 }
             </script>
         </body>
