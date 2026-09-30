@@ -104,7 +104,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Show version info
+        run: |
+          echo "🔢 GITHUB_RUN_NUMBER: $GITHUB_RUN_NUMBER"
+          echo "📅 Day (WIB): $(TZ='Asia/Jakarta' date +%d)"
+          echo "🎯 Expected version: V1.$(TZ='Asia/Jakarta' date +%d).${GITHUB_RUN_NUMBER}"
+
       - name: Build Debug APK
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
           ./gradlew assembleDebug \
             --stacktrace \
@@ -124,7 +132,7 @@ jobs:
           fi
           if [ -z "$VERSION" ]; then VERSION="V1.0.0"; fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "✅ Detected version: $VERSION"
+          echo "✅ Detected version from APK: $VERSION"
 
       - name: Upload APK as Artifact
         if: success()
@@ -141,54 +149,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          echo "Membuat release untuk tag: $VERSION"
+          echo "🚀 Membuat release untuk tag: $VERSION"
 
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "⚠️ Release $VERSION sudah ada, skip."
-          else
-            gh release create "$VERSION" \
-              --title "MASJID.IO $VERSION" \
-              --notes "## Update MASJID.IO $VERSION
+            echo "⚠️ Release $VERSION sudah ada, hapus dulu..."
+            gh release delete "$VERSION" --yes || true
+            sleep 2
+          fi
+
+          gh release create "$VERSION" \
+            --title "MASJID.IO $VERSION" \
+            --notes "## Update MASJID.IO $VERSION
 
           Build otomatis dari commit ${{ github.sha }}
 
           ### Cara Install
           1. Download APK di bawah
-          2. Install di Android TV
+          2. Install di Android TV / HP
           3. Selesai" \
-              app/build/outputs/apk/debug/*.apk
-            echo "✅ Release $VERSION berhasil dibuat!"
-          fi
+            app/build/outputs/apk/debug/*.apk
 
-      - name: Reset unstaged changes
-        if: success()
-        run: |
-          # Buang perubahan file yang dimodifikasi workflow (gradle.properties, dll)
-          git checkout -- . 2>/dev/null || true
-          git clean -fd gradle.properties local.properties app/google-services.json 2>/dev/null || true
-
-      - name: Commit version.properties
-        if: success()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Fetch dulu biar HEAD update
-          git fetch origin main
-
-          # Stage HANYA version.properties
-          git add version.properties
-
-          if git diff --staged --quiet; then
-            echo "ℹ️ Tidak ada perubahan di version.properties"
-          else
-            echo "📝 Version.properties berubah, commit + push..."
-            git commit -m "chore: update version.properties [skip ci]"
-
-            # Rebase dengan remote (unstaged sudah dibersihkan di step sebelumnya)
-            git pull --rebase origin main || true
-
-            # Push
-            git push origin HEAD:main
-            echo "✅ version.properties berhasil di-push"
-          fi
+          echo "✅ Release $VERSION berhasil dibuat!"
