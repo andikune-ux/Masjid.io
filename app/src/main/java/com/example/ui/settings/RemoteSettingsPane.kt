@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
@@ -69,7 +71,7 @@ fun RemoteSettingsPane(
     }
 
     // ============================================================
-    // AUTO-REFRESH IP SETIAP 5 DETIK (kalau WiFi ganti, IP ikut update)
+    // AUTO-REFRESH IP SETIAP 5 DETIK
     // ============================================================
     var currentIp by remember { mutableStateOf(getLocalIpAddress(context)) }
     var currentWifiOn by remember { mutableStateOf(isWifiOn(context)) }
@@ -83,7 +85,9 @@ fun RemoteSettingsPane(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ============================================================
@@ -234,9 +238,6 @@ fun RemoteSettingsPane(
                         color = TextPrimary
                     )
 
-                    // ============================================
-                    // URL BOX + TOMBOL SALIN
-                    // ============================================
                     CopyUrlBox(
                         url = fullUrl,
                         ip = currentIp,
@@ -285,7 +286,7 @@ fun RemoteSettingsPane(
 }
 
 // ============================================================
-// COPY URL BOX — Tampilan URL + Tombol Salin
+// COPY URL BOX
 // ============================================================
 @Composable
 private fun CopyUrlBox(
@@ -298,7 +299,6 @@ private fun CopyUrlBox(
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
-    // Reset "copied" setelah 3 detik
     LaunchedEffect(copied) {
         if (copied) {
             delay(3000)
@@ -308,7 +308,6 @@ private fun CopyUrlBox(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        // ============ URL DISPLAY ============
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -330,7 +329,6 @@ private fun CopyUrlBox(
             )
         }
 
-        // ============ TOMBOL SALIN BESAR ============
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -368,7 +366,6 @@ private fun CopyUrlBox(
             }
         }
 
-        // ============ INFO DETAIL ============
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -378,7 +375,6 @@ private fun CopyUrlBox(
             InfoChip(label = "TOKEN", value = token)
         }
 
-        // ============ PESAN JIKA WIFI OFF ============
         if (!wifiOn) {
             Box(
                 modifier = Modifier
@@ -399,7 +395,6 @@ private fun CopyUrlBox(
             }
         }
 
-        // ============ INFO TIPS ============
         Text(
             text = "💡 Tap tombol di atas → buka Chrome → tempel (paste). " +
                     "URL sudah lengkap dengan IP, port, dan token.",
@@ -411,7 +406,7 @@ private fun CopyUrlBox(
 }
 
 // ============================================================
-// INFO CHIP — Kecil, label + nilai
+// INFO CHIP
 // ============================================================
 @Composable
 private fun InfoChip(label: String, value: String) {
