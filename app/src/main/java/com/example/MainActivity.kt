@@ -34,6 +34,7 @@ import com.example.ui.focus.PrayerFocusOverlay
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.home.HomeScreen
 import com.example.ui.ramadhan.RamadhanOverlay
+import com.example.ui.remote.IoControlScreen
 import com.example.ui.remote.RemoteServer
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.MasjidTheme
@@ -41,6 +42,7 @@ import com.example.ui.theme.MosqueDeepBg
 import com.example.util.CrashAutoShowHelper
 import com.example.util.CrashLogDialog
 import com.example.util.CrashReporter
+import com.example.util.SettingsTransferHelper
 import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,7 +56,8 @@ enum class AppScreen {
     FOCUS_MODE,
     SETTINGS,
     QRIS_PREVIEW,
-    RAMADHAN
+    RAMADHAN,
+    IO_CONTROL
 }
 
 class MainActivity : ComponentActivity() {
@@ -76,6 +79,10 @@ class MainActivity : ComponentActivity() {
         val pendingCrashLog = if (hasPendingCrash) {
             CrashAutoShowHelper.getLastCrashLog(this)
         } else ""
+
+        // ============ INFO DEVICE UNTUK iO CONTROL ============
+        val deviceRole = if (isTV()) "TV" else "HP"
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
@@ -118,7 +125,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ============ REMOTE SERVER ============
+            // ============ REMOTE SERVER (dengan callback iO Control) ============
             val remoteServer = remember {
                 RemoteServer(
                     context = this@MainActivity,
@@ -130,6 +137,18 @@ class MainActivity : ComponentActivity() {
                             }
                             startActivity(intent)
                             finish()
+                        }
+                    },
+                    onSettingsReceived = { jsonBody ->
+                        // Terima settings dari device lain → apply
+                        try {
+                            val current = settingsRepository.settingsFlow.value
+                            val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
+                            if (newSettings != null) {
+                                settingsRepository.updateSettings(newSettings)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
                         }
                     }
                 )
@@ -174,250 +193,256 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+            
+// ============ KEEP SCREEN ON ============
+DisposableEffect(settings.keepScreenOn) {
+    if (settings.keepScreenOn) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    } else {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+    onDispose {}
+}
 
-            // ============ KEEP SCREEN ON ============
-            DisposableEffect(settings.keepScreenOn) {
-                if (settings.keepScreenOn) {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                } else {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
-                onDispose {}
-            }
+var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
+var showPinDialog by remember { mutableStateOf(false) }
+var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
+var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-            var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
-            var showPinDialog by remember { mutableStateOf(false) }
-            var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
-            var focusPrayerTime by remember { mutableStateOf("17:52") }
+// ============ UPDATE STATE ============
+var showUpdateDialog by remember { mutableStateOf(false) }
+var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
 
-            // ============ UPDATE STATE ============
-            var showUpdateDialog by remember { mutableStateOf(false) }
-            var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
+LaunchedEffect(Unit) {
+    try {
+        delay(3000)
+        val info = UpdateManager.checkForUpdate()
+        if (info.available) {
+            updateInfo = info
+            showUpdateDialog = true
+        }
+    } catch (_: Exception) { }
+}
 
-            LaunchedEffect(Unit) {
-                try {
-                    delay(3000)
-                    val info = UpdateManager.checkForUpdate()
-                    if (info.available) {
-                        updateInfo = info
-                        showUpdateDialog = true
+// ============ WEATHER ============
+var currentTemperature by remember { mutableStateOf(30) }
+var currentWeatherCondition by remember { mutableStateOf("Cerah") }
+
+LaunchedEffect(settings.latitude, settings.longitude) {
+    while (true) {
+        try {
+            val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
+            currentTemperature = weather.temperature
+            currentWeatherCondition = weather.condition
+        } catch (_: Exception) { }
+        delay(30 * 60 * 1000L)
+    }
+}
+
+// ============ BACK PRESS ============
+DisposableEffect(settings.kioskModeEnabled, currentScreen) {
+    val callback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            when (currentScreen) {
+                AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW,
+                AppScreen.RAMADHAN, AppScreen.IO_CONTROL ->
+                    currentScreen = AppScreen.HOME
+                AppScreen.FOCUS_MODE -> showPinDialog = true
+                AppScreen.HOME -> {
+                    if (settings.kioskModeEnabled) showPinDialog = true
+                    else {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
                     }
-                } catch (_: Exception) { }
+                }
+            }
+        }
+    }
+    onBackPressedDispatcher.addCallback(callback)
+    onDispose { callback.remove() }
+}
+
+// ============ CLOCK & SCHEDULE ============
+var currentTimeString by remember { mutableStateOf("12:00:00") }
+var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
+var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
+var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
+
+// ============ RAMADHAN STATE ============
+var secondsToImsak by remember { mutableLongStateOf(0L) }
+var secondsToMaghrib by remember { mutableLongStateOf(0L) }
+var userDismissedRamadhan by remember { mutableStateOf(false) }
+
+val today = remember { LocalDate.now() }
+val upcomingEvent = remember {
+    val hDate = IslamicCalendar.getHijriDate(today)
+    IslamicCalendar.getUpcomingEvent(hDate)
+}
+
+LaunchedEffect(
+    settings.latitude,
+    settings.longitude,
+    settings.isManualTimeEnabled,
+    settings.manualTimeOffsetSeconds
+) {
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+    var lastTriggeredPrayerMinute: String? = null
+
+    while (true) {
+        val currentDateTime = if (settings.isManualTimeEnabled) {
+            LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+        } else {
+            LocalDateTime.now()
+        }
+
+        val now = currentDateTime.toLocalTime()
+        currentTimeString = now.format(timeFormatter)
+
+        val currentDate = currentDateTime.toLocalDate()
+        val hDate = IslamicCalendar.getHijriDate(currentDate)
+        hijriDateString = IslamicCalendar.formatHijriDateString(hDate)
+        gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
+
+        val schedule = PrayerTimesCalculator.calculate(
+            date = currentDate,
+            latitude = settings.latitude,
+            longitude = settings.longitude
+        )
+        prayerSchedule = schedule
+
+        secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
+        secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
+
+        val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
+        if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
+            for (item in schedule.items) {
+                if (item.timeFormatted == currentMinuteStr && item.id != PrayerId.SYURUQ) {
+                    lastTriggeredPrayerMinute = currentMinuteStr
+                    focusPrayerId = item.id
+                    focusPrayerTime = item.timeFormatted
+                    soundManager.playPrayerAlert(
+                        mode = settings.audioMode,
+                        beepVolume = settings.beepVolume,
+                        beepCount = settings.beepCount,
+                        beepDurationMs = settings.beepDurationMs,
+                        beepIntervalMs = settings.beepIntervalMs,
+                        adzanStyle = settings.adzanFile,
+                        adzanVolume = settings.adzanVolume
+                    )
+                    userDismissedRamadhan = false
+                    currentScreen = AppScreen.FOCUS_MODE
+                    break
+                }
+            }
+        }
+        delay(1000)
+    }
+}
+
+// ============ RAMADHAN OVERLAY TRIGGER ============
+LaunchedEffect(
+    settings.ramadhanModeEnabled,
+    secondsToImsak,
+    secondsToMaghrib,
+    currentScreen,
+    userDismissedRamadhan
+) {
+    if (!settings.ramadhanModeEnabled) return@LaunchedEffect
+    if (currentScreen != AppScreen.HOME) return@LaunchedEffect
+    if (userDismissedRamadhan) return@LaunchedEffect
+
+    val nearImsak = secondsToImsak in 1..3600
+    val nearMaghrib = secondsToMaghrib in 1..3600
+
+    if (nearImsak || nearMaghrib) {
+        currentScreen = AppScreen.RAMADHAN
+    }
+}
+
+LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
+    if (currentScreen == AppScreen.RAMADHAN) {
+        if (secondsToImsak <= 0 && secondsToMaghrib <= 0) {
+            currentScreen = AppScreen.HOME
+        }
+    }
+}
+
+MasjidTheme {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MosqueDeepBg
+    ) {
+        // ============ DIALOG CRASH (PALING ATAS) ============
+        if (showCrashDialog) {
+            CrashLogDialog(
+                log = pendingCrashLog,
+                onDismiss = {
+                    CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                    showCrashDialog = false
+                }
+            )
+        } else {
+            Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                when (screen) {
+                    AppScreen.HOME -> HomeScreen(
+                        settings = settings,
+                        schedule = prayerSchedule,
+                        currentTimeString = currentTimeString,
+                        hijriDateString = hijriDateString,
+                        gregorianDateString = gregorianDateString,
+                        upcomingEvent = upcomingEvent,
+                        temperature = currentTemperature,
+                        weatherCondition = currentWeatherCondition,
+                        onSettingsClick = { showPinDialog = true }
+                    )
+                    AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                        prayerId = focusPrayerId,
+                        prayerTimeFormatted = focusPrayerTime,
+                        totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                        iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                        qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                        settings = settings,
+                        onDismiss = { currentScreen = AppScreen.HOME }
+                    )
+                    AppScreen.SETTINGS -> SettingsScreen(
+                        currentSettings = settings,
+                        soundManager = soundManager,
+                        isRemoteServerRunning = isRemoteServerRunning,
+                        onSaveSettings = { updated ->
+                            settingsRepository.updateSettings(updated)
+                            currentScreen = AppScreen.HOME
+                        },
+                        onBack = { currentScreen = AppScreen.HOME },
+                        onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
+                        onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
+                    )
+                    AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                        settings = settings,
+                        onDismiss = { currentScreen = AppScreen.SETTINGS }
+                    )
+                    AppScreen.RAMADHAN -> RamadhanOverlay(
+                        settings = settings,
+                        currentTimeString = currentTimeString,
+                        imsakTime = prayerSchedule.imsak,
+                        maghribTime = prayerSchedule.maghrib,
+                        secondsToImsak = secondsToImsak,
+                        secondsToMaghrib = secondsToMaghrib,
+                        onDismiss = {
+                            currentScreen = AppScreen.HOME
+                            userDismissedRamadhan = true
+                        }
+                    )
+                    AppScreen.IO_CONTROL -> IoControlScreen(
+                        settingsRepository = settingsRepository,
+                        deviceName = deviceName,
+                        deviceRole = deviceRole,
+                        appVersion = com.example.BuildConfig.VERSION_NAME,
+                        serverPort = settings.remoteServerPort,
+                        onBack = { currentScreen = AppScreen.SETTINGS }
+                    )
+                }
             }
             
-            // ============ WEATHER ============
-            var currentTemperature by remember { mutableStateOf(30) }
-            var currentWeatherCondition by remember { mutableStateOf("Cerah") }
-
-            LaunchedEffect(settings.latitude, settings.longitude) {
-                while (true) {
-                    try {
-                        val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
-                        currentTemperature = weather.temperature
-                        currentWeatherCondition = weather.condition
-                    } catch (_: Exception) { }
-                    delay(30 * 60 * 1000L)
-                }
-            }
-
-            // ============ BACK PRESS ============
-            DisposableEffect(settings.kioskModeEnabled, currentScreen) {
-                val callback = object : OnBackPressedCallback(true) {
-                    override fun handleOnBackPressed() {
-                        when (currentScreen) {
-                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW, AppScreen.RAMADHAN ->
-                                currentScreen = AppScreen.HOME
-                            AppScreen.FOCUS_MODE -> showPinDialog = true
-                            AppScreen.HOME -> {
-                                if (settings.kioskModeEnabled) showPinDialog = true
-                                else {
-                                    isEnabled = false
-                                    onBackPressedDispatcher.onBackPressed()
-                                }
-                            }
-                        }
-                    }
-                }
-                onBackPressedDispatcher.addCallback(callback)
-                onDispose { callback.remove() }
-            }
-
-            // ============ CLOCK & SCHEDULE ============
-            var currentTimeString by remember { mutableStateOf("12:00:00") }
-            var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
-            var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
-            var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
-
-            // ============ RAMADHAN STATE ============
-            var secondsToImsak by remember { mutableLongStateOf(0L) }
-            var secondsToMaghrib by remember { mutableLongStateOf(0L) }
-            var userDismissedRamadhan by remember { mutableStateOf(false) }
-
-            val today = remember { LocalDate.now() }
-            val upcomingEvent = remember {
-                val hDate = IslamicCalendar.getHijriDate(today)
-                IslamicCalendar.getUpcomingEvent(hDate)
-            }
-
-            LaunchedEffect(
-                settings.latitude,
-                settings.longitude,
-                settings.isManualTimeEnabled,
-                settings.manualTimeOffsetSeconds
-            ) {
-                val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
-                var lastTriggeredPrayerMinute: String? = null
-
-                while (true) {
-                    val currentDateTime = if (settings.isManualTimeEnabled) {
-                        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
-                    } else {
-                        LocalDateTime.now()
-                    }
-
-                    val now = currentDateTime.toLocalTime()
-                    currentTimeString = now.format(timeFormatter)
-
-                    val currentDate = currentDateTime.toLocalDate()
-                    val hDate = IslamicCalendar.getHijriDate(currentDate)
-                    hijriDateString = IslamicCalendar.formatHijriDateString(hDate)
-                    gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
-
-                    val schedule = PrayerTimesCalculator.calculate(
-                        date = currentDate,
-                        latitude = settings.latitude,
-                        longitude = settings.longitude
-                    )
-                    prayerSchedule = schedule
-
-                    // Hitung secondsToImsak & secondsToMaghrib (untuk Ramadhan Overlay)
-                    secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
-                    secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
-
-                    val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
-                    if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
-                        for (item in schedule.items) {
-                            if (item.timeFormatted == currentMinuteStr && item.id != PrayerId.SYURUQ) {
-                                lastTriggeredPrayerMinute = currentMinuteStr
-                                focusPrayerId = item.id
-                                focusPrayerTime = item.timeFormatted
-                                soundManager.playPrayerAlert(
-                                    mode = settings.audioMode,
-                                    beepVolume = settings.beepVolume,
-                                    beepCount = settings.beepCount,
-                                    beepDurationMs = settings.beepDurationMs,
-                                    beepIntervalMs = settings.beepIntervalMs,
-                                    adzanStyle = settings.adzanFile,
-                                    adzanVolume = settings.adzanVolume
-                                )
-                                // Reset dismiss state saat masuk waktu sholat
-                                userDismissedRamadhan = false
-                                currentScreen = AppScreen.FOCUS_MODE
-                                break
-                            }
-                        }
-                    }
-                    delay(1000)
-                }
-            }
-
-            // ============ RAMADHAN OVERLAY TRIGGER ============
-            LaunchedEffect(
-                settings.ramadhanModeEnabled,
-                secondsToImsak,
-                secondsToMaghrib,
-                currentScreen,
-                userDismissedRamadhan
-            ) {
-                if (!settings.ramadhanModeEnabled) return@LaunchedEffect
-                if (currentScreen != AppScreen.HOME) return@LaunchedEffect
-                if (userDismissedRamadhan) return@LaunchedEffect
-
-                // Trigger 1 jam sebelum Imsak atau Maghrib, dan masih setelahnya (sampai 5 menit)
-                val nearImsak = secondsToImsak in 1..3600
-                val nearMaghrib = secondsToMaghrib in 1..3600
-
-                if (nearImsak || nearMaghrib) {
-                    currentScreen = AppScreen.RAMADHAN
-                }
-            }
-
-            // Auto dismiss Ramadhan overlay kalau waktu sudah terlewat
-            LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
-                if (currentScreen == AppScreen.RAMADHAN) {
-                    if (secondsToImsak <= 0 && secondsToMaghrib <= 0) {
-                        currentScreen = AppScreen.HOME
-                    }
-                }
-            }
-
-            MasjidTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MosqueDeepBg
-                ) {
-                    // ============ DIALOG CRASH (PALING ATAS) ============
-                    if (showCrashDialog) {
-                        CrashLogDialog(
-                            log = pendingCrashLog,
-                            onDismiss = {
-                                CrashAutoShowHelper.markAsSeen(this@MainActivity)
-                                showCrashDialog = false
-                            }
-                        )
-                    } else {
-                        Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                            when (screen) {
-                                AppScreen.HOME -> HomeScreen(
-                                    settings = settings,
-                                    schedule = prayerSchedule,
-                                    currentTimeString = currentTimeString,
-                                    hijriDateString = hijriDateString,
-                                    gregorianDateString = gregorianDateString,
-                                    upcomingEvent = upcomingEvent,
-                                    temperature = currentTemperature,
-                                    weatherCondition = currentWeatherCondition,
-                                    onSettingsClick = { showPinDialog = true }
-                                )
-                                AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-                                    prayerId = focusPrayerId,
-                                    prayerTimeFormatted = focusPrayerTime,
-                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                                    settings = settings,
-                                    onDismiss = { currentScreen = AppScreen.HOME }
-                                )
-                                AppScreen.SETTINGS -> SettingsScreen(
-                                    currentSettings = settings,
-                                    soundManager = soundManager,
-                                    isRemoteServerRunning = isRemoteServerRunning,
-                                    onSaveSettings = { updated ->
-                                        settingsRepository.updateSettings(updated)
-                                        currentScreen = AppScreen.HOME
-                                    },
-                                    onBack = { currentScreen = AppScreen.HOME },
-                                    onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW }
-                                )
-                                AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-                                    settings = settings,
-                                    onDismiss = { currentScreen = AppScreen.SETTINGS }
-                                )
-                                AppScreen.RAMADHAN -> RamadhanOverlay(
-                                    settings = settings,
-                                    currentTimeString = currentTimeString,
-                                    imsakTime = prayerSchedule.imsak,
-                                    maghribTime = prayerSchedule.maghrib,
-                                    secondsToImsak = secondsToImsak,
-                                    secondsToMaghrib = secondsToMaghrib,
-                                    onDismiss = {
-                                        currentScreen = AppScreen.HOME
-                                        userDismissedRamadhan = true
-                                    }
-                                )
-                            }
-                        }
-
                         // PIN DIALOG
                         if (showPinDialog) {
                             PinDialog(
@@ -438,7 +463,6 @@ class MainActivity : ComponentActivity() {
                                 currentVersion = info.currentVersion,
                                 latestVersion = info.latestVersion,
                                 releaseNotes = info.releaseNotes,
-                                // FORCE UPDATE: Debug APK bisa skip, Release APK harus update
                                 forceUpdate = !BuildConfig.DEBUG,
                                 downloadProgress = null,
                                 isDownloading = false,
@@ -482,6 +506,15 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         soundManager.stopAll()
+    }
+
+    // ============================================================
+    // HELPER: DETEKSI TV / HP
+    // ============================================================
+    private fun isTV(): Boolean {
+        val uiMode = resources.configuration.uiMode
+        val uiModeType = uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK
+        return uiModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     }
 
     // ============================================================
