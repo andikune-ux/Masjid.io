@@ -199,8 +199,9 @@ fun RemoteSettingsPane(
                 Spacer(modifier = Modifier.height(12.dp))
                 TvToggle(
                     label = if (localServerEnabled) "Remote Server: ON" else "Remote Server: OFF",
-                    checked = localServerEnabled,
-                    onCheckedChange = { enabled ->
+                    description = "Aktifkan server HTTP untuk kontrol jarak jauh dari HP",
+                    isChecked = localServerEnabled,
+                    onToggle = { enabled ->
                         localServerEnabled = enabled
                         onUpdate(settings.copy(remoteControlEnabled = enabled))
                     }
