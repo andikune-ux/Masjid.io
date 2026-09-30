@@ -18,32 +18,45 @@ import java.net.URLDecoder
 
 /**
  * HTTP Server mini untuk Remote Control via HP.
+ *
+ * Fitur:
+ *   - Dashboard HTML (browser)
+ *   - GET  /api/status          → status JSON
+ *   - GET  /api/settings        → settings JSON (ringkas)
+ *   - POST /api/running-text    → update running text
+ *   - POST /api/pin             → update PIN
+ *   - POST /api/restart         → restart app
+ *
+ * iO Control (BARU):
+ *   - POST /api/io/handshake    → cek device lain hidup
+ *   - POST /api/io/receive      → terima settings lengkap dari device lain
+ *                                (apply + restart otomatis)
  */
 class RemoteServer(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val port: Int = 8080,
     private val authToken: String = "masjid-io",
-    private val onRestart: (() -> Unit)? = null
+    private val onRestart: (() -> Unit)? = null,
+    private val onSettingsReceived: ((String) -> Unit)? = null
 ) {
-
     companion object {
         private const val TAG = "RemoteServer"
     }
 
     private var serverSocket: ServerSocket? = null
+
+    @Volatile
     private var isRunning = false
     private var serverJob: Job? = null
 
     fun start(scope: CoroutineScope) {
         if (isRunning) return
-
         serverJob = scope.launch(Dispatchers.IO) {
             try {
                 serverSocket = ServerSocket(port)
                 isRunning = true
                 Log.d(TAG, "Remote Server started on port $port")
-
                 while (isRunning) {
                     try {
                         val client = serverSocket?.accept() ?: break
@@ -90,6 +103,7 @@ class RemoteServer(
             val method = parts[0]
             val path = parts[1]
 
+            // ============ BACA HEADER ============
             val headers = mutableMapOf<String, String>()
             var line: String?
             while (reader.readLine().also { line = it } != null) {
@@ -100,6 +114,7 @@ class RemoteServer(
                 }
             }
 
+            // ============ BACA BODY ============
             val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
             val body = if (contentLength > 0) {
                 val buffer = CharArray(contentLength)
@@ -107,19 +122,21 @@ class RemoteServer(
                 String(buffer)
             } else ""
 
+            // ============ AUTH ============
             val authHeader = headers["authorization"]
             val urlToken = path.substringAfter("token=", "").substringBefore("&")
             val isAuthorized = authHeader == "Bearer $authToken" ||
                     urlToken == authToken ||
                     path == "/"
-
             if (!isAuthorized) {
                 sendResponse(writer, 401, "text/plain", "Unauthorized")
                 client.close()
                 return
             }
 
+            // ============ ROUTING ============
             when {
+                // ---- Remote Control lama ----
                 method == "GET" && path == "/" -> {
                     sendResponse(writer, 200, "text/html", getDashboardHtml())
                 }
@@ -142,16 +159,13 @@ class RemoteServer(
                         updatePin(newPin)
                         sendResponse(writer, 200, "application/json", """{"success":true}""")
                     } else {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"PIN harus 4 digit"}""")
+                        sendResponse(writer, 400, "application/json", """{"success":false,"error":"PIN harus 4 digit"}""")
                     }
                 }
                 method == "POST" && path.startsWith("/api/restart") -> {
-                    sendResponse(writer, 200, "application/json",
-                        """{"success":true,"message":"Restart dijadwalkan"}""")
+                    sendResponse(writer, 200, "application/json", """{"success":true,"message":"Restart dijadwalkan"}""")
                     writer.flush()
                     client.close()
-
                     Handler(Looper.getMainLooper()).postDelayed({
                         try {
                             Log.d(TAG, "Restarting app via Remote Control...")
@@ -166,6 +180,53 @@ class RemoteServer(
                     }, 1000)
                     return
                 }
+                
+                // ---- iO Control: handshake (cek device hidup) ----
+                method == "POST" && path.startsWith("/api/io/handshake") -> {
+                    sendResponse(
+                        writer, 200, "application/json",
+                        """{"success":true,"app":"MASJID.IO"}"""
+                    )
+                }
+
+                // ---- iO Control: terima settings lengkap ----
+                method == "POST" && path.startsWith("/api/io/receive") -> {
+                    // Kirim balasan OK cepat supaya client tahu sudah diterima
+                    sendResponse(
+                        writer, 200, "application/json",
+                        """{"success":true,"message":"Settings diterima"}"""
+                    )
+                    writer.flush()
+                    client.close()
+
+                    // Proses di main thread (apply settings + restart)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try {
+                            Log.d(TAG, "Menerima settings iO Control, length=${body.length}")
+                            if (onSettingsReceived != null) {
+                                onSettingsReceived.invoke(body)
+                            }
+                            // Restart setelah settings diterapkan
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                try {
+                                    Log.d(TAG, "Restart otomatis setelah terima settings...")
+                                    if (onRestart != null) {
+                                        onRestart.invoke()
+                                    } else {
+                                        android.os.Process.killProcess(android.os.Process.myPid())
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Restart error setelah receive: ${e.message}")
+                                }
+                            }, 1500)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error process received settings: ${e.message}")
+                        }
+                    }, 200)
+                    return
+                }
+
+                // ---- Default: 404 ----
                 else -> {
                     sendResponse(writer, 404, "text/plain", "Not Found")
                 }
@@ -175,7 +236,10 @@ class RemoteServer(
             client.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error handling client: ${e.message}")
-            try { client.close() } catch (_: Exception) { }
+            try {
+                client.close()
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -192,8 +256,8 @@ class RemoteServer(
             404 -> "Not Found"
             else -> "Unknown"
         }
-        val bodyBytes = body.toByteArray(Charsets.UTF_8)
 
+        val bodyBytes = body.toByteArray(Charsets.UTF_8)
         writer.write("HTTP/1.1 $code $statusText\r\n")
         writer.write("Content-Type: $contentType; charset=utf-8\r\n")
         writer.write("Content-Length: ${bodyBytes.size}\r\n")
@@ -208,8 +272,7 @@ class RemoteServer(
         body.split("&").forEach { pair ->
             val parts = pair.split("=", limit = 2)
             if (parts.size == 2) {
-                result[URLDecoder.decode(parts[0], "UTF-8")] =
-                    URLDecoder.decode(parts[1], "UTF-8")
+                result[URLDecoder.decode(parts[0], "UTF-8")] = URLDecoder.decode(parts[1], "UTF-8")
             }
         }
         return result
@@ -230,173 +293,110 @@ class RemoteServer(
     private fun getStatusJson(): String {
         val settings = settingsRepository.settingsFlow.value
         return """
-        {
-            "app":"MASJID.IO",
-            "mosque":"${settings.mosqueName}",
-            "city":"${settings.city}",
-            "kioskMode":${settings.kioskModeEnabled},
-            "waReport":${settings.whatsappReportEnabled}
-        }
+            {
+                "app":"MASJID.IO",
+                "mosque":"${settings.mosqueName}",
+                "city":"${settings.city}",
+                "kioskMode":${settings.kioskModeEnabled},
+                "waReport":${settings.whatsappReportEnabled}
+            }
         """.trimIndent()
     }
 
     private fun getSettingsJson(): String {
         val s = settingsRepository.settingsFlow.value
         return """
-        {
-            "mosqueName":"${s.mosqueName}",
-            "city":"${s.city}",
-            "runningText":"${s.runningText.replace("\"", "\\\"")}",
-            "pinCode":"****",
-            "kioskMode":${s.kioskModeEnabled},
-            "audioMode":"${s.audioMode}"
-        }
+            {
+                "mosqueName":"${s.mosqueName}",
+                "city":"${s.city}",
+                "runningText":"${s.runningText.replace("\"", "\\\"")}",
+                "pinCode":"****",
+                "kioskMode":${s.kioskModeEnabled},
+                "audioMode":"${s.audioMode}"
+            }
         """.trimIndent()
     }
 
     private fun getDashboardHtml(): String = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MASJID.IO Remote</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #0D1B2A, #1B263B);
-    color: #fff;
-    min-height: 100vh;
-    padding: 20px;
-  }
-  .container { max-width: 600px; margin: 0 auto; }
-  h1 { color: #D4AF37; text-align: center; margin-bottom: 20px; }
-  .card {
-    background: rgba(0,0,0,0.4);
-    border: 1px solid rgba(212,175,55,0.4);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-  .card h2 { color: #D4AF37; font-size: 16px; margin-bottom: 12px; }
-  input, textarea, button {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(0,0,0,0.3);
-    color: #fff;
-    font-size: 14px;
-    margin-bottom: 10px;
-  }
-  button {
-    background: #D4AF37;
-    color: #09141D;
-    font-weight: bold;
-    border: none;
-    cursor: pointer;
-  }
-  button:active { transform: scale(0.98); }
-  button.danger {
-    background: #C62828;
-    color: #fff;
-  }
-  .status { padding: 10px; border-radius: 8px; margin-top: 10px; display: none; }
-  .status.success { background: #2E7D32; display: block; }
-  .status.error { background: #C62828; display: block; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <h1>🕌 MASJID.IO Remote</h1>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>MASJID.IO Remote</title>
+            <style>
+                body { font-family: Arial, sans-serif; background: #0A1929; color: #fff; padding: 20px; }
+                h1 { color: #FFD700; }
+                h2 { color: #64B5F6; }
+                button { background: #2196F3; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; }
+                input, textarea { background: #132F4C; color: #fff; border: 1px solid #2196F3; padding: 8px; border-radius: 6px; width: 100%; }
+                .card { background: #132F4C; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+            </style>
+        </head>
+        <body>
+            <h1>MASJID.IO Remote</h1>
 
-    <div class="card">
-      <h2>📝 Running Text</h2>
-      <textarea id="runningText" rows="4" placeholder="Masukkan teks berjalan..."></textarea>
-      <button onclick="updateRunningText()">SIMPAN</button>
-    </div>
+            <div class="card">
+                <h2>Running Text</h2>
+                <textarea id="rt" rows="3"></textarea>
+                <br><br>
+                <button onclick="saveRT()">SIMPAN</button>
+            </div>
 
-    <div class="card">
-      <h2>🔒 PIN Pengaturan</h2>
-      <input type="text" id="pin" maxlength="4" inputmode="numeric" placeholder="4 digit PIN baru">
-      <button onclick="updatePin()">GANTI PIN</button>
-    </div>
+            <div class="card">
+                <h2>PIN Pengaturan</h2>
+                <input id="pin" maxlength="4" placeholder="4 digit">
+                <br><br>
+                <button onclick="savePin()">GANTI PIN</button>
+            </div>
 
-    <div class="card">
-      <h2>📊 Status</h2>
-      <div id="status"></div>
-    </div>
+            <div class="card">
+                <h2>Status</h2>
+                <div id="status">Loading...</div>
+            </div>
 
-    <div class="card">
-      <h2>🔄 Restart Aplikasi</h2>
-      <p style="font-size:13px;color:#aaa;margin-bottom:10px;">
-        Restart aplikasi MASJID.IO. Aplikasi akan menutup dan membuka lagi.
-      </p>
-      <button class="danger" onclick="restartApp()">RESTART SEKARANG</button>
-    </div>
+            <div class="card">
+                <h2>Restart Aplikasi</h2>
+                <p>Restart aplikasi MASJID.IO. Aplikasi akan menutup dan membuka lagi.</p>
+                <button onclick="restart()">RESTART SEKARANG</button>
+            </div>
 
-    <div class="card">
-      <h2>ℹ️ Info</h2>
-      <p style="font-size:13px; color:#aaa;">
-        Remote ini untuk mengatur aplikasi MASJID.IO dari HP.<br>
-        Pastikan HP dan TV dalam 1 WiFi yang sama.
-      </p>
-    </div>
-  </div>
+            <div class="card">
+                <h2>ℹ️ Info</h2>
+                <p>Remote ini untuk mengatur aplikasi MASJID.IO dari HP.<br>
+                Pastikan HP dan TV dalam 1 WiFi yang sama.</p>
+            </div>
 
-<script>
-const TOKEN = prompt('Masukkan Token Remote:') || '';
-const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-
-async function updateRunningText() {
-  const text = document.getElementById('runningText').value;
-  try {
-    const res = await fetch('/api/running-text?token=' + TOKEN, {
-      method: 'POST', headers,
-      body: 'text=' + encodeURIComponent(text)
-    });
-    showStatus(res.ok ? 'Teks berhasil disimpan!' : 'Gagal simpan', res.ok);
-  } catch(e) { showStatus('Error: ' + e.message, false); }
-}
-
-async function updatePin() {
-  const pin = document.getElementById('pin').value;
-  if (pin.length !== 4) { showStatus('PIN harus 4 digit', false); return; }
-  try {
-    const res = await fetch('/api/pin?token=' + TOKEN, {
-      method: 'POST', headers, body: 'pin=' + pin
-    });
-    showStatus(res.ok ? 'PIN berhasil diubah!' : 'Gagal ubah PIN', res.ok);
-  } catch(e) { showStatus('Error: ' + e.message, false); }
-}
-
-async function restartApp() {
-  if (!confirm('Yakin mau restart aplikasi MASJID.IO?')) return;
-  try {
-    await fetch('/api/restart?token=' + TOKEN, { method: 'POST' });
-    showStatus('Restart dijadwalkan. Aplikasi akan menutup...', true);
-  } catch(e) { showStatus('Error: ' + e.message, false); }
-}
-
-function showStatus(msg, ok) {
-  const el = document.getElementById('status');
-  el.textContent = msg;
-  el.className = 'status ' + (ok ? 'success' : 'error');
-  setTimeout(() => { el.className = 'status'; }, 3000);
-}
-
-async function loadStatus() {
-  try {
-    const res = await fetch('/api/status?token=' + TOKEN);
-    const data = await res.json();
-    document.getElementById('status').innerHTML =
-      '🕌 ' + data.mosque + '<br>📍 ' + data.city;
-  } catch(e) {}
-}
-loadStatus();
-</script>
-</body>
-</html>
+            <script>
+                const token = new URLSearchParams(location.search).get('token') || '';
+                fetch('/api/status?token=' + token).then(r => r.json()).then(d => {
+                    document.getElementById('status').textContent = JSON.stringify(d, null, 2);
+                });
+                fetch('/api/settings?token=' + token).then(r => r.json()).then(d => {
+                    document.getElementById('rt').value = d.runningText || '';
+                });
+                function saveRT() {
+                    const text = document.getElementById('rt').value;
+                    fetch('/api/running-text?token=' + token, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'text=' + encodeURIComponent(text)
+                    }).then(r => r.json()).then(d => alert(JSON.stringify(d)));
+                }
+                function savePin() {
+                    const pin = document.getElementById('pin').value;
+                    fetch('/api/pin?token=' + token, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'pin=' + encodeURIComponent(pin)
+                    }).then(r => r.json()).then(d => alert(JSON.stringify(d)));
+                }
+                function restart() {
+                    if (!confirm('Yakin restart aplikasi?')) return;
+                    fetch('/api/restart?token=' + token, {method: 'POST'});
+                }
+            </script>
+        </body>
+        </html>
     """.trimIndent()
 }
