@@ -135,7 +135,7 @@ data class AppSettings(
     val longitude: Double = 106.8272,
     val calculationMethod: String = "Kementerian Agama RI (Kemenag)",
 
-    // ===== Language (Fitur 3) =====
+    // ===== Language =====
     val languageCode: String = "id",
 
     // ===== Running text =====
@@ -191,7 +191,7 @@ data class AppSettings(
     val photoSlideshowUris: List<String> = emptyList(),
     val photoSlideshowIntervalSeconds: Int = 10,
 
-    // ===== FITUR 1: SLIDE FULLSCREEN =====
+    // ===== Slide Fullscreen =====
     val slideEnabled: Boolean = false,
     val slideIntervalSeconds: Int = 15,
     val qrisSlideEnabled: Boolean = true,
@@ -200,12 +200,12 @@ data class AppSettings(
     val slideShowOnlyWhenIdle: Boolean = true,
     val laporanKeuangan: LaporanKeuangan = LaporanKeuangan(),
 
-    // ===== FITUR 2: WIDGET FOTO DI KARTU SHOLAT =====
+    // ===== Prayer Card Photo =====
     val prayerCardPhotoEnabled: Boolean = false,
     val prayerCardPhotoUri: String? = null,
     val prayerCardPhotoAlpha: Float = 0.35f,
 
-    // ===== FITUR 4: MODE RAMADHAN LENGKAP =====
+    // ===== Mode Ramadhan =====
     val ramadhanModeEnabled: Boolean = false,
     val showImsakIftarCountdown: Boolean = true,
     val showTarawihSchedule: Boolean = true,
@@ -222,27 +222,28 @@ data class AppSettings(
     val menuSahurText: String = "",
     val menuIftarText: String = "",
 
-    // ===== FITUR 5: DZIKIR SETELAH SHOLAT =====
+    // ===== Dzikir =====
     val dzikirEnabled: Boolean = true,
     val dzikirDurationSeconds: Int = 120,
     val dzikirAutoShowAfterPrayer: Boolean = true,
 
-    // ===== FITUR 6: KONTEN ROTASI =====
+    // ===== Konten Rotasi =====
     val contentRotationEnabled: Boolean = false,
     val contentRotationShowAyat: Boolean = true,
     val contentRotationShowHadits: Boolean = true,
     val contentRotationShowAsmaulHusna: Boolean = true,
     val contentRotationIntervalSeconds: Int = 20,
 
-    // ===== FITUR 7: CCTV MASJID (PiP) =====
+    // ===== CCTV =====
     val cctvEnabled: Boolean = false,
     val cctvUrl: String = "",
     val cctvPosition: CctvPosition = CctvPosition.TOP_RIGHT,
     val cctvSizePercent: Int = 20,
 
-    // ===== FITUR 8: REMOTE CONTROL via HP =====
+    // ===== iO Control / Remote =====
+    // Port 14039: konstan, jarang dipakai (valid: max 65535)
     val remoteControlEnabled: Boolean = false,
-    val remoteServerPort: Int = 8080,
+    val remoteServerPort: Int = 14039,
     val remoteAuthToken: String = "masjid-io",
 
     // ===== Security & Kiosk =====
