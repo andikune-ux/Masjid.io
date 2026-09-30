@@ -15,32 +15,26 @@ plugins {
 // ============================================================
 // VERSIONING OTOMATIS — Pakai GITHUB_RUN_NUMBER
 // ============================================================
-// Setiap workflow run → GitHub kasih nomor unik (auto increment).
-// Tidak butuh version.properties, tidak butuh commit balik.
-// ============================================================
-
 val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
 val currentDay = SimpleDateFormat("dd", Locale.getDefault())
     .apply { timeZone = jakartaTz }
     .format(Date())
 
 val majorVersion = "1"
-
-// Ambil run number dari GitHub Actions
 val githubRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+val localTimestamp = (System.currentTimeMillis() / 1000).toInt()
 
-val autoVersionName: String
-val versionCodeInt: Int
-
-if (githubRunNumber != null) {
-    // ===== Build di GitHub Actions =====
-    autoVersionName = "V${majorVersion}.${currentDay}.${githubRunNumber}"
-    versionCodeInt = githubRunNumber
+// if/else sebagai EXPRESSION — assign sekali saja
+val autoVersionName = if (githubRunNumber != null) {
+    "V${majorVersion}.${currentDay}.${githubRunNumber}"
 } else {
-    // ===== Build lokal (Android Studio) =====
-    val localTimestamp = (System.currentTimeMillis() / 1000).toInt()
-    autoVersionName = "V${majorVersion}.${currentDay}.${localTimestamp % 100000}"
-    versionCodeInt = localTimestamp
+    "V${majorVersion}.${currentDay}.${localTimestamp % 100000}"
+}
+
+val versionCodeInt = if (githubRunNumber != null) {
+    githubRunNumber
+} else {
+    localTimestamp
 }
 
 android {
