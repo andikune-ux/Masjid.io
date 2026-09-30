@@ -114,7 +114,6 @@ jobs:
       - name: Extract version info
         id: version
         run: |
-          # Ambil versionName dari APK langsung (aapt)
           AAPT=$(find $ANDROID_HOME/build-tools -name "aapt" 2>/dev/null | sort -r | head -1)
           VERSION=""
           if [ -n "$AAPT" ]; then
@@ -144,7 +143,6 @@ jobs:
           VERSION="${{ steps.version.outputs.VERSION }}"
           echo "Membuat release untuk tag: $VERSION"
 
-          # Cek apakah tag sudah ada
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "⚠️ Release $VERSION sudah ada, skip."
           else
@@ -162,18 +160,35 @@ jobs:
             echo "✅ Release $VERSION berhasil dibuat!"
           fi
 
+      - name: Reset unstaged changes
+        if: success()
+        run: |
+          # Buang perubahan file yang dimodifikasi workflow (gradle.properties, dll)
+          git checkout -- . 2>/dev/null || true
+          git clean -fd gradle.properties local.properties app/google-services.json 2>/dev/null || true
+
       - name: Commit version.properties
         if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Fetch dulu biar HEAD update
+          git fetch origin main
+
+          # Stage HANYA version.properties
           git add version.properties
+
           if git diff --staged --quiet; then
             echo "ℹ️ Tidak ada perubahan di version.properties"
           else
             echo "📝 Version.properties berubah, commit + push..."
             git commit -m "chore: update version.properties [skip ci]"
+
+            # Rebase dengan remote (unstaged sudah dibersihkan di step sebelumnya)
             git pull --rebase origin main || true
+
+            # Push
             git push origin HEAD:main
             echo "✅ version.properties berhasil di-push"
           fi
