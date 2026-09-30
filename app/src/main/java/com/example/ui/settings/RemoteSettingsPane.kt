@@ -1,7 +1,9 @@
 package com.example.ui.settings
 
 import android.content.Context
-import android.net.wifi.WifiManager
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +54,7 @@ import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
+import java.net.Inet4Address
 
 // Warna iO Control (Biru Teknologi)
 private val IoBlue = Color(0xFF2196F3)
@@ -71,15 +74,15 @@ fun RemoteSettingsPane(
     }
 
     // ============================================================
-    // AUTO-REFRESH IP SETIAP 5 DETIK
+    // AUTO-REFRESH IP & STATUS JARINGAN SETIAP 5 DETIK
     // ============================================================
     var currentIp by remember { mutableStateOf(getLocalIpAddress(context)) }
-    var currentWifiOn by remember { mutableStateOf(isWifiOn(context)) }
+    var currentNetworkOn by remember { mutableStateOf(isNetworkConnected(context)) }
 
     LaunchedEffect(Unit) {
         while (true) {
             currentIp = getLocalIpAddress(context)
-            currentWifiOn = isWifiOn(context)
+            currentNetworkOn = isNetworkConnected(context)
             delay(5000)
         }
     }
@@ -223,7 +226,7 @@ fun RemoteSettingsPane(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
                     Text(
-                        text = "① Sambungkan HP ke WiFi yang sama",
+                        text = "① Sambungkan HP ke jaringan yang sama",
                         fontSize = 13.sp,
                         color = TextPrimary
                     )
@@ -243,16 +246,16 @@ fun RemoteSettingsPane(
                         ip = currentIp,
                         port = settings.remoteServerPort,
                         token = settings.remoteAuthToken,
-                        wifiOn = currentWifiOn
+                        networkOn = currentNetworkOn
                     )
                 }
             }
         }
 
         // ============================================================
-        // WIFI STATUS
+        // KONEKSI JARINGAN
         // ============================================================
-        RemoteSectionCard(title = "KONEKSI WiFi") {
+        RemoteSectionCard(title = "KONEKSI JARINGAN") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -260,16 +263,16 @@ fun RemoteSettingsPane(
                 Icon(
                     imageVector = Icons.Default.Wifi,
                     contentDescription = null,
-                    tint = if (currentWifiOn) IoGreen else Color(0xFFFF5252),
+                    tint = if (currentNetworkOn) IoGreen else Color(0xFFFF5252),
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = if (currentWifiOn) "WiFi AKTIF" else "WiFi NONAKTIF",
+                        text = if (currentNetworkOn) "JARINGAN AKTIF" else "JARINGAN NONAKTIF",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (currentWifiOn) IoGreen else Color(0xFFFF5252)
+                        color = if (currentNetworkOn) IoGreen else Color(0xFFFF5252)
                     )
                     Text(
                         text = "IP: $currentIp",
@@ -294,7 +297,7 @@ private fun CopyUrlBox(
     ip: String,
     port: Int,
     token: String,
-    wifiOn: Boolean
+    networkOn: Boolean
 ) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
@@ -315,7 +318,7 @@ private fun CopyUrlBox(
                 .background(Color(0xFF0F2636))
                 .border(
                     1.5.dp,
-                    if (wifiOn) IoBlue.copy(alpha = 0.5f) else Color(0xFFFF5252).copy(alpha = 0.5f),
+                    if (networkOn) IoBlue.copy(alpha = 0.5f) else Color(0xFFFF5252).copy(alpha = 0.5f),
                     RoundedCornerShape(10.dp)
                 )
                 .padding(14.dp)
@@ -323,7 +326,7 @@ private fun CopyUrlBox(
             Text(
                 text = url,
                 fontSize = 13.sp,
-                color = if (wifiOn) IoBlueLight else Color(0xFFFF8A80),
+                color = if (networkOn) IoBlueLight else Color(0xFFFF8A80),
                 fontFamily = FontFamily.Monospace,
                 lineHeight = 18.sp
             )
@@ -375,7 +378,7 @@ private fun CopyUrlBox(
             InfoChip(label = "TOKEN", value = token)
         }
 
-        if (!wifiOn) {
+        if (!networkOn) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -385,7 +388,7 @@ private fun CopyUrlBox(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "⚠️ WiFi tidak aktif. Sambungkan TV ke WiFi dulu " +
+                    text = "⚠️ Jaringan tidak aktif. Sambungkan TV ke jaringan " +
                             "supaya IP muncul otomatis.",
                     fontSize = 12.sp,
                     color = Color(0xFFFF8A80),
@@ -463,30 +466,43 @@ private fun RemoteSectionCard(
 }
 
 // ============================================================
-// HELPERS
+// HELPERS — PAKAI ConnectivityManager (Android 12+ friendly)
 // ============================================================
-private fun getLocalIpAddress(context: Context): String {
+
+/**
+ * Cek apakah device terhubung ke jaringan apapun (WiFi, Ethernet, Cellular).
+ */
+private fun isNetworkConnected(context: Context): Boolean {
     return try {
-        val wifiManager = context.applicationContext
-            .getSystemService(Context.WIFI_SERVICE) as WifiManager
-        @Suppress("DEPRECATION")
-        val ipInt = wifiManager.connectionInfo.ipAddress
-        if (ipInt == 0) "0.0.0.0"
-        else {
-            "${ipInt and 0xff}.${(ipInt shr 8) and 0xff}.${(ipInt shr 16) and 0xff}.${(ipInt shr 24) and 0xff}"
-        }
+        val cm = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
     } catch (e: Exception) {
-        "0.0.0.0"
+        false
     }
 }
 
-private fun isWifiOn(context: Context): Boolean {
+/**
+ * Ambil IP lokal dari network aktif (WiFi / Ethernet / Cellular).
+ */
+private fun getLocalIpAddress(context: Context): String {
     return try {
-        val wifiManager = context.applicationContext
-            .getSystemService(Context.WIFI_SERVICE) as WifiManager
-        @Suppress("DEPRECATION")
-        wifiManager.isWifiEnabled && wifiManager.connectionInfo.networkId != -1
+        val cm = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return "0.0.0.0"
+        val linkProps: LinkProperties = cm.getLinkProperties(network) ?: return "0.0.0.0"
+
+        val ipv4 = linkProps.linkAddresses.firstOrNull {
+            it.address is Inet4Address && !it.address.isLoopbackAddress
+        }?.address?.hostAddress
+
+        ipv4 ?: "0.0.0.0"
     } catch (e: Exception) {
-        false
+        "0.0.0.0"
     }
 }
