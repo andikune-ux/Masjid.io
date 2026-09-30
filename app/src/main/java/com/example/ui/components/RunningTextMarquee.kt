@@ -21,10 +21,17 @@ import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.TextPrimary
 
+/**
+ * RunningTextMarquee — Teks berjalan di bawah layar utama.
+ *
+ * @param text Teks yang akan berjalan
+ * @param speed Kecepatan 1-10 (1 = paling lambat, 10 = paling cepat, 5 = normal)
+ * @param fontSize Ukuran huruf dalam sp
+ */
 @Composable
 fun RunningTextMarquee(
     text: String,
-    speed: Int = 2, // 1: Slow, 2: Normal, 3: Fast
+    speed: Int = 5,  // 1: Paling Lambat, 5: Sedang, 10: Paling Cepat
     fontSize: Int = 20,
     modifier: Modifier = Modifier
 ) {
@@ -32,10 +39,17 @@ fun RunningTextMarquee(
     // (cegah crash divide by zero di animation tween)
     if (text.isBlank()) return
 
-    // Duration depends on text length and speed
-    // GUARD: coerceAtLeast(1000) → minimal 1 detik, tidak boleh 0
-    val safeSpeed = speed.coerceIn(1, 4)
-    val baseDurationMs = ((text.length * 350) / safeSpeed).coerceAtLeast(1000)
+    // ============================================================
+    // KECEPATAN MARQUEE — range 1-10
+    // ============================================================
+    // Durasi dasar: panjang teks × 100 ms per karakter (speed 5).
+    // Speed 1 → ×2 (paling lambat) | Speed 10 → ÷2 (paling cepat)
+    // Formula: (11 - speed) / 5 → multiplier 0.2 sampai 2.0
+    val safeSpeed = speed.coerceIn(1, 10)
+    val speedMultiplier = (11 - safeSpeed) / 5f  // Speed 1 = 2.0, Speed 5 = 1.2, Speed 10 = 0.2
+    val baseDurationMs = (text.length * 100 * speedMultiplier)
+        .toInt()
+        .coerceAtLeast(1000)  // Minimal 1 detik
 
     val infiniteTransition = rememberInfiniteTransition(label = "marquee")
     val scrollOffset by infiniteTransition.animateFloat(
@@ -112,7 +126,7 @@ fun RunningTextMarquee(
                         val totalDistance = containerWidth + placeable.width
                         val currentX = containerWidth - (totalDistance * scrollOffset).toInt()
                         layout(placeable.width, placeable.height) {
-                            placeable.placeRelative(currentX, 0)
+                            placeable.relativePlace(currentX, 0)
                         }
                     }
                 )
