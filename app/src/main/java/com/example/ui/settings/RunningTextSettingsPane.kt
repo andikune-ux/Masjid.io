@@ -1,13 +1,9 @@
 package com.example.ui.settings
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +43,6 @@ import com.example.ui.components.TvSlider
 import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
@@ -99,7 +94,6 @@ fun RunningTextSettingsPane(
             isChecked = settings.runningText.isNotBlank(),
             onToggle = {
                 if (!it) {
-                    // kalau dimatikan, kosongkan teks
                     onUpdate(settings.copy(runningText = ""))
                     textInput = ""
                 }
@@ -135,15 +129,20 @@ fun RunningTextSettingsPane(
             label = "Kecepatan Scroll",
             value = settings.runningTextSpeed.toFloat(),
             onValueChange = { onUpdate(settings.copy(runningTextSpeed = it.toInt())) },
-            valueRange = 1f..5f,
-            steps = 3,
+            valueRange = 1f..10f,
+            steps = 8,
             formatter = { v ->
                 when (v.toInt()) {
-                    1 -> "Sangat Lambat"
-                    2 -> "Lambat"
-                    3 -> "Sedang"
-                    4 -> "Cepat"
-                    else -> "Sangat Cepat"
+                    1 -> "Paling Lambat"
+                    2 -> "Sangat Lambat"
+                    3 -> "Lambat"
+                    4 -> "Agak Lambat"
+                    5 -> "Sedang"
+                    6 -> "Normal"
+                    7 -> "Agak Cepat"
+                    8 -> "Cepat"
+                    9 -> "Sangat Cepat"
+                    else -> "Paling Cepat"
                 }
             }
         )
@@ -164,7 +163,6 @@ fun RunningTextSettingsPane(
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight
         )
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
