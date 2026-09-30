@@ -138,9 +138,11 @@ data class AppSettings(
     // ===== Language =====
     val languageCode: String = "id",
 
-    // ===== Running text =====
-    val runningText: String = "═══ Selamat datang di Masjid Al-Ikhlas ═══ Luruskan dan rapatkan shaf sholat ═══ Harap nonaktifkan nada dering ponsel ═══ Infaq & Shadaqah dapat melalui Rek BSI: 7123-4567-89 a.n Masjid Al-Ikhlas ═══ Kajian Rutin Sabtu Ba'da Maghrib bersama Ust. Hanan Attaki, Lc ═══",
-    val runningTextSpeed: Int = 2,
+    // ===== Running Text =====
+    // Default: teks islami lengkap. Aktif otomatis (karena text tidak kosong).
+    // Speed: 1-10 (1 = paling lambat, 5 = normal, 10 = paling cepat)
+    val runningText: String = "║ Selamat datang di Masjid Al-Ikhlas ║ Luruskan dan rapatkan shaf sholat ║ Harap nonaktifkan nada dering ponsel ║ Mari jaga kebersihan dan ketertiban masjid ║ Infaq & Shadaqah: Rek BSI 7123-4567-89 a.n Masjid Al-Ikhlas ║",
+    val runningTextSpeed: Int = 5,
     val runningTextFontSize: Int = 18,
 
     // ===== Officers =====
@@ -241,7 +243,6 @@ data class AppSettings(
     val cctvSizePercent: Int = 20,
 
     // ===== iO Control / Remote =====
-    // Port 14039: konstan, jarang dipakai (valid: max 65535)
     val remoteControlEnabled: Boolean = false,
     val remoteServerPort: Int = 14039,
     val remoteAuthToken: String = "masjid-io",
