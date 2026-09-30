@@ -25,6 +25,41 @@ object UpdateHistory {
     // ============================================================
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.30.1",
+            date = "30 September 2026",
+            title = "iO Control — Kontrol & Transfer Pengaturan Antar Device via WiFi",
+            features = listOf(
+                "Fitur iO Control: HP sebagai remote tampilan TV via WiFi/Hotspot sama",
+                "Auto-discovery device Masjid.io lain pakai UDP broadcast (port 45678)",
+                "UI radar biru dengan animasi sweep 360° + pulse",
+                "Tampilkan daftar device yang ditemukan (nama, role, IP, versi)",
+                "Auto-detect TV atau HP via Configuration.UI_MODE_TYPE_TELEVISION",
+                "Setelah connect: 2 tombol besar KIRIM dan TERIMA",
+                "Transfer semua pengaturan: tema, jadwal, ustadz, running text, PIN, dll",
+                "Tombol KIRIM → kirim settings dari device ini ke device lain",
+                "Progress bar realtime 0-100% saat transfer",
+                "Device penerima otomatis restart setelah 100% transfer",
+                "Serialisasi AppSettings via JSON (aman lintas versi)",
+                "Field yang tidak dikenal di versi penerima otomatis di-skip",
+                "RemoteSettingsPane: tombol BUKA iO CONTROL (biru, di atas)",
+                "RemoteSettingsPane: tombol SALIN URL otomatis (clipboard)",
+                "RemoteSettingsPane: auto-refresh IP tiap 5 detik",
+                "RemoteSettingsPane: info chip IP / PORT / TOKEN",
+                "RemoteSettingsPane: peringatan kalau WiFi OFF",
+                "Menu Settings: kategori 'Remote Control' → 'iO Control'",
+                "Permission baru: CHANGE_WIFI_MULTICAST_STATE, ACCESS_WIFI_STATE, NEARBY_WIFI_DEVICES",
+                "Endpoint baru RemoteServer: POST /api/io/handshake (ping device)",
+                "Endpoint baru RemoteServer: POST /api/io/receive (terima settings)",
+                "Fix: SettingsRepository lengkap — load/save semua 100+ field AppSettings",
+                "Fix: SettingsRepository tambah exportSummary() untuk Backup Aman",
+                "Fix: UpdateHistory tambah getFullText() + getSummary()",
+                "Fix: AppKnowledge tambah BAGIAN 15 (link GitHub untuk AI baru)",
+                "Fix: AppKnowledge tambah aturan anti-truncation kode panjang",
+                "Fix: build.gradle.kts timezone Asia/Jakarta (versi tidak stuck di UTC)",
+                "Fix: build.yml tag release pakai versi asli via aapt (bukan literal)"
+            )
+        ),
+        UpdateEntry(
             version = "V1.29.3",
             date = "29 September 2026",
             title = "Fix Crash Scroll & Fade Animasi Manual",
@@ -36,7 +71,10 @@ object UpdateHistory {
                 "Update SettingsRepository: tambah exportSummary() + load/save semua field AppSettings",
                 "Update UpdateHistory: tambah getFullText() dan getSummary()",
                 "Update AppKnowledge: tambah BAGIAN 15 (link GitHub) + aturan anti-truncation",
-                "Update AppKnowledge: tambah alias STRUCTURE & FEATURES + MEMORY_KNOWLEDGE"
+                "Update AppKnowledge: tambah alias STRUCTURE & FEATURES + MEMORY_KNOWLEDGE",
+                "Fix: RunningTextMarquee guard text kosong + durasi minimal 1000ms (atasi divide by zero)",
+                "Feat: MainActivity auto-show dialog crash log setelah force close",
+                "Feat: CrashAutoShowHelper + dialog crash (Salin + Kembali)"
             )
         ),
         UpdateEntry(
@@ -150,7 +188,7 @@ object UpdateHistory {
         entries.firstOrNull()?.version ?: "V1.0.0"
 
     // ============================================================
-    // METHOD BARU (untuk BackupManager)
+    // METHOD UNTUK BACKUP MANAGER
     // ============================================================
 
     /** Format lengkap semua entri — dipakai BackupManager. */
