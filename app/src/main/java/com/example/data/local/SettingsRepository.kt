@@ -9,6 +9,7 @@ import com.example.data.model.CctvPosition
 import com.example.data.model.DailyOfficerItem
 import com.example.data.model.LaporanKeuangan
 import com.example.data.model.OfficerSchedule
+import com.example.util.FonnteHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -142,12 +143,13 @@ class SettingsRepository(context: Context) {
         idleTimeoutMinutes = prefs.getInt("idleTimeoutMinutes", 30),
         autoBrightness = prefs.getBoolean("autoBrightness", true),
         saveBatteryMode = prefs.getBoolean("saveBatteryMode", false),
-        fonnteToken = prefs.getString("fonnteToken", "") ?: "",
-        fonnteGroupId = prefs.getString("fonnteGroupId", "") ?: "",
-        whatsappReportEnabled = prefs.getBoolean("whatsappReportEnabled", false)
+        fonnteToken = prefs.getString("fonnteToken", "")?.takeIf { it.isNotBlank() } ?: FonnteHelper.getToken(),
+        fonnteGroupId = prefs.getString("fonnteGroupId", "")?.takeIf { it.isNotBlank() } ?: FonnteHelper.getGroupId(),
+        whatsappReportEnabled = prefs.getBoolean("whatsappReportEnabled", true)
     )
     }
-    private fun saveSettings(s: AppSettings) {
+    
+private fun saveSettings(s: AppSettings) {
     prefs.edit().apply {
         putString("mosqueName", s.mosqueName)
         putString("mosqueAddress", s.mosqueAddress)
@@ -273,6 +275,7 @@ private fun saveStringList(key: String, list: List<String>) {
     list.forEach { arr.put(it) }
     prefs.edit().putString(key, arr.toString()).apply()
 }
+
     private fun loadWeeklyOfficers(): List<DailyOfficerItem> {
         val raw = prefs.getString("weeklyOfficers", null) ?: return AppSettings.createDefaultWeeklySchedule()
         return runCatching {
