@@ -43,9 +43,9 @@ app/src/main/java/com/example/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
 │   ├── model/
-│   │   └── AppSettings.kt             -> Model pengaturan
+│   │   └── AppSettings.kt             -> Model pengaturan (100+ field)
 │   ├── local/
-│   │   ├── SettingsRepository.kt      -> Simpan/load setting
+│   │   ├── SettingsRepository.kt      -> Simpan/load setting + exportSummary
 │   │   ├── PrayerTimesCalculator.kt   -> Hitung jadwal sholat
 │   │   ├── IslamicCalendar.kt         -> Kalender Hijriah
 │   │   ├── IslamicWisdomStore.kt      -> Data kartu nasihat
@@ -69,13 +69,17 @@ app/src/main/java/com/example/
 │   ├── CrashReporter.kt               -> Log crash + WA Fonnte
 │   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
+│   ├── SettingsTransferHelper.kt      -> Serialize AppSettings (iO Control)
+│   ├── RemoteControlClient.kt         -> HTTP client iO Control
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
 │   ├── ApkDownloader.kt               -> Download & install APK
 │   └── BuildHistoryFetcher.kt         -> Fetch build history GitHub
 └── ui/
     ├── home/HomeScreen.kt             -> Tampilan utama
-    ├── focus/PrayerFocusOverlay.kt    -> Mode fokus 4 fase
+    ├── focus/
+    │   ├── PrayerFocusOverlay.kt      -> Mode fokus 4 fase
+    │   └── QRISFocusOverlay.kt        -> Preview QRIS
     ├── slides/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
     │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
@@ -86,8 +90,10 @@ app/src/main/java/com/example/
     ├── cctv/
     │   └── CctvWidget.kt              -> Widget CCTV (RTSP/HTTP)
     ├── remote/
-    │   ├── RemoteServer.kt            -> HTTP server untuk remote
-    │   └── RemoteDashboard.kt         -> Info akses remote
+    │   ├── RemoteServer.kt            -> HTTP server (Remote + iO Control)
+    │   ├── RemoteDashboard.kt         -> Info akses remote
+    │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
+    │   └── IoControlScreen.kt         -> UI radar iO Control
     ├── settings/
     │   ├── SettingsScreen.kt          -> Menu utama (19 kategori)
     │   ├── DeveloperSettingsPane.kt   -> Opsi Developer
@@ -105,7 +111,7 @@ app/src/main/java/com/example/
     │   ├── SecuritySettingsPane.kt    -> Keamanan
     │   ├── SlideSettingsPane.kt       -> Slide Fullscreen
     │   ├── CctvSettingsPane.kt        -> CCTV Masjid
-    │   ├── RemoteSettingsPane.kt      -> Remote Control
+    │   ├── RemoteSettingsPane.kt      -> iO Control + Remote Server
     │   ├── TimeSettingsPane.kt        -> Waktu manual
     │   ├── VideoSettingsPane.kt       -> Video & Foto Slideshow
     │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan
@@ -121,6 +127,9 @@ app/src/main/java/com/example/
     │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat (with foto)
+    │   ├── RunningTextMarquee.kt      -> Running text bergulir
+    │   ├── PinDialog.kt               -> Dialog PIN
+    │   ├── ChangePinDialog.kt         -> Dialog ubah PIN
     │   ├── TopBar.kt                  -> Top bar
     │   └── ... (komponen lain)
     └── theme/                          -> Warna & tipografi
@@ -172,7 +181,8 @@ app/src/main/java/com/example/
 7. REMOTE CONTROL
    - HTTP Server mini berjalan di background
    - Akses dashboard dari HP via browser
-   - Bisa ubah running text, PIN, lihat status
+   - Bisa ubah running text, PIN, lihat status, restart
+   - Auto-detect IP + tombol Salin URL otomatis
 
 8. MODE RAMADHAN
    - Countdown Imsak & Iftar besar
@@ -190,12 +200,13 @@ app/src/main/java/com/example/
     - Icon Sosmed (WhatsApp, TikTok, Instagram)
 
 11. OPSI DEVELOPER (PIN 140399)
-    - Backup Aman (termasuk build history)
+    - Backup Aman (termasuk build history + full source)
     - Riwayat Crash + Refresh Build History
     - WhatsApp Fonnte (notifikasi crash)
 
 12. VERSIONING OTOMATIS
     - Format: V{inti}.{tanggal}.{countHariIni}
+    - Timezone Asia/Jakarta (WIB) — tidak stuck di UTC
     - Auto GitHub Release setiap build
 
 13. WHATSAPP REPORT (FONNTE)
@@ -218,40 +229,70 @@ app/src/main/java/com/example/
     - Auto-rotate 8 detik
     - Phase 4 di Mode Fokus
 
-17. AUTO-SHOW CRASH LOG (V1.29.3+)
+17. AUTO-SHOW CRASH LOG
     - Deteksi crash saat force close
     - Saat dibuka kembali, dialog crash muncul otomatis
     - Tombol Salin + Tombol Kembali
 
-18. FULL SOURCE CODE EXPORT (V1.29.3+)
+18. FULL SOURCE CODE EXPORT
     - Backup Aman menyertakan ISI SEMUA FILE kode
     - Cara C: folder lokal + fallback GitHub API
     - Format: ---BEGIN--- path ---END--- path
     - AI baru langsung paham tanpa tanya user
 
-19. FIX CRASH NESTED SCROLL (V1.29.3+)
+19. FIX CRASH NESTED SCROLL
     - Fix crash "Vertically scrollable component infinity"
     - Ganti Crossfade ke Box + key + alpha fade manual
     - Tetap ada animasi fade antar pane (300ms)
-    - Semua pane settings aman dibuka
 
-20. FADE ANIMASI MANUAL (V1.29.3+)
+20. FADE ANIMASI MANUAL
     - Animasi fade-in 300ms saat ganti kategori
     - Implementasi via key() + animateFloatAsState + alpha
     - Tidak pakai Crossfade (hindari nested scroll crash)
+
+21. iO CONTROL (BARU — V1.30.1)
+    - HP sebagai remote tampilan TV via WiFi/Hotspot sama
+    - Auto-discovery device Masjid.io lain (UDP broadcast)
+    - UI radar biru dengan animasi sweep 360° + pulse
+    - Daftar device: nama, role (TV/HP), IP, versi
+    - Auto-detect TV atau HP via UI_MODE_TYPE_TELEVISION
+    - Setelah connect: 2 tombol besar KIRIM & TERIMA
+    - Transfer semua pengaturan (tema, jadwal, ustadz, PIN, dll)
+    - Progress bar realtime 0-100%
+    - Device penerima otomatis restart setelah transfer 100%
+    - Serialisasi JSON (aman lintas versi, field tidak dikenal di-skip)
+
+22. SALIN URL OTOMATIS (BARU — V1.30.1)
+    - Tombol besar "SALIN URL" (clipboard)
+    - Feedback "✓ TERSALIN" 3 detik
+    - Auto-refresh IP tiap 5 detik
+    - Info chip IP / PORT / TOKEN
+    - Peringatan kalau WiFi OFF
+    - User tidak perlu ketik manual lagi
     """.trimIndent()
 
     // ============================================================
     // RIWAYAT UPDATE (RINGKAS)
     // ============================================================
     val UPDATE_HISTORY = """
+V1.30.1 (30 September 2026)
+- iO Control: HP sebagai remote TV via WiFi
+- Auto-discovery device (UDP broadcast)
+- UI radar biru + 2 tombol KIRIM/TERIMA
+- Transfer semua pengaturan antar device
+- Progress bar + auto-restart penerima
+- Salin URL otomatis + info chip IP/PORT/TOKEN
+- Fix: build timezone Asia/Jakarta (versi tidak stuck UTC)
+- Fix: build.yml tag release pakai versi asli via aapt
+
 V1.29.3 (29 September 2026)
 - Fix crash nested scroll di SettingsScreen
 - Ganti Crossfade ke Box + fade manual (300ms)
+- Fix RunningTextMarquee (divide by zero)
+- Auto-show dialog crash log setelah force close
 - BackupManager: pertahankan method lama + fetch source GitHub
-- SettingsRepository: tambah exportSummary() + load/save full AppSettings
-- UpdateHistory: tambah getFullText() & getSummary()
-- AppKnowledge: tambah BAGIAN 15 (link GitHub) + anti-truncation
+- SettingsRepository: tambah exportSummary() + full AppSettings
+- AppKnowledge: BAGIAN 15 (link GitHub) + anti-truncation
 
 V1.28.4 (29 September 2026)
 - Slide Fullscreen (QRIS, Laporan, Kajian)
@@ -267,7 +308,6 @@ V1.28.3 (29 September 2026)
 - TvSlider + TvToggle (remote-friendly)
 - LocationSettingsPane + IdentitySettingsPane lengkap
 - RunningTextSettingsPane lengkap
-- Bersihkan lint warning
 
 V1.28.2 (28 September 2026)
 - Versioning otomatis + Keystore permanen
@@ -334,6 +374,15 @@ V1.28.0 (27 September 2026)
 14. Crash: Vertically scrollable component infinity (V1.29.3)
     Solusi: Ganti Crossfade ke Box + key + alpha fade manual
 
+15. Crash: ArithmeticException divide by zero (V1.29.3)
+    Solusi: RunningTextMarquee guard text kosong + durasi minimal 1000ms
+
+16. Versi stuck di V1.29.X padahal tanggal sudah berubah (V1.30.1)
+    Solusi: Set timezone Asia/Jakarta di build.gradle.kts
+
+17. Tag release "autoVersionName" literal (V1.30.1)
+    Solusi: Extract version via aapt dari APK (bukan grep build.gradle)
+
 === BELUM DIPERBAIKI ===
 (Tidak ada - semua sudah diperbaiki)
     """.trimIndent()
@@ -351,6 +400,27 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[30-09-2026] - V1.30.1
+Error: Versi build stuck di V1.29.X padahal tanggal sudah berubah
+File: app/build.gradle.kts
+Solusi: Set timezone Asia/Jakarta di SimpleDateFormat currentDate & currentDay
+
+[30-09-2026] - V1.30.1
+Error: Tag release GitHub jadi "autoVersionName" (string literal)
+File: .github/workflows/build.yml
+Solusi: Extract versionName dari APK pakai aapt dump badging,
+        bukan grep dari build.gradle.kts
+
+[30-09-2026] - V1.30.1
+Error: version.properties tidak ke-push setelah build
+File: .github/workflows/build.yml
+Solusi: Perbaiki step commit version.properties (git pull --rebase dulu)
+
+[29-09-2026] - V1.29.3
+Error: ArithmeticException "divide by zero" di Compose animation
+File: RunningTextMarquee.kt
+Solusi: Guard text kosong (return) + durasi minimal 1000ms
 
 [29-09-2026] - V1.29.3
 Error: IllegalStateException "Vertically scrollable component was
@@ -431,6 +501,7 @@ LARANGAN:
 
 VERSIONING:
 - Format: V{inti}.{tanggal}.{countHariIni}
+- Timezone Asia/Jakarta (WIB)
 - Auto GitHub Release tiap build
 - Keystore permanen di repo
     """.trimIndent()
@@ -453,7 +524,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.29.3
+- Versi saat ini : V1.30.1
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -461,7 +532,7 @@ UPDATE WAJIB TIAP BUILD:
 2. Tambah entri baru di UpdateHistory.kt
 3. Update AppKnowledge.kt (struktur + fitur + build error)
     """.trimIndent()
-
+    
     // ============================================================
     // MEMORY INSTRUCTION
     // ============================================================
@@ -497,7 +568,7 @@ STRUKTUR MENU SETTINGS (19 Kategori):
 14. Daya & Booting
 15. Slide Fullscreen
 16. CCTV Masjid
-17. Remote Control
+17. iO Control
 18. Tentang Aplikasi
 19. Opsi Developer (PIN 140399)
 
@@ -524,9 +595,10 @@ PENANGANAN BUILD ERROR:
 5. Commit ulang
 
 FITUR YANG BELUM SELESAI:
-(Tidak ada - semua fitur sudah selesai)
+- Integrasi real transfer (tombol KIRIM masih simulasi)
+  (direncanakan di rilis berikutnya)
     """.trimIndent()
-    
+
     // ============================================================
     // MEMORY KNOWLEDGE (LENGKAP + LINK GITHUB)
     // ============================================================
@@ -597,7 +669,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.29.3
+  Versi saat ini : V1.30.1
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (19 KATEGORI) ===
@@ -618,7 +690,7 @@ APLIKASI:
 14. Daya & Booting
 15. Slide Fullscreen
 16. CCTV Masjid
-17. Remote Control
+17. iO Control
 18. Tentang Aplikasi
 19. Opsi Developer (PIN 140399)
 
@@ -701,7 +773,7 @@ TUJUAN: AI baru langsung paham tanpa tanya user.
 === BAGIAN 14 — ATURAN KERJA SAMA DENGAN AI BARU ===
 
 Jika user ganti AI, AI baru WAJIB:
-1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-15).
+1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-16).
 2. Pahami struktur aplikasi + isi kode.
 3. Ikuti aturan 8 elemen format.
 4. Ikuti aturan anti-truncation (BAGIAN 1B).
@@ -733,11 +805,17 @@ FOLDER KUNCI YANG SERING DIBACA:
 - app/src/main/java/com/example/MainActivity.kt
 - app/src/main/java/com/example/util/BackupManager.kt
 - app/src/main/java/com/example/util/CrashReporter.kt
+- app/src/main/java/com/example/util/CrashAutoShowHelper.kt
 - app/src/main/java/com/example/util/GithubSourceFetcher.kt
+- app/src/main/java/com/example/util/SettingsTransferHelper.kt
+- app/src/main/java/com/example/util/RemoteControlClient.kt
 - app/src/main/java/com/example/data/AppKnowledge.kt
 - app/src/main/java/com/example/data/UpdateHistory.kt
 - app/src/main/java/com/example/ui/settings/SettingsScreen.kt
-- app/src/main/java/com/example/ui/settings/DeveloperSettingsPane.kt
+- app/src/main/java/com/example/ui/settings/RemoteSettingsPane.kt
+- app/src/main/java/com/example/ui/remote/RemoteServer.kt
+- app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
+- app/src/main/java/com/example/ui/remote/IoControlScreen.kt
 - app/build.gradle.kts
 - gradle/libs.versions.toml
 - .github/workflows/build.yml
@@ -747,6 +825,46 @@ CATATAN UNTUK AI BARU:
 - Kalau butuh SEMUA file sekaligus: buka tree API di atas
 - Kalau butuh 1 file: pakai raw URL + path
 - JANGAN minta user copy-paste manual kalau bisa buka sendiri
+
+=== BAGIAN 16 — FITUR iO CONTROL (V1.30.1) ===
+
+FITUR BARU:
+- HP sebagai remote tampilan TV via WiFi/Hotspot sama
+- Auto-discovery via UDP broadcast (port 45678)
+- UI radar biru (sweep 360° + pulse)
+- Pilih device -> connect -> 2 tombol KIRIM/TERIMA
+- Transfer semua pengaturan antar device
+- Progress bar 0-100% -> penerima auto-restart
+
+FILE TERKAIT:
+- ui/remote/DeviceDiscovery.kt      -> UDP broadcast & listen
+- ui/remote/IoControlScreen.kt      -> UI radar + progress
+- ui/remote/RemoteServer.kt         -> HTTP endpoint /api/io/*
+- util/SettingsTransferHelper.kt    -> Serialize JSON settings
+- util/RemoteControlClient.kt       -> HTTP client kirim settings
+- ui/settings/RemoteSettingsPane.kt -> Tombol BUKA iO CONTROL + Salin URL
+- MainActivity.kt                   -> Integrasi screen + callback
+
+CATATAN PENTING:
+- Transfer via JSON (aman lintas versi)
+- Field tidak dikenal di penerima -> otomatis di-skip
+- Remote Control setting (port, token) TIDAK ditransfer
+- PIN IKUT ditransfer (sesuai keputusan user)
+
+=== BAGIAN 17 — FITUR SALIN URL OTOMATIS (V1.30.1) ===
+
+FITUR:
+- Auto-detect IP WiFi TV (update tiap 5 detik)
+- Gabung jadi URL lengkap: http://IP:PORT/?token=TOKEN
+- Tombol besar "SALIN URL" -> clipboard
+- Feedback "✓ TERSALIN" 3 detik
+- Info chip: IP, PORT, TOKEN terlihat jelas
+- Peringatan merah kalau WiFi OFF
+
+FILE TERKAIT:
+- ui/settings/RemoteSettingsPane.kt
+
+TUJUAN: User tidak perlu ketik manual lagi.
 
 ============================================================
 END OF MEMORY KNOWLEDGE
