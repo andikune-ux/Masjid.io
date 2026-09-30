@@ -24,7 +24,6 @@ val majorVersion = "1"
 val githubRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
 val localTimestamp = (System.currentTimeMillis() / 1000).toInt()
 
-// if/else sebagai EXPRESSION — assign sekali saja
 val autoVersionName = if (githubRunNumber != null) {
     "V${majorVersion}.${currentDay}.${githubRunNumber}"
 } else {
@@ -52,30 +51,29 @@ android {
         versionName = autoVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    // ============================================================
+    // UNIVERSAL SIGNING — pakai debug.keystore untuk semua build
+    // Biar update otomatis selalu jalan (signature konsisten)
+    // ============================================================
     signingConfigs {
-        create("release") {
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-            storeFile = file(keystorePath)
-            storePassword = System.getenv("STORE_PASSWORD")
-            keyAlias = "upload"
-            keyPassword = System.getenv("KEY_PASSWORD")
-        }
-        create("debugConfig") {
+        create("universalConfig") {
             storeFile = file("${rootDir}/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
     }
+
     buildTypes {
         release {
             isCrunchPngs = false
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("universalConfig")
         }
         debug {
-            signingConfig = signingConfigs.getByName("debugConfig")
+            signingConfig = signingConfigs.getByName("universalConfig")
         }
     }
     compileOptions {
