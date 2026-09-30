@@ -221,7 +221,7 @@ data class AppSettings(
     val kultumTime: String = "17:30",
     val menuSahurText: String = "",
     val menuIftarText: String = "",
-    
+
     // ===== FITUR 5: DZIKIR SETELAH SHOLAT =====
     val dzikirEnabled: Boolean = true,
     val dzikirDurationSeconds: Int = 120,
@@ -270,7 +270,7 @@ data class AppSettings(
     // ===== WhatsApp Fonnte =====
     val fonnteToken: String = "",
     val fonnteGroupId: String = "",
-    val whatsappReportEnabled: Boolean = false
+    val whatsappReportEnabled: Boolean = true
 ) {
     companion object {
         fun createDefaultWeeklySchedule(): List<DailyOfficerItem> {
