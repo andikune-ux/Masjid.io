@@ -94,7 +94,7 @@ enum class SettingsCategory(
     POWER("Daya & Booting", Icons.Default.Power),
     SLIDESHOW("Slide Fullscreen", Icons.Default.Slideshow),
     CCTV("CCTV Masjid", Icons.Default.Videocam),
-    REMOTE_CONTROL("Remote Control", Icons.Default.PhoneAndroid),
+    REMOTE_CONTROL("iO Control", Icons.Default.PhoneAndroid),
     ABOUT("Tentang Aplikasi", Icons.Default.Info),
     DEVELOPER("Opsi Developer", Icons.Default.Code)
 }
@@ -106,7 +106,8 @@ fun SettingsScreen(
     isRemoteServerRunning: Boolean = false,
     onSaveSettings: (AppSettings) -> Unit,
     onBack: () -> Unit,
-    onTestQrisFocus: () -> Unit
+    onTestQrisFocus: () -> Unit,
+    onOpenIoControl: () -> Unit = {}
 ) {
     var selectedCategory by remember { mutableStateOf(SettingsCategory.LOCATION) }
     var draftSettings by remember { mutableStateOf(currentSettings) }
@@ -287,7 +288,8 @@ fun SettingsScreen(
                             SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
                                 settings = draftSettings,
                                 isServerRunning = isRemoteServerRunning,
-                                onUpdate = { draftSettings = it }
+                                onUpdate = { draftSettings = it },
+                                onOpenIoControl = onOpenIoControl
                             )
                             SettingsCategory.ABOUT -> AboutSettingsPane(
                                 onOpenRiwayatUpdate = { showRiwayatUpdate = true }
