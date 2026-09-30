@@ -19,18 +19,8 @@ import java.net.URLDecoder
 /**
  * HTTP Server mini untuk Remote Control via HP.
  *
- * Fitur:
- *   - Dashboard HTML (browser)
- *   - GET  /api/status          → status JSON
- *   - GET  /api/settings        → settings JSON (ringkas)
- *   - POST /api/running-text    → update running text
- *   - POST /api/pin             → update PIN
- *   - POST /api/restart         → restart app
- *
- * iO Control (BARU):
- *   - POST /api/io/handshake    → cek device lain hidup
- *   - POST /api/io/receive      → terima settings lengkap dari device lain
- *                                (apply + restart otomatis)
+ * FIX: Parse path & query string dengan benar,
+ *      biar "/?token=xxx" tetap match dengan route "/".
  */
 class RemoteServer(
     private val context: Context,
@@ -101,7 +91,22 @@ class RemoteServer(
             }
 
             val method = parts[0]
-            val path = parts[1]
+            val fullPath = parts[1]
+
+            // ============================================================
+            // PARSE PATH & QUERY STRING
+            // Contoh: "/?token=masjid-io" → path="/", query="token=masjid-io"
+            // ============================================================
+            val pathOnly: String
+            val queryString: String
+            val qIndex = fullPath.indexOf('?')
+            if (qIndex >= 0) {
+                pathOnly = fullPath.substring(0, qIndex)
+                queryString = fullPath.substring(qIndex + 1)
+            } else {
+                pathOnly = fullPath
+                queryString = ""
+            }
 
             // ============ BACA HEADER ============
             val headers = mutableMapOf<String, String>()
@@ -124,10 +129,18 @@ class RemoteServer(
 
             // ============ AUTH ============
             val authHeader = headers["authorization"]
-            val urlToken = path.substringAfter("token=", "").substringBefore("&")
+            val urlToken = queryString
+                .split("&")
+                .mapNotNull { pair ->
+                    val kv = pair.split("=", limit = 2)
+                    if (kv.size == 2 && kv[0] == "token") kv[1] else null
+                }
+                .firstOrNull() ?: ""
+
             val isAuthorized = authHeader == "Bearer $authToken" ||
                     urlToken == authToken ||
-                    path == "/"
+                    pathOnly == "/"
+
             if (!isAuthorized) {
                 sendResponse(writer, 401, "text/plain", "Unauthorized")
                 client.close()
@@ -136,34 +149,50 @@ class RemoteServer(
 
             // ============ ROUTING ============
             when {
-                // ---- Remote Control lama ----
-                method == "GET" && path == "/" -> {
+                // ---- Root: Dashboard HTML ----
+                method == "GET" && (pathOnly == "/" || pathOnly.isEmpty()) -> {
                     sendResponse(writer, 200, "text/html", getDashboardHtml())
                 }
-                method == "GET" && path.startsWith("/api/status") -> {
+
+                // ---- Status JSON ----
+                method == "GET" && pathOnly == "/api/status" -> {
                     sendResponse(writer, 200, "application/json", getStatusJson())
                 }
-                method == "GET" && path.startsWith("/api/settings") -> {
+
+                // ---- Settings JSON ----
+                method == "GET" && pathOnly == "/api/settings" -> {
                     sendResponse(writer, 200, "application/json", getSettingsJson())
                 }
-                method == "POST" && path.startsWith("/api/running-text") -> {
+
+                // ---- Update Running Text ----
+                method == "POST" && pathOnly == "/api/running-text" -> {
                     val params = parseFormData(body)
                     val text = params["text"] ?: ""
                     updateRunningText(text)
                     sendResponse(writer, 200, "application/json", """{"success":true}""")
                 }
-                method == "POST" && path.startsWith("/api/pin") -> {
+
+                // ---- Update PIN ----
+                method == "POST" && pathOnly == "/api/pin" -> {
                     val params = parseFormData(body)
                     val newPin = params["pin"] ?: ""
                     if (newPin.length == 4 && newPin.all { it.isDigit() }) {
                         updatePin(newPin)
                         sendResponse(writer, 200, "application/json", """{"success":true}""")
                     } else {
-                        sendResponse(writer, 400, "application/json", """{"success":false,"error":"PIN harus 4 digit"}""")
+                        sendResponse(
+                            writer, 400, "application/json",
+                            """{"success":false,"error":"PIN harus 4 digit"}"""
+                        )
                     }
                 }
-                method == "POST" && path.startsWith("/api/restart") -> {
-                    sendResponse(writer, 200, "application/json", """{"success":true,"message":"Restart dijadwalkan"}""")
+
+                // ---- Restart App ----
+                method == "POST" && pathOnly == "/api/restart" -> {
+                    sendResponse(
+                        writer, 200, "application/json",
+                        """{"success":true,"message":"Restart dijadwalkan"}"""
+                    )
                     writer.flush()
                     client.close()
                     Handler(Looper.getMainLooper()).postDelayed({
@@ -180,18 +209,17 @@ class RemoteServer(
                     }, 1000)
                     return
                 }
-                
-                // ---- iO Control: handshake (cek device hidup) ----
-                method == "POST" && path.startsWith("/api/io/handshake") -> {
+
+                // ---- iO Control: handshake ----
+                method == "POST" && pathOnly == "/api/io/handshake" -> {
                     sendResponse(
                         writer, 200, "application/json",
                         """{"success":true,"app":"MASJID.IO"}"""
                     )
                 }
 
-                // ---- iO Control: terima settings lengkap ----
-                method == "POST" && path.startsWith("/api/io/receive") -> {
-                    // Kirim balasan OK cepat supaya client tahu sudah diterima
+                // ---- iO Control: receive settings ----
+                method == "POST" && pathOnly == "/api/io/receive" -> {
                     sendResponse(
                         writer, 200, "application/json",
                         """{"success":true,"message":"Settings diterima"}"""
@@ -199,14 +227,12 @@ class RemoteServer(
                     writer.flush()
                     client.close()
 
-                    // Proses di main thread (apply settings + restart)
                     Handler(Looper.getMainLooper()).postDelayed({
                         try {
                             Log.d(TAG, "Menerima settings iO Control, length=${body.length}")
                             if (onSettingsReceived != null) {
                                 onSettingsReceived.invoke(body)
                             }
-                            // Restart setelah settings diterapkan
                             Handler(Looper.getMainLooper()).postDelayed({
                                 try {
                                     Log.d(TAG, "Restart otomatis setelah terima settings...")
@@ -226,9 +252,10 @@ class RemoteServer(
                     return
                 }
 
-                // ---- Default: 404 ----
+                // ---- Not Found ----
                 else -> {
-                    sendResponse(writer, 404, "text/plain", "Not Found")
+                    Log.w(TAG, "Not found: method=$method path=$pathOnly")
+                    sendResponse(writer, 404, "text/plain", "Not Found: $pathOnly")
                 }
             }
 
@@ -272,7 +299,8 @@ class RemoteServer(
         body.split("&").forEach { pair ->
             val parts = pair.split("=", limit = 2)
             if (parts.size == 2) {
-                result[URLDecoder.decode(parts[0], "UTF-8")] = URLDecoder.decode(parts[1], "UTF-8")
+                result[URLDecoder.decode(parts[0], "UTF-8")] =
+                    URLDecoder.decode(parts[1], "UTF-8")
             }
         }
         return result
@@ -325,12 +353,15 @@ class RemoteServer(
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>MASJID.IO Remote</title>
             <style>
-                body { font-family: Arial, sans-serif; background: #0A1929; color: #fff; padding: 20px; }
+                body { font-family: Arial, sans-serif; background: #0A1929; color: #fff; padding: 20px; margin: 0; }
                 h1 { color: #FFD700; }
                 h2 { color: #64B5F6; }
-                button { background: #2196F3; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; }
-                input, textarea { background: #132F4C; color: #fff; border: 1px solid #2196F3; padding: 8px; border-radius: 6px; width: 100%; }
+                button { background: #2196F3; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+                button:hover { background: #1976D2; }
+                input, textarea { background: #132F4C; color: #fff; border: 1px solid #2196F3; padding: 10px; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 14px; }
                 .card { background: #132F4C; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+                .success { color: #4CAF50; }
+                .error { color: #FF5252; }
             </style>
         </head>
         <body>
@@ -371,17 +402,19 @@ class RemoteServer(
                 const token = new URLSearchParams(location.search).get('token') || '';
                 fetch('/api/status?token=' + token).then(r => r.json()).then(d => {
                     document.getElementById('status').textContent = JSON.stringify(d, null, 2);
+                }).catch(e => {
+                    document.getElementById('status').textContent = 'Error: ' + e;
                 });
                 fetch('/api/settings?token=' + token).then(r => r.json()).then(d => {
                     document.getElementById('rt').value = d.runningText || '';
-                });
+                }).catch(e => {});
                 function saveRT() {
                     const text = document.getElementById('rt').value;
                     fetch('/api/running-text?token=' + token, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: 'text=' + encodeURIComponent(text)
-                    }).then(r => r.json()).then(d => alert(JSON.stringify(d)));
+                    }).then(r => r.json()).then(d => alert('OK! Running text disimpan.')).catch(e => alert('Gagal: ' + e));
                 }
                 function savePin() {
                     const pin = document.getElementById('pin').value;
@@ -389,11 +422,15 @@ class RemoteServer(
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: 'pin=' + encodeURIComponent(pin)
-                    }).then(r => r.json()).then(d => alert(JSON.stringify(d)));
+                    }).then(r => r.json()).then(d => {
+                        if (d.success) alert('PIN berhasil diganti!');
+                        else alert('Gagal: ' + (d.error || 'Unknown'));
+                    }).catch(e => alert('Gagal: ' + e));
                 }
                 function restart() {
                     if (!confirm('Yakin restart aplikasi?')) return;
                     fetch('/api/restart?token=' + token, {method: 'POST'});
+                    alert('Aplikasi akan restart dalam 3 detik...');
                 }
             </script>
         </body>
