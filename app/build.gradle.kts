@@ -13,7 +13,10 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-val versionPropsFile = file("version.properties")
+// ============================================================
+// VERSIONING — Baca dari ROOT project (bukan folder app/)
+// ============================================================
+val versionPropsFile = rootProject.file("version.properties")
 val versionProps = Properties()
 
 if (versionPropsFile.exists()) {
