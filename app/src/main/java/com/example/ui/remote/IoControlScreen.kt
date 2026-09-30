@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,6 +66,7 @@ import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.MosqueDeepBg
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.util.RemoteControlClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -78,6 +78,7 @@ private val IoBlueLight = Color(0xFF64B5F6)
 private val IoBlueDark = Color(0xFF0D47A1)
 private val IoGreen = Color(0xFF4CAF50)
 private val IoGreenLight = Color(0xFF81C784)
+private val IoRed = Color(0xFFFF5252)
 private val IoBg = Color(0xFF0A1929)
 private val IoCard = Color(0xFF132F4C)
 
@@ -85,26 +86,20 @@ private val IoCard = Color(0xFF132F4C)
 // STATE MACHINE
 // ============================================================
 enum class IoPhase {
-    SCANNING,       // Cari perangkat
-    CONNECTING,     // Sedang connect ke device yang dipilih
-    CONNECTED,      // Sudah terhubung, pilih KIRIM / TERIMA
-    SENDING,        // Mengirim data (progress)
-    RECEIVING,      // Menerima data (progress)
-    DONE            // Selesai
+    SCANNING,
+    CONNECTING,
+    CONNECTED,
+    SENDING,
+    RECEIVING,
+    DONE,
+    ERROR
 }
 
-/**
- * IoControlScreen — UI iO Control untuk transfer pengaturan antar device.
- *
- * Flow:
- *   SCANNING → pilih device → CONNECTING → CONNECTED
- *          → tap KIRIM / TERIMA → SENDING / RECEIVING → DONE
- */
 @Composable
 fun IoControlScreen(
     settingsRepository: SettingsRepository,
     deviceName: String,
-    deviceRole: String,       // "TV" atau "HP"
+    deviceRole: String,
     appVersion: String,
     serverPort: Int,
     onBack: () -> Unit
@@ -114,11 +109,13 @@ fun IoControlScreen(
 
     val devices by DeviceDiscovery.devices.collectAsState()
     val isScanning by DeviceDiscovery.isScanning.collectAsState()
+    val currentSettings by settingsRepository.settingsFlow.collectAsState()
 
     var phase by remember { mutableStateOf(IoPhase.SCANNING) }
     var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
     var transferProgress by remember { mutableStateOf(0f) }
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
+    var errorMessage by remember { mutableStateOf("") }
 
     // ============================================================
     // MULAI SCAN SAAT DIBUKA
@@ -148,29 +145,56 @@ fun IoControlScreen(
     LaunchedEffect(selectedDevice, phase) {
         if (phase == IoPhase.CONNECTING && selectedDevice != null) {
             statusMessage = "Menghubungkan ke ${selectedDevice!!.name}..."
-            delay(1500)
-            phase = IoPhase.CONNECTED
-            statusMessage = "Terhubung dengan ${selectedDevice!!.name}"
+            val ok = RemoteControlClient.handshake(
+                selectedDevice!!.ip,
+                selectedDevice!!.port
+            )
+            if (ok) {
+                phase = IoPhase.CONNECTED
+                statusMessage = "Terhubung dengan ${selectedDevice!!.name}"
+            } else {
+                phase = IoPhase.ERROR
+                errorMessage = "Gagal terhubung ke ${selectedDevice!!.name}. Pastikan Remote Server aktif di perangkat lain."
+            }
         }
     }
 
     // ============================================================
-    // SIMULASI PROGRESS TRANSFER (akan diganti dengan real transfer)
+    // REAL SEND — pakai RemoteControlClient
     // ============================================================
     LaunchedEffect(phase) {
-        if (phase == IoPhase.SENDING || phase == IoPhase.RECEIVING) {
+        if (phase == IoPhase.SENDING) {
+            val target = selectedDevice ?: return@LaunchedEffect
             transferProgress = 0f
-            while (transferProgress < 1f) {
-                delay(80)
-                transferProgress = (transferProgress + 0.02f).coerceAtMost(1f)
+            statusMessage = "Menyiapkan data..."
+
+            val result = RemoteControlClient.sendSettings(
+                targetIp = target.ip,
+                targetPort = target.port,
+                settings = currentSettings,
+                onProgress = { prog ->
+                    transferProgress = prog
+                    statusMessage = when {
+                        prog < 0.15f -> "Menyiapkan data..."
+                        prog < 0.30f -> "Menghubungi ${target.name}..."
+                        prog < 0.95f -> "Mengirim pengaturan..."
+                        else -> "Menunggu konfirmasi..."
+                    }
+                }
+            )
+
+            if (result.success) {
+                transferProgress = 1f
+                statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
+                delay(3000)
+                phase = IoPhase.DONE
+            } else {
+                phase = IoPhase.ERROR
+                errorMessage = result.message
             }
-            delay(500)
-            phase = IoPhase.DONE
-            statusMessage = "Transfer selesai! Perangkat akan restart..."
-            delay(2000)
         }
     }
-
+    
     // ============================================================
     // UI UTAMA
     // ============================================================
@@ -190,8 +214,9 @@ fun IoControlScreen(
                 IoPhase.CONNECTING -> "Menghubungkan..."
                 IoPhase.CONNECTED -> "Terhubung"
                 IoPhase.SENDING -> "Mengirim..."
-                IoPhase.RECEIVING -> "Menerima..."
+                IoPhase.RECEIVING -> "Menunggu pengirim..."
                 IoPhase.DONE -> "Selesai"
+                IoPhase.ERROR -> "Error"
             },
             onBack = onBack
         )
@@ -238,15 +263,32 @@ fun IoControlScreen(
                 )
             }
             IoPhase.RECEIVING -> {
-                TransferProgressView(
-                    isSending = false,
-                    progress = transferProgress,
-                    targetName = selectedDevice?.name ?: "Perangkat",
-                    message = statusMessage
+                WaitingReceiveView(
+                    deviceName = selectedDevice?.name ?: "Pengirim",
+                    onCancel = {
+                        phase = IoPhase.CONNECTED
+                    }
                 )
             }
             IoPhase.DONE -> {
                 DoneView(message = statusMessage)
+            }
+            IoPhase.ERROR -> {
+                ErrorView(
+                    message = errorMessage,
+                    onRetry = {
+                        errorMessage = ""
+                        phase = IoPhase.CONNECTED
+                    },
+                    onBackToScan = {
+                        selectedDevice = null
+                        errorMessage = ""
+                        phase = IoPhase.SCANNING
+                        scope.launch {
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    }
+                )
             }
         }
     }
@@ -312,22 +354,17 @@ private fun ScanningView(
     onRescan: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // RADAR
         Box(
             modifier = Modifier
                 .weight(0.5f)
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
-            RadarView(
-                devices = devices,
-                isScanning = isScanning
-            )
+            RadarView(devices = devices, isScanning = isScanning)
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // DAFTAR DEVICE
         Column(
             modifier = Modifier.weight(0.5f).fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -384,7 +421,6 @@ private fun ScanningView(
                 }
             }
 
-            // TOMBOL RESCAN
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -407,7 +443,7 @@ private fun ScanningView(
 }
 
 // ============================================================
-// RADAR VIEW — Animasi Radar Biru
+// RADAR VIEW
 // ============================================================
 @Composable
 private fun RadarView(
@@ -416,7 +452,6 @@ private fun RadarView(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "radar")
 
-    // Rotasi sweep 360° per 2 detik
     val sweepRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -427,7 +462,6 @@ private fun RadarView(
         label = "radar_sweep"
     )
 
-    // Pulse scale 0.8 → 1.0
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.8f,
         targetValue = 1f,
@@ -448,7 +482,6 @@ private fun RadarView(
             val center = Offset(size.width / 2, size.height / 2)
             val maxRadius = size.minDimension / 2 - 16.dp.toPx()
 
-            // Lingkaran dasar (outline)
             drawCircle(
                 color = IoBlue.copy(alpha = 0.4f),
                 radius = maxRadius,
@@ -456,7 +489,6 @@ private fun RadarView(
                 style = Stroke(width = 2.dp.toPx())
             )
 
-            // Lingkaran grid (3 lapis)
             for (i in 1..3) {
                 drawCircle(
                     color = IoBlue.copy(alpha = 0.15f),
@@ -466,7 +498,6 @@ private fun RadarView(
                 )
             }
 
-            // Garis silang
             drawLine(
                 color = IoBlue.copy(alpha = 0.15f),
                 start = Offset(center.x - maxRadius, center.y),
@@ -480,12 +511,9 @@ private fun RadarView(
                 strokeWidth = 1.dp.toPx()
             )
 
-            // SWEEP RADAR — gradient wedge
             if (isScanning) {
                 rotate(sweepRotation, pivot = center) {
-                    val sweepSweep = 60f  // lebar wedge derajat
-                    val sweepRad = Math.toRadians(sweepSweep.toDouble()).toFloat()
-                    // Gambar wedge via garis-garis (simplified)
+                    val sweepSweep = 60f
                     for (i in 0 until 30) {
                         val angle = Math.toRadians((i * sweepSweep / 30).toDouble()).toFloat()
                         val alpha = (i / 30f) * 0.6f
@@ -499,22 +527,11 @@ private fun RadarView(
                             strokeWidth = 3.dp.toPx()
                         )
                     }
-                    // Garis sweep utama
-                    drawLine(
-                        color = IoBlueLight,
-                        start = center,
-                        end = Offset(
-                            center.x + maxRadius * kotlin.math.cos(sweepRad),
-                            center.y + maxRadius * kotlin.math.sin(sweepRad)
-                        ),
-                        strokeWidth = 4.dp.toPx()
-                    )
                 }
             }
 
-            // TITIK DEVICE (posisi random biar keliatan menyebar)
             devices.forEachIndexed { index, _ ->
-                val angle = (index * 137.5) % 360.0  // golden angle
+                val angle = (index * 137.5) % 360.0
                 val radiusFactor = 0.4f + ((index * 0.2f) % 0.5f)
                 val rad = Math.toRadians(angle)
                 val dotX = center.x + maxRadius * radiusFactor * kotlin.math.cos(rad).toFloat()
@@ -532,7 +549,6 @@ private fun RadarView(
                 )
             }
 
-            // Titik tengah (device ini)
             drawCircle(
                 color = IslamicGold,
                 radius = 10.dp.toPx(),
@@ -546,7 +562,6 @@ private fun RadarView(
             )
         }
 
-        // Label "You"
         Text(
             text = "ANDA",
             fontSize = 10.sp,
@@ -560,7 +575,7 @@ private fun RadarView(
 }
 
 // ============================================================
-// DEVICE CARD — item di daftar perangkat
+// DEVICE CARD
 // ============================================================
 @Composable
 private fun DeviceCard(
@@ -635,7 +650,6 @@ private fun ConnectedView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Status terhubung
         Text(
             text = "✓ TERHUBUNG",
             fontSize = 20.sp,
@@ -664,7 +678,6 @@ private fun ConnectedView(
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 2 TOMBOL: KIRIM & TERIMA
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
@@ -689,12 +702,11 @@ private fun ConnectedView(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Tombol putuskan
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0x33FF5252))
-                .border(1.5.dp, Color(0xFFFF5252), RoundedCornerShape(12.dp))
+                .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
                 .clickable { onDisconnect() }
                 .padding(horizontal = 32.dp, vertical = 14.dp)
         ) {
@@ -750,7 +762,7 @@ private fun BigActionButton(
 }
 
 // ============================================================
-// TRANSFER PROGRESS VIEW
+// TRANSFER PROGRESS VIEW (SENDING)
 // ============================================================
 @Composable
 private fun TransferProgressView(
@@ -779,7 +791,6 @@ private fun TransferProgressView(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Progress bar besar
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.8f)
@@ -825,6 +836,93 @@ private fun TransferProgressView(
 }
 
 // ============================================================
+// WAITING RECEIVE VIEW (RECEIVING)
+// ============================================================
+@Composable
+private fun WaitingReceiveView(
+    deviceName: String,
+    onCancel: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "waiting")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "waiting_pulse"
+    )
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(IoGreen.copy(alpha = pulseAlpha * 0.3f))
+                .border(3.dp, IoGreen.copy(alpha = pulseAlpha), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = null,
+                tint = IoGreen,
+                modifier = Modifier.size(56.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "MENUNGGU PENGIRIM",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoGreen
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Minta $deviceName untuk menekan tombol KIRIM di perangkatnya.",
+            fontSize = 13.sp,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Perangkat ini siap menerima pengaturan.\n" +
+                    "Setelah data diterima, aplikasi akan otomatis restart.",
+            fontSize = 12.sp,
+            color = TextSecondary.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0x33FF5252))
+                .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
+                .clickable { onCancel() }
+                .padding(horizontal = 32.dp, vertical = 14.dp)
+        ) {
+            Text(
+                text = "BATAL",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFF8A80)
+            )
+        }
+    }
+}
+
+// ============================================================
 // DONE VIEW
 // ============================================================
 @Composable
@@ -854,5 +952,78 @@ private fun DoneView(message: String) {
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+    }
+}
+
+// ============================================================
+// ERROR VIEW
+// ============================================================
+@Composable
+private fun ErrorView(
+    message: String,
+    onRetry: () -> Unit,
+    onBackToScan: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "⚠️",
+            fontSize = 96.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoRed
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "GAGAL",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoRed
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = message,
+            fontSize = 14.sp,
+            color = TextSecondary,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(IoBlue.copy(alpha = 0.15f))
+                    .border(1.5.dp, IoBlue, RoundedCornerShape(12.dp))
+                    .clickable { onRetry() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = "COBA LAGI",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IoBlueLight
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33FF5252))
+                    .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
+                    .clickable { onBackToScan() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = "SCAN ULANG",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF8A80)
+                )
+            }
+        }
     }
 }
