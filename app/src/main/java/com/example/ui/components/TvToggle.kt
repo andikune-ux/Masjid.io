@@ -8,7 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,29 +51,33 @@ fun TvToggle(
     enabled: Boolean = true
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val isHighlighted = (isFocused || isPressed) && enabled
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused && enabled) 1.03f else 1f,
+        targetValue = if (isHighlighted) 1.03f else 1f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
         label = "toggle_scale"
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isFocused && enabled) 4.dp else 1.5.dp,
+        targetValue = if (isHighlighted) 4.dp else 1.5.dp,
         animationSpec = tween(200),
         label = "toggle_border_width"
     )
 
     val shadowElevation by animateDpAsState(
-        targetValue = if (isFocused && enabled) 12.dp else 0.dp,
+        targetValue = if (isHighlighted) 12.dp else 0.dp,
         animationSpec = tween(200),
         label = "toggle_shadow"
     )
 
     val borderColor = when {
         !enabled -> Color(0x33FFFFFF)
-        isFocused -> Color(0xFFFFE44D)             // Emas muda
-        else -> IslamicGold.copy(alpha = 0.5f)      // Emas redup
+        isHighlighted -> Color(0xFFFFE44D)
+        else -> IslamicGold.copy(alpha = 0.5f)
     }
 
     Row(
@@ -88,7 +93,7 @@ fun TvToggle(
             .clip(RoundedCornerShape(12.dp))
             .background(
                 when {
-                    isFocused && enabled -> Color(0x33FFD700)
+                    isHighlighted -> Color(0x33FFD700)
                     !enabled -> Color(0x11000000)
                     else -> Color(0x22000000)
                 }
@@ -100,7 +105,11 @@ fun TvToggle(
             )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable(enabled)
-            .clickable(enabled = enabled) { onToggle(!isChecked) }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled
+            ) { onToggle(!isChecked) }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -111,7 +120,7 @@ fun TvToggle(
                 fontWeight = FontWeight.Bold,
                 color = when {
                     !enabled -> TextSecondary.copy(alpha = 0.5f)
-                    isFocused -> Color(0xFFFFE44D)
+                    isHighlighted -> Color(0xFFFFE44D)
                     else -> IslamicGoldLight
                 }
             )
