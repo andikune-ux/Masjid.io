@@ -126,7 +126,7 @@ fun RunningTextMarquee(
                         val totalDistance = containerWidth + placeable.width
                         val currentX = containerWidth - (totalDistance * scrollOffset).toInt()
                         layout(placeable.width, placeable.height) {
-                            placeable.relativePlace(currentX, 0)
+                            placeable.place(currentX, 0)
                         }
                     }
                 )

@@ -104,210 +104,6 @@ enum class IoPhase {
     ERROR
 }
 
-@Composable
-fun IoControlScreen(
-    settingsRepository: SettingsRepository,
-    deviceName: String,
-    deviceRole: String,
-    appVersion: String,
-    serverPort: Int,
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    val devices by DeviceDiscovery.devices.collectAsState()
-    val isScanning by DeviceDiscovery.isScanning.collectAsState()
-    val currentSettings by settingsRepository.settingsFlow.collectAsState()
-
-    var phase by remember { mutableStateOf(IoPhase.SCANNING) }
-    var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
-    var transferProgress by remember { mutableStateOf(0f) }
-    var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
-    var errorMessage by remember { mutableStateOf("") }
-
-    // FocusRequester untuk tombol SCAN ULANG
-    val scanButtonFocusRequester = remember { FocusRequester() }
-    // FocusRequester untuk device paling atas
-    val firstDeviceFocusRequester = remember { FocusRequester() }
-
-    // MULAI SCAN SAAT DIBUKA
-    LaunchedEffect(Unit) {
-        DeviceDiscovery.configure(
-            name = deviceName,
-            role = deviceRole,
-            version = appVersion,
-            port = serverPort
-        )
-        DeviceDiscovery.startScan(context, scope)
-        // Tunggu komposisi selesai, lalu fokus ke SCAN ULANG
-        delay(300)
-        runCatching { scanButtonFocusRequester.requestFocus() }
-    }
-
-    // Setelah device ditemukan, fokus ke device paling atas
-    LaunchedEffect(devices, phase) {
-        if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
-            delay(150)
-            runCatching { firstDeviceFocusRequester.requestFocus() }
-        }
-    }
-
-    // CLEANUP SAAT DITUTUP
-    DisposableEffect(Unit) {
-        onDispose {
-            DeviceDiscovery.stopScan()
-        }
-    }
-
-    // AUTO-CONNECT SAAT DEVICE DIPILIH
-    LaunchedEffect(selectedDevice, phase) {
-        if (phase == IoPhase.CONNECTING && selectedDevice != null) {
-            statusMessage = "Menghubungkan ke ${selectedDevice!!.name}..."
-            val ok = RemoteControlClient.handshake(
-                selectedDevice!!.ip,
-                selectedDevice!!.port
-            )
-            if (ok) {
-                phase = IoPhase.CONNECTED
-                statusMessage = "Terhubung dengan ${selectedDevice!!.name}"
-            } else {
-                phase = IoPhase.ERROR
-                errorMessage = "Gagal terhubung ke ${selectedDevice!!.name}. Pastikan Remote Server aktif di perangkat lain."
-            }
-        }
-    }
-
-    // REAL SEND — pakai RemoteControlClient
-    LaunchedEffect(phase) {
-        if (phase == IoPhase.SENDING) {
-            val target = selectedDevice ?: return@LaunchedEffect
-            transferProgress = 0f
-            statusMessage = "Menyiapkan data..."
-
-            val result = RemoteControlClient.sendSettings(
-                targetIp = target.ip,
-                targetPort = target.port,
-                settings = currentSettings,
-                onProgress = { prog ->
-                    transferProgress = prog
-                    statusMessage = when {
-                        prog < 0.15f -> "Menyiapkan data..."
-                        prog < 0.30f -> "Menghubungi ${target.name}..."
-                        prog < 0.95f -> "Mengirim pengaturan..."
-                        else -> "Menunggu konfirmasi..."
-                    }
-                }
-            )
-
-            if (result.success) {
-                transferProgress = 1f
-                statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
-                delay(3000)
-                phase = IoPhase.DONE
-            } else {
-                phase = IoPhase.ERROR
-                errorMessage = result.message
-            }
-        }
-    }
-
-    // UI UTAMA
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(IoBg, Color(0xFF041020))
-                )
-            )
-    ) {
-        IoTopBar(
-            title = "iO Control",
-            subtitle = when (phase) {
-                IoPhase.SCANNING -> "Mencari perangkat..."
-                IoPhase.CONNECTING -> "Menghubungkan..."
-                IoPhase.CONNECTED -> "Terhubung"
-                IoPhase.SENDING -> "Mengirim..."
-                IoPhase.RECEIVING -> "Menunggu pengirim..."
-                IoPhase.DONE -> "Selesai"
-                IoPhase.ERROR -> "Error"
-            },
-            onBack = onBack
-        )
-
-        when (phase) {
-            IoPhase.SCANNING, IoPhase.CONNECTING -> {
-                ScanningView(
-                    devices = devices,
-                    isScanning = isScanning,
-                    myRole = deviceRole,
-                    onDeviceClick = { device ->
-                        selectedDevice = device
-                        phase = IoPhase.CONNECTING
-                    },
-                    onRescan = {
-                        DeviceDiscovery.stopScan()
-                        scope.launch {
-                            delay(300)
-                            DeviceDiscovery.startScan(context, scope)
-                        }
-                    },
-                    scanButtonFocusRequester = scanButtonFocusRequester,
-                    firstDeviceFocusRequester = firstDeviceFocusRequester
-                )
-            }
-            IoPhase.CONNECTED -> {
-                ConnectedView(
-                    device = selectedDevice,
-                    onSend = { phase = IoPhase.SENDING },
-                    onReceive = { phase = IoPhase.RECEIVING },
-                    onDisconnect = {
-                        selectedDevice = null
-                        phase = IoPhase.SCANNING
-                        scope.launch {
-                            DeviceDiscovery.startScan(context, scope)
-                        }
-                    }
-                )
-            }
-            IoPhase.SENDING -> {
-                TransferProgressView(
-                    isSending = true,
-                    progress = transferProgress,
-                    targetName = selectedDevice?.name ?: "Perangkat",
-                    message = statusMessage
-                )
-            }
-            IoPhase.RECEIVING -> {
-                WaitingReceiveView(
-                    deviceName = selectedDevice?.name ?: "Pengirim",
-                    onCancel = { phase = IoPhase.CONNECTED }
-                )
-            }
-            IoPhase.DONE -> {
-                DoneView(message = statusMessage)
-            }
-            IoPhase.ERROR -> {
-                ErrorView(
-                    message = errorMessage,
-                    onRetry = {
-                        errorMessage = ""
-                        phase = IoPhase.CONNECTED
-                    },
-                    onBackToScan = {
-                        selectedDevice = null
-                        errorMessage = ""
-                        phase = IoPhase.SCANNING
-                        scope.launch {
-                            DeviceDiscovery.startScan(context, scope)
-                        }
-                    }
-                )
-            }
-        }
-    }
-    
 // ============================================================
 // TOP BAR
 // ============================================================
@@ -999,46 +795,50 @@ private fun WaitingReceiveView(
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "MENUNGGU PENGIRIM",
-            fontSize = 22.sp,
+            text = "Menunggu data dari $deviceName",
+            fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = IoGreen
+            color = TextPrimary,
+            textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Minta $deviceName untuk menekan tombol KIRIM di perangkatnya.",
+            text = "Pastikan perangkat lain dalam mode kirim",
             fontSize = 13.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Perangkat ini siap menerima pengaturan.\n" +
-                    "Setelah data diterima, aplikasi akan otomatis restart.",
-            fontSize = 12.sp,
-            color = TextSecondary.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center,
-            lineHeight = 18.sp
-        )
-
         Spacer(modifier = Modifier.height(48.dp))
 
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0x33FF5252))
-                .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
-                .clickable { onCancel() }
-                .padding(horizontal = 32.dp, vertical = 14.dp)
+        val interactionSource = remember { MutableInteractionSource() }
+        val isFocused by interactionSource.collectIsFocusedAsState()
+        val isPressed by interactionSource.collectIsPressedAsState()
+
+        NeonFocusBorder(
+            focused = isFocused,
+            pressed = isPressed,
+            borderWidth = 5.dp,
+            cornerRadius = 12.dp
         ) {
-            Text(
-                text = "BATAL",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF8A80)
-            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33FF5252))
+                    .focusable(interactionSource = interactionSource)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null
+                    ) { onCancel() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = "BATAL",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF8A80)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -1058,22 +858,33 @@ private fun DoneView(message: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(IoGreen.copy(alpha = 0.3f))
+                .border(3.dp, IoGreen, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Send,
+                contentDescription = null,
+                tint = IoGreen,
+                modifier = Modifier.size(56.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "✓",
-            fontSize = 96.sp,
+            text = "✓ BERHASIL",
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = IoGreen
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "SELESAI",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoGreen
-        )
-        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = message,
             fontSize = 14.sp,
@@ -1102,107 +913,318 @@ private fun ErrorView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "⚠️",
-            fontSize = 96.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoRed
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "GAGAL",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoRed
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(IoRed.copy(alpha = 0.1f))
-                .border(1.dp, IoRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                .padding(16.dp)
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(IoRed.copy(alpha = 0.2f))
+                .border(3.dp, IoRed, CircleShape),
+            contentAlignment = Alignment.Center
         ) {
             Text(
-                text = message,
-                fontSize = 14.sp,
-                color = TextPrimary,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp,
-                modifier = Modifier.fillMaxWidth()
+                text = "!",
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Bold,
+                color = IoRed
             )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(IoBlue.copy(alpha = 0.1f))
-                .border(1.dp, IoBlue.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                .padding(16.dp)
+        Text(
+            text = "⚠ TERJADI KESALAHAN",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoRed
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = message,
+            fontSize = 13.sp,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column {
-                Text(
-                    text = "💡 Kemungkinan penyebab:",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoBlueLight
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "• Remote Server di perangkat tujuan belum aktif\n" +
-                            "• Port server berbeda antara kedua perangkat\n" +
-                            "• WiFi tidak sama (HP vs TV)\n" +
-                            "• Perangkat tujuan sedang offline / sleep",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    lineHeight = 18.sp
-                )
+            val interactionSource1 = remember { MutableInteractionSource() }
+            val isFocused1 by interactionSource1.collectIsFocusedAsState()
+            val isPressed1 by interactionSource1.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = isFocused1,
+                pressed = isPressed1,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(IoBlue.copy(alpha = 0.15f))
+                        .focusable(interactionSource = interactionSource1)
+                        .clickable(
+                            interactionSource = interactionSource1,
+                            indication = null
+                        ) { onRetry() }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "COBA LAGI",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IoBlueLight
+                    )
+                }
+            }
+
+            val interactionSource2 = remember { MutableInteractionSource() }
+            val isFocused2 by interactionSource2.collectIsFocusedAsState()
+            val isPressed2 by interactionSource2.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = isFocused2,
+                pressed = isPressed2,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x33FF5252))
+                        .focusable(interactionSource = interactionSource2)
+                        .clickable(
+                            interactionSource = interactionSource2,
+                            indication = null
+                        ) { onBackToScan() }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "KEMBALI SCAN",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF8A80)
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IoBlue.copy(alpha = 0.15f))
-                    .border(1.5.dp, IoBlue, RoundedCornerShape(12.dp))
-                    .clickable { onRetry() }
-                    .padding(horizontal = 32.dp, vertical = 14.dp)
-            ) {
-                Text(
-                    text = "COBA LAGI",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoBlueLight
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x33FF5252))
-                    .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
-                    .clickable { onBackToScan() }
-                    .padding(horizontal = 32.dp, vertical = 14.dp)
-            ) {
-                Text(
-                    text = "SCAN ULANG",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF8A80)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
+
+@Composable
+fun IoControlScreen(
+    settingsRepository: SettingsRepository,
+    deviceName: String,
+    deviceRole: String,
+    appVersion: String,
+    serverPort: Int,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val devices by DeviceDiscovery.devices.collectAsState()
+    val isScanning by DeviceDiscovery.isScanning.collectAsState()
+    val currentSettings by settingsRepository.settingsFlow.collectAsState()
+
+    var phase by remember { mutableStateOf(IoPhase.SCANNING) }
+    var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
+    var transferProgress by remember { mutableStateOf(0f) }
+    var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
+    var errorMessage by remember { mutableStateOf("") }
+
+    // FocusRequester untuk tombol SCAN ULANG
+    val scanButtonFocusRequester = remember { FocusRequester() }
+    // FocusRequester untuk device paling atas
+    val firstDeviceFocusRequester = remember { FocusRequester() }
+
+    // MULAI SCAN SAAT DIBUKA
+    LaunchedEffect(Unit) {
+        DeviceDiscovery.configure(
+            name = deviceName,
+            role = deviceRole,
+            version = appVersion,
+            port = serverPort
+        )
+        DeviceDiscovery.startScan(context, scope)
+        // Tunggu komposisi selesai, lalu fokus ke SCAN ULANG
+        delay(300)
+        runCatching { scanButtonFocusRequester.requestFocus() }
+    }
+
+    // Setelah device ditemukan, fokus ke device paling atas
+    LaunchedEffect(devices, phase) {
+        if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
+            delay(150)
+            runCatching { firstDeviceFocusRequester.requestFocus() }
+        }
+    }
+
+    // CLEANUP SAAT DITUTUP
+    DisposableEffect(Unit) {
+        onDispose {
+            DeviceDiscovery.stopScan()
+        }
+    }
+
+    // AUTO-CONNECT SAAT DEVICE DIPILIH
+    LaunchedEffect(selectedDevice, phase) {
+        if (phase == IoPhase.CONNECTING && selectedDevice != null) {
+            statusMessage = "Menghubungkan ke ${selectedDevice!!.name}..."
+            val ok = RemoteControlClient.handshake(
+                selectedDevice!!.ip,
+                selectedDevice!!.port
+            )
+            if (ok) {
+                phase = IoPhase.CONNECTED
+                statusMessage = "Terhubung dengan ${selectedDevice!!.name}"
+            } else {
+                phase = IoPhase.ERROR
+                errorMessage = "Gagal terhubung ke ${selectedDevice!!.name}. Pastikan Remote Server aktif di perangkat lain."
+            }
+        }
+    }
+
+    // REAL SEND — pakai RemoteControlClient
+    LaunchedEffect(phase) {
+        if (phase == IoPhase.SENDING) {
+            val target = selectedDevice ?: return@LaunchedEffect
+            transferProgress = 0f
+            statusMessage = "Menyiapkan data..."
+
+            val result = RemoteControlClient.sendSettings(
+                targetIp = target.ip,
+                targetPort = target.port,
+                settings = currentSettings,
+                onProgress = { prog ->
+                    transferProgress = prog
+                    statusMessage = when {
+                        prog < 0.15f -> "Menyiapkan data..."
+                        prog < 0.30f -> "Menghubungi ${target.name}..."
+                        prog < 0.95f -> "Mengirim pengaturan..."
+                        else -> "Menunggu konfirmasi..."
+                    }
+                }
+            )
+
+            if (result.success) {
+                transferProgress = 1f
+                statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
+                delay(3000)
+                phase = IoPhase.DONE
+            } else {
+                phase = IoPhase.ERROR
+                errorMessage = result.message
+            }
+        }
+    }
+
+    // UI UTAMA
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(IoBg, Color(0xFF041020))
+                )
+            )
+    ) {
+        IoTopBar(
+            title = "iO Control",
+            subtitle = when (phase) {
+                IoPhase.SCANNING -> "Mencari perangkat..."
+                IoPhase.CONNECTING -> "Menghubungkan..."
+                IoPhase.CONNECTED -> "Terhubung"
+                IoPhase.SENDING -> "Mengirim..."
+                IoPhase.RECEIVING -> "Menunggu pengirim..."
+                IoPhase.DONE -> "Selesai"
+                IoPhase.ERROR -> "Error"
+            },
+            onBack = onBack
+        )
+
+        when (phase) {
+            IoPhase.SCANNING, IoPhase.CONNECTING -> {
+                ScanningView(
+                    devices = devices,
+                    isScanning = isScanning,
+                    myRole = deviceRole,
+                    onDeviceClick = { device ->
+                        selectedDevice = device
+                        phase = IoPhase.CONNECTING
+                    },
+                    onRescan = {
+                        DeviceDiscovery.stopScan()
+                        scope.launch {
+                            delay(300)
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    },
+                    scanButtonFocusRequester = scanButtonFocusRequester,
+                    firstDeviceFocusRequester = firstDeviceFocusRequester
+                )
+            }
+            IoPhase.CONNECTED -> {
+                ConnectedView(
+                    device = selectedDevice,
+                    onSend = { phase = IoPhase.SENDING },
+                    onReceive = { phase = IoPhase.RECEIVING },
+                    onDisconnect = {
+                        selectedDevice = null
+                        phase = IoPhase.SCANNING
+                        scope.launch {
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    }
+                )
+            }
+            IoPhase.SENDING -> {
+                TransferProgressView(
+                    isSending = true,
+                    progress = transferProgress,
+                    targetName = selectedDevice?.name ?: "Perangkat",
+                    message = statusMessage
+                )
+            }
+            IoPhase.RECEIVING -> {
+                WaitingReceiveView(
+                    deviceName = selectedDevice?.name ?: "Pengirim",
+                    onCancel = { phase = IoPhase.CONNECTED }
+                )
+            }
+            IoPhase.DONE -> {
+                DoneView(message = statusMessage)
+            }
+            IoPhase.ERROR -> {
+                ErrorView(
+                    message = errorMessage,
+                    onRetry = {
+                        errorMessage = ""
+                        phase = IoPhase.CONNECTED
+                    },
+                    onBackToScan = {
+                        selectedDevice = null
+                        errorMessage = ""
+                        phase = IoPhase.SCANNING
+                        scope.launch {
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    }
+                )
+            }
+        }
+    }
 }
