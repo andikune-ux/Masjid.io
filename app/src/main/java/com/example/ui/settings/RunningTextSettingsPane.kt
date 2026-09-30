@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
+import com.example.ui.components.RunningTextMarquee
 import com.example.ui.components.TvSlider
 import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
@@ -117,7 +118,7 @@ fun RunningTextSettingsPane(
             }
         )
 
-        // ===== KECEPATAN SCROLL =====
+        // ===== PENGATURAN TAMPILAN =====
         Text(
             text = "PENGATURAN TAMPILAN",
             fontSize = 14.sp,
@@ -156,29 +157,50 @@ fun RunningTextSettingsPane(
             unit = " sp"
         )
 
-        // ===== PREVIEW =====
+        // ===== PREVIEW LIVE =====
         Text(
-            text = "PREVIEW",
+            text = "PREVIEW LANGSUNG",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight
         )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xCC000000))
+                .background(Color(0xFF07121A))
                 .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(vertical = 8.dp)
         ) {
-            Text(
-                text = if (textInput.isBlank()) "(teks kosong)" else textInput,
-                fontSize = settings.runningTextFontSize.sp,
-                color = Color.White,
-                maxLines = 1,
-                fontWeight = FontWeight.Normal
-            )
+            if (textInput.isBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "(teks kosong — isi di atas untuk melihat preview)",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                }
+            } else {
+                RunningTextMarquee(
+                    text = textInput,
+                    speed = settings.runningTextSpeed,
+                    fontSize = settings.runningTextFontSize,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
+
+        Text(
+            text = "💡 Preview di atas sama persis dengan tampilan di HomeScreen",
+            fontSize = 11.sp,
+            color = TextSecondary.copy(alpha = 0.8f)
+        )
 
         // ===== INFO BOX =====
         Box(
@@ -208,7 +230,7 @@ fun RunningTextSettingsPane(
                 Text(
                     text = "• Gunakan pemisah ═══ untuk memisahkan antar pengumuman\n" +
                             "• Teks akan berjalan dari kanan ke kiri\n" +
-                            "• Perubahan langsung tampil di HomeScreen setelah SIMPAN",
+                            "• Perubahan langsung tersimpan & berlaku otomatis",
                     fontSize = 12.sp,
                     color = TextPrimary,
                     lineHeight = 18.sp
@@ -221,7 +243,6 @@ fun RunningTextSettingsPane(
 // ============================================================
 // KOMPONEN: INPUT MULTILINE
 // ============================================================
-
 @Composable
 private fun MultiLineInput(
     value: String,
