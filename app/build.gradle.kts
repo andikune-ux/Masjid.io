@@ -2,7 +2,6 @@ import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesS
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.Properties
 import java.util.TimeZone
 
 plugins {
@@ -14,41 +13,35 @@ plugins {
 }
 
 // ============================================================
-// VERSIONING — Baca dari ROOT project (bukan folder app/)
+// VERSIONING OTOMATIS — Pakai GITHUB_RUN_NUMBER
 // ============================================================
-val versionPropsFile = rootProject.file("version.properties")
-val versionProps = Properties()
+// Setiap workflow run → GitHub kasih nomor unik (auto increment).
+// Tidak butuh version.properties, tidak butuh commit balik.
+// ============================================================
 
-if (versionPropsFile.exists()) {
-    versionProps.load(versionPropsFile.inputStream())
-}
-
-// ============================================================
-// TIMEZONE: Asia/Jakarta (WIB) — biar tanggal tidak geser ke UTC
-// ============================================================
 val jakartaTz = TimeZone.getTimeZone("Asia/Jakarta")
-val currentDate = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-    .apply { timeZone = jakartaTz }
-    .format(Date())
 val currentDay = SimpleDateFormat("dd", Locale.getDefault())
     .apply { timeZone = jakartaTz }
     .format(Date())
 
-val lastBuildDate = versionProps.getProperty("lastBuildDate", "")
-var buildCount = versionProps.getProperty("buildCount", "0").toInt()
-
-if (lastBuildDate == currentDate) {
-    buildCount += 1
-} else {
-    buildCount = 1
-    versionProps.setProperty("lastBuildDate", currentDate)
-}
-versionProps.setProperty("buildCount", buildCount.toString())
-versionProps.store(versionPropsFile.outputStream(), null)
-
 val majorVersion = "1"
-val autoVersionName = "V${majorVersion}.${currentDay}.${buildCount}"
-val versionCodeInt = currentDate.toInt() * 100 + buildCount
+
+// Ambil run number dari GitHub Actions
+val githubRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+
+val autoVersionName: String
+val versionCodeInt: Int
+
+if (githubRunNumber != null) {
+    // ===== Build di GitHub Actions =====
+    autoVersionName = "V${majorVersion}.${currentDay}.${githubRunNumber}"
+    versionCodeInt = githubRunNumber
+} else {
+    // ===== Build lokal (Android Studio) =====
+    val localTimestamp = (System.currentTimeMillis() / 1000).toInt()
+    autoVersionName = "V${majorVersion}.${currentDay}.${localTimestamp % 100000}"
+    versionCodeInt = localTimestamp
+}
 
 android {
     namespace = "com.example"
