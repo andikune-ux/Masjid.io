@@ -18,11 +18,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,9 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
@@ -43,10 +49,12 @@ import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
 
 // Warna iO Control (Biru Teknologi)
 private val IoBlue = Color(0xFF2196F3)
 private val IoBlueLight = Color(0xFF64B5F6)
+private val IoGreen = Color(0xFF4CAF50)
 
 @Composable
 fun RemoteSettingsPane(
@@ -58,6 +66,20 @@ fun RemoteSettingsPane(
     val context = LocalContext.current
     var localServerEnabled by remember(settings.remoteControlEnabled) {
         mutableStateOf(settings.remoteControlEnabled)
+    }
+
+    // ============================================================
+    // AUTO-REFRESH IP SETIAP 5 DETIK (kalau WiFi ganti, IP ikut update)
+    // ============================================================
+    var currentIp by remember { mutableStateOf(getLocalIpAddress(context)) }
+    var currentWifiOn by remember { mutableStateOf(isWifiOn(context)) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentIp = getLocalIpAddress(context)
+            currentWifiOn = isWifiOn(context)
+            delay(5000)
+        }
     }
 
     Column(
@@ -129,20 +151,7 @@ fun RemoteSettingsPane(
         Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
-        // DIVIDER
-        // ============================================================
-        Text(
-            text = "— atau kelola manual via browser —",
-            fontSize = 11.sp,
-            color = TextSecondary.copy(alpha = 0.7f),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // ============================================================
-        // STATUS SERVER (Fitur lama)
+        // STATUS SERVER
         // ============================================================
         RemoteSectionCard(title = "STATUS SERVER") {
             Row(
@@ -156,8 +165,7 @@ fun RemoteSettingsPane(
                             .size(12.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isServerRunning) Color(0xFF4CAF50)
-                                else Color(0xFFFF5252)
+                                if (isServerRunning) IoGreen else Color(0xFFFF5252)
                             )
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -165,7 +173,7 @@ fun RemoteSettingsPane(
                         text = if (isServerRunning) "AKTIF" else "NONAKTIF",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isServerRunning) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                        color = if (isServerRunning) IoGreen else Color(0xFFFF5252)
                     )
                 }
                 Text(
@@ -199,43 +207,41 @@ fun RemoteSettingsPane(
                 )
             }
         }
-
+        
         // ============================================================
-        // INFO AKSES (Fitur lama)
+        // AKSES DARI HP — dengan TOMBOL SALIN OTOMATIS
         // ============================================================
         if (isServerRunning) {
+            val fullUrl = "http://$currentIp:${settings.remoteServerPort}/?token=${settings.remoteAuthToken}"
+
             RemoteSectionCard(title = "AKSES DARI HP") {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val ip = getLocalIpAddress(context)
-                    val port = settings.remoteServerPort
-                    val token = settings.remoteAuthToken
-                    val url = "http://$ip:$port/?token=$token"
-
-                    RemoteStep(number = "1", title = "Sambungkan HP ke WiFi yang sama")
-                    RemoteStep(number = "2", title = "Buka browser di HP")
-                    RemoteStep(number = "3", title = "Masukkan URL berikut:")
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF0F2636))
-                            .border(1.dp, IslamicGold.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = url,
-                            fontSize = 13.sp,
-                            color = IslamicGoldLight,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
                     Text(
-                        text = "Token: $token",
-                        fontSize = 11.sp,
-                        color = TextSecondary.copy(alpha = 0.7f),
-                        fontFamily = FontFamily.Monospace
+                        text = "① Sambungkan HP ke WiFi yang sama",
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "② Buka browser di HP (Chrome/Safari)",
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "③ Salin URL di bawah ini:",
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+
+                    // ============================================
+                    // URL BOX + TOMBOL SALIN
+                    // ============================================
+                    CopyUrlBox(
+                        url = fullUrl,
+                        ip = currentIp,
+                        port = settings.remoteServerPort,
+                        token = settings.remoteAuthToken,
+                        wifiOn = currentWifiOn
                     )
                 }
             }
@@ -252,19 +258,19 @@ fun RemoteSettingsPane(
                 Icon(
                     imageVector = Icons.Default.Wifi,
                     contentDescription = null,
-                    tint = if (isWifiOn(context)) Color(0xFF4CAF50) else Color(0xFFFF5252),
+                    tint = if (currentWifiOn) IoGreen else Color(0xFFFF5252),
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = if (isWifiOn(context)) "WiFi AKTIF" else "WiFi NONAKTIF",
+                        text = if (currentWifiOn) "WiFi AKTIF" else "WiFi NONAKTIF",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isWifiOn(context)) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                        color = if (currentWifiOn) IoGreen else Color(0xFFFF5252)
                     )
                     Text(
-                        text = "IP: ${getLocalIpAddress(context)}",
+                        text = "IP: $currentIp",
                         fontSize = 11.sp,
                         color = TextSecondary,
                         fontFamily = FontFamily.Monospace
@@ -278,7 +284,162 @@ fun RemoteSettingsPane(
 }
 
 // ============================================================
-// KOMPONEN PENDUKUNG
+// COPY URL BOX — Tampilan URL + Tombol Salin
+// ============================================================
+@Composable
+private fun CopyUrlBox(
+    url: String,
+    ip: String,
+    port: Int,
+    token: String,
+    wifiOn: Boolean
+) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    // Reset "copied" setelah 3 detik
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(3000)
+            copied = false
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+        // ============ URL DISPLAY ============
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF0F2636))
+                .border(
+                    1.5.dp,
+                    if (wifiOn) IoBlue.copy(alpha = 0.5f) else Color(0xFFFF5252).copy(alpha = 0.5f),
+                    RoundedCornerShape(10.dp)
+                )
+                .padding(14.dp)
+        ) {
+            Text(
+                text = url,
+                fontSize = 13.sp,
+                color = if (wifiOn) IoBlueLight else Color(0xFFFF8A80),
+                fontFamily = FontFamily.Monospace,
+                lineHeight = 18.sp
+            )
+        }
+
+        // ============ TOMBOL SALIN BESAR ============
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (copied) IoGreen.copy(alpha = 0.25f) else IoBlue.copy(alpha = 0.2f)
+                )
+                .border(
+                    1.5.dp,
+                    if (copied) IoGreen else IoBlue,
+                    RoundedCornerShape(10.dp)
+                )
+                .clickable {
+                    clipboard.setText(AnnotatedString(url))
+                    copied = true
+                }
+                .padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    tint = if (copied) IoGreen else IoBlueLight,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (copied) "✓ TERSALIN" else "📋 SALIN URL",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (copied) IoGreen else IoBlueLight,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
+
+        // ============ INFO DETAIL ============
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoChip(label = "IP", value = ip)
+            InfoChip(label = "PORT", value = port.toString())
+            InfoChip(label = "TOKEN", value = token)
+        }
+
+        // ============ PESAN JIKA WIFI OFF ============
+        if (!wifiOn) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0x33FF5252))
+                    .border(1.dp, Color(0xFFFF5252), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "⚠️ WiFi tidak aktif. Sambungkan TV ke WiFi dulu " +
+                            "supaya IP muncul otomatis.",
+                    fontSize = 12.sp,
+                    color = Color(0xFFFF8A80),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // ============ INFO TIPS ============
+        Text(
+            text = "💡 Tap tombol di atas → buka Chrome → tempel (paste). " +
+                    "URL sudah lengkap dengan IP, port, dan token.",
+            fontSize = 11.sp,
+            color = TextSecondary.copy(alpha = 0.8f),
+            lineHeight = 15.sp
+        )
+    }
+}
+
+// ============================================================
+// INFO CHIP — Kecil, label + nilai
+// ============================================================
+@Composable
+private fun InfoChip(label: String, value: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color(0xFF0F2636))
+            .border(1.dp, IslamicGold.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "$label: ",
+                fontSize = 10.sp,
+                color = TextSecondary.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = value,
+                fontSize = 10.sp,
+                color = IslamicGoldLight,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
+
+// ============================================================
+// SECTION CARD
 // ============================================================
 @Composable
 private fun RemoteSectionCard(
@@ -302,33 +463,6 @@ private fun RemoteSectionCard(
         )
         Spacer(modifier = Modifier.height(10.dp))
         content()
-    }
-}
-
-@Composable
-private fun RemoteStep(number: String, title: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(IslamicGold.copy(alpha = 0.2f))
-                .border(1.dp, IslamicGold, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = number,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = title,
-            fontSize = 13.sp,
-            color = TextPrimary
-        )
     }
 }
 
