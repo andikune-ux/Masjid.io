@@ -1,13 +1,14 @@
 package com.example.ui.settings
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,13 +53,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -68,11 +72,14 @@ import androidx.compose.ui.unit.sp
 import com.example.audio.SoundManager
 import com.example.data.model.AppSettings
 import com.example.ui.components.ChangePinDialog
+import com.example.ui.components.NeonFocusBorder
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.MosqueDeepBg
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 enum class SettingsCategory(
     val label: String,
@@ -99,6 +106,14 @@ enum class SettingsCategory(
     DEVELOPER("Opsi Developer", Icons.Default.Code)
 }
 
+/**
+ * SettingsNavState — State holder untuk persist kategori terakhir
+ * selama app berjalan. Reset saat app restart (sesuai Q1=A).
+ */
+object SettingsNavState {
+    var lastCategory: SettingsCategory = SettingsCategory.LOCATION
+}
+
 @Composable
 fun SettingsScreen(
     currentSettings: AppSettings,
@@ -109,11 +124,26 @@ fun SettingsScreen(
     onTestQrisFocus: () -> Unit,
     onOpenIoControl: () -> Unit = {}
 ) {
-    var selectedCategory by remember { mutableStateOf(SettingsCategory.LOCATION) }
+    // Kategori yang dipilih (persist)
+    var selectedCategory by remember { mutableStateOf(SettingsNavState.lastCategory) }
+
+    // Kategori yang di-preview di pane kanan (auto ganti saat fokus sidebar)
+    var previewCategory by remember { mutableStateOf(SettingsNavState.lastCategory) }
+
     var draftSettings by remember { mutableStateOf(currentSettings) }
     var showDeveloperPinDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRiwayatUpdate by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+
+    // FocusRequester untuk pane kanan (target tombol KANAN)
+    val paneFocusRequester = remember { FocusRequester() }
+
+    // Sync selectedCategory → SettingsNavState
+    LaunchedEffect(selectedCategory) {
+        SettingsNavState.lastCategory = selectedCategory
+    }
 
     if (showRiwayatUpdate) {
         RiwayatUpdateScreen(
@@ -149,33 +179,14 @@ fun SettingsScreen(
                     color = IslamicGoldLight
                 )
             }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IslamicGold)
-                    .clickable { onSaveSettings(draftSettings) }
-                    .padding(horizontal = 24.dp, vertical = 14.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color(0xFF09141D),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "SIMPAN PENGATURAN",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF09141D)
-                    )
-                }
-            }
+            SaveButton(
+                onClick = { onSaveSettings(draftSettings) }
+            )
         }
 
         // BODY
         Row(modifier = Modifier.fillMaxSize()) {
+            // ============ SIDEBAR ============
             Column(
                 modifier = Modifier
                     .weight(0.32f)
@@ -194,30 +205,44 @@ fun SettingsScreen(
                                 showDeveloperPinDialog = true
                             } else {
                                 selectedCategory = cat
+                                previewCategory = cat
                             }
-                        }
+                        },
+                        onFocusChange = { isFocused ->
+                            if (isFocused) {
+                                // Delay 100ms sebelum preview (smooth)
+                                scope.launch {
+                                    delay(100)
+                                    previewCategory = cat
+                                }
+                            }
+                        },
+                        rightFocusRequester = paneFocusRequester
                     )
                 }
             }
 
+            // ============ PANE KANAN ============
             Box(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
+                    .focusRequester(paneFocusRequester)
+                    .focusable()
             ) {
-                key(selectedCategory) {
+                key(previewCategory) {
                     var visible by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) {
                         visible = true
                     }
                     val alpha by animateFloatAsState(
                         targetValue = if (visible) 1f else 0f,
-                        animationSpec = tween(durationMillis = 300),
+                        animationSpec = tween(durationMillis = 200),
                         label = "pane_fade"
                     )
                     Box(modifier = Modifier.fillMaxSize().alpha(alpha)) {
-                        when (selectedCategory) {
+                        when (previewCategory) {
                             SettingsCategory.LOCATION -> LocationSettingsPane(
                                 settings = draftSettings,
                                 onUpdate = { draftSettings = it }
@@ -312,6 +337,7 @@ fun SettingsScreen(
             onSuccess = {
                 showDeveloperPinDialog = false
                 selectedCategory = SettingsCategory.DEVELOPER
+                previewCategory = SettingsCategory.DEVELOPER
             },
             onDismiss = { showDeveloperPinDialog = false }
         )
@@ -329,37 +355,26 @@ fun SettingsScreen(
     }
 }
 
+// ============================================================
+// SIDEBAR ITEM — dengan NeonFocusBorder + KANAN → pane
+// ============================================================
 @Composable
 private fun SidebarItem(
     category: SettingsCategory,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+    rightFocusRequester: FocusRequester
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    val borderWidth by animateDpAsState(
-        targetValue = if (isFocused) 4.dp else 1.5.dp,
-        animationSpec = tween(200),
-        label = "sidebar_border_width"
-    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.03f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        animationSpec = tween(150),
         label = "sidebar_scale"
     )
-
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isFocused) 12.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "sidebar_shadow"
-    )
-
-    val borderColor = when {
-        isFocused -> Color(0xFFFFE44D)
-        isSelected -> IslamicGold
-        else -> Color(0x33FFFFFF)
-    }
 
     val bgColor = when {
         isSelected -> Color(0x44FFD700)
@@ -367,84 +382,153 @@ private fun SidebarItem(
         else -> Color(0x22000000)
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(12.dp),
-                ambientColor = Color(0x88FFD700),
-                spotColor = Color(0x88FFD700)
-            )
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    // Callback ke parent saat fokus berubah
+    LaunchedEffect(isFocused) {
+        onFocusChange(isFocused)
+    }
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Icon(
-            imageVector = category.icon,
-            contentDescription = category.label,
-            tint = when {
-                isSelected -> IslamicGold
-                isFocused -> Color(0xFFFFE44D)
-                else -> TextPrimary
-            },
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = category.label,
-            fontSize = 14.sp,
-            fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium,
-            color = when {
-                isSelected -> IslamicGoldLight
-                isFocused -> Color(0xFFFFE44D)
-                else -> TextPrimary
-            }
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(scale)
+                .clip(RoundedCornerShape(12.dp))
+                .background(bgColor)
+                .focusProperties {
+                    right = rightFocusRequester
+                }
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = category.label,
+                tint = when {
+                    isSelected -> IslamicGold
+                    isFocused -> Color(0xFFFFE44D)
+                    else -> TextPrimary
+                },
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = category.label,
+                fontSize = 14.sp,
+                fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium,
+                color = when {
+                    isSelected -> IslamicGoldLight
+                    isFocused -> Color(0xFFFFE44D)
+                    else -> TextPrimary
+                }
+            )
+        }
     }
 }
 
+// ============================================================
+// TOP BAR ICON BUTTON — dengan NeonFocusBorder
+// ============================================================
 @Composable
 private fun TopBarIconButton(
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    val borderWidth by animateDpAsState(
-        targetValue = if (isFocused) 4.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "icon_border_width"
-    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 1000f),
+        animationSpec = tween(150),
         label = "icon_scale"
     )
 
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF142735))
-            .border(
-                width = borderWidth,
-                color = if (isFocused) Color(0xFFFFE44D) else Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp,
+        modifier = Modifier.size(48.dp)
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .scale(scale)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF142735))
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            content()
+        }
+    }
+}
+
+// ============================================================
+// SAVE BUTTON — dengan NeonFocusBorder
+// ============================================================
+@Composable
+private fun SaveButton(
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = tween(150),
+        label = "save_scale"
+    )
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .scale(scale)
+                .clip(RoundedCornerShape(12.dp))
+                .background(IslamicGold)
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(horizontal = 24.dp, vertical = 14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF09141D),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "SIMPAN PENGATURAN",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF09141D)
+                )
+            }
+        }
     }
 }
