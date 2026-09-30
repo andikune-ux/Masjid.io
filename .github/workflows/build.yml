@@ -138,24 +138,29 @@ jobs:
 
       - name: Create GitHub Release
         if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: MASJID.IO ${{ steps.version.outputs.VERSION }}
-          body: |
-            ## Update MASJID.IO ${{ steps.version.outputs.VERSION }}
-            
-            Build otomatis dari commit ${{ github.sha }}
-            
-            ### Cara Install
-            1. Download APK di bawah
-            2. Install di Android TV
-            3. Selesai
-          files: app/build/outputs/apk/debug/*.apk
-          draft: false
-          prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          echo "Membuat release untuk tag: $VERSION"
+
+          # Cek apakah tag sudah ada
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "⚠️ Release $VERSION sudah ada, skip."
+          else
+            gh release create "$VERSION" \
+              --title "MASJID.IO $VERSION" \
+              --notes "## Update MASJID.IO $VERSION
+
+          Build otomatis dari commit ${{ github.sha }}
+
+          ### Cara Install
+          1. Download APK di bawah
+          2. Install di Android TV
+          3. Selesai" \
+              app/build/outputs/apk/debug/*.apk
+            echo "✅ Release $VERSION berhasil dibuat!"
+          fi
 
       - name: Commit version.properties
         if: success()
