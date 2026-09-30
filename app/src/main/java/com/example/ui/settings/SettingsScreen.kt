@@ -108,7 +108,7 @@ enum class SettingsCategory(
 
 /**
  * SettingsNavState — State holder untuk persist kategori terakhir
- * selama app berjalan. Reset saat app restart (sesuai Q1=A).
+ * selama app berjalan. Reset saat app restart.
  */
 object SettingsNavState {
     var lastCategory: SettingsCategory = SettingsCategory.LOCATION
@@ -119,6 +119,7 @@ fun SettingsScreen(
     currentSettings: AppSettings,
     soundManager: SoundManager,
     isRemoteServerRunning: Boolean = false,
+    onAutoSaveSettings: (AppSettings) -> Unit = {},
     onSaveSettings: (AppSettings) -> Unit,
     onBack: () -> Unit,
     onTestQrisFocus: () -> Unit,
@@ -127,13 +128,16 @@ fun SettingsScreen(
     // Kategori yang dipilih (persist)
     var selectedCategory by remember { mutableStateOf(SettingsNavState.lastCategory) }
 
-    // Kategori yang di-preview di pane kanan (auto ganti saat fokus sidebar)
+    // Kategori yang di-preview di pane kanan
     var previewCategory by remember { mutableStateOf(SettingsNavState.lastCategory) }
 
     var draftSettings by remember { mutableStateOf(currentSettings) }
     var showDeveloperPinDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRiwayatUpdate by remember { mutableStateOf(false) }
+
+    // Skip auto-save pertama (initial load)
+    var isInitialLoad by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
 
@@ -143,6 +147,19 @@ fun SettingsScreen(
     // Sync selectedCategory → SettingsNavState
     LaunchedEffect(selectedCategory) {
         SettingsNavState.lastCategory = selectedCategory
+    }
+
+    // ============================================================
+    // AUTO-SAVE — debounce 500ms
+    // Setiap perubahan draftSettings → tunggu 500ms → save
+    // ============================================================
+    LaunchedEffect(draftSettings) {
+        if (isInitialLoad) {
+            isInitialLoad = false
+            return@LaunchedEffect
+        }
+        delay(500)
+        onAutoSaveSettings(draftSettings)
     }
 
     if (showRiwayatUpdate) {
@@ -180,7 +197,10 @@ fun SettingsScreen(
                 )
             }
             SaveButton(
-                onClick = { onSaveSettings(draftSettings) }
+                onClick = {
+                    // Force save terakhir + kembali ke Home
+                    onSaveSettings(draftSettings)
+                }
             )
         }
 
@@ -210,7 +230,6 @@ fun SettingsScreen(
                         },
                         onFocusChange = { isFocused ->
                             if (isFocused) {
-                                // Delay 100ms sebelum preview (smooth)
                                 scope.launch {
                                     delay(100)
                                     previewCategory = cat
@@ -356,7 +375,7 @@ fun SettingsScreen(
 }
 
 // ============================================================
-// SIDEBAR ITEM — dengan NeonFocusBorder + KANAN → pane
+// SIDEBAR ITEM
 // ============================================================
 @Composable
 private fun SidebarItem(
@@ -382,7 +401,6 @@ private fun SidebarItem(
         else -> Color(0x22000000)
     }
 
-    // Callback ke parent saat fokus berubah
     LaunchedEffect(isFocused) {
         onFocusChange(isFocused)
     }
@@ -437,7 +455,7 @@ private fun SidebarItem(
 }
 
 // ============================================================
-// TOP BAR ICON BUTTON — dengan NeonFocusBorder
+// TOP BAR ICON BUTTON
 // ============================================================
 @Composable
 private fun TopBarIconButton(
@@ -480,7 +498,7 @@ private fun TopBarIconButton(
 }
 
 // ============================================================
-// SAVE BUTTON — dengan NeonFocusBorder
+// SAVE BUTTON
 // ============================================================
 @Composable
 private fun SaveButton(
