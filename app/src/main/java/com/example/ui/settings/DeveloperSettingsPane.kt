@@ -84,6 +84,11 @@ fun DeveloperSettingsPane(
     var isFetchingBuild by remember { mutableStateOf(false) }
     var lastFetchStatus by remember { mutableStateOf<String?>(null) }
 
+    // State backup (BARU)
+    var isBackupRunning by remember { mutableStateOf(false) }
+    var backupProgress by remember { mutableStateOf("") }
+
+    // Fonnte state
     var tokenInput by remember { mutableStateOf(settings.fonnteToken) }
     var groupIdInput by remember { mutableStateOf(settings.fonnteGroupId) }
     var isTestingFonnte by remember { mutableStateOf(false) }
@@ -114,13 +119,16 @@ fun DeveloperSettingsPane(
             fontSize = 13.sp,
             color = TextSecondary
         )
-
         Spacer(modifier = Modifier.height(4.dp))
 
         InfoBox(
             icon = Icons.Default.Info,
             title = "Versi Aplikasi",
-            value = try { BuildConfig.VERSION_NAME } catch (e: Exception) { "Unknown" },
+            value = try {
+                BuildConfig.VERSION_NAME
+            } catch (e: Exception) {
+                "Unknown"
+            },
             description = "Versi build saat ini"
         )
 
@@ -142,8 +150,8 @@ fun DeveloperSettingsPane(
         DeveloperButton(
             icon = Icons.Default.Refresh,
             title = if (isFetchingBuild) "MENGAMBIL DATA..." else "REFRESH BUILD HISTORY",
-            description = if (lastFetchStatus != null) lastFetchStatus!!
-                          else "Ambil data build terbaru dari GitHub",
+            description = lastFetchStatus ?: "Ambil data build terbaru dari GitHub",
+            disabled = isFetchingBuild,
             onClick = {
                 if (isFetchingBuild) return@DeveloperButton
                 isFetchingBuild = true
@@ -173,7 +181,6 @@ fun DeveloperSettingsPane(
             }
         )
 
-        // Status hasil fetch
         if (lastFetchStatus != null) {
             Box(
                 modifier = Modifier
@@ -181,8 +188,7 @@ fun DeveloperSettingsPane(
                     .background(Color(0x33000000), RoundedCornerShape(8.dp))
                     .border(
                         1.dp,
-                        if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen
-                        else UrgentRed,
+                        if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed,
                         RoundedCornerShape(8.dp)
                     )
                     .padding(12.dp)
@@ -203,21 +209,26 @@ fun DeveloperSettingsPane(
         // ============================================================
         if (needStoragePermission) {
             PermissionWarningCard(
-                onGrantClick = {
-                    BackupManager.openPermissionSettings(context)
-                }
+                onGrantClick = { BackupManager.openPermissionSettings(context) }
             )
             Spacer(modifier = Modifier.height(4.dp))
         }
 
         // ============================================================
-        // BACKUP AMAN
+        // BACKUP AMAN (dengan fetch source code)
         // ============================================================
         DeveloperButton(
             icon = Icons.Default.Save,
-            title = "BACKUP AMAN",
-            description = "Export semua info aplikasi ke file .TXT (termasuk build history)",
+            title = if (isBackupRunning) {
+                backupProgress.ifEmpty { "BACKUP SEDANG PROSES..." }
+            } else {
+                "BACKUP AMAN"
+            },
+            description = "Export semua info aplikasi + FULL SOURCE CODE ke file .TXT",
+            disabled = isBackupRunning,
             onClick = {
+                if (isBackupRunning) return@DeveloperButton
+
                 try {
                     if (BackupManager.needsStoragePermission()) {
                         needStoragePermission = true
@@ -230,45 +241,37 @@ fun DeveloperSettingsPane(
                         return@DeveloperButton
                     }
 
-                    // Kalau belum fetch build history, fetch dulu
-                    if (cachedBuildHistoryText == null) {
-                        isFetchingBuild = true
-                        Toast.makeText(
-                            context,
-                            "Mengambil build history dulu...",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        scope.launch {
-                            val builds = BuildHistoryFetcher.fetchRecentBuilds()
-                            cachedBuildHistoryText = if (builds.isNotEmpty())
-                                BuildHistoryFetcher.formatBuildsAsText(builds)
-                            else null
-                            isFetchingBuild = false
+                    isBackupRunning = true
+                    lastBackupStatus = null
+                    lastBackupPath = null
+                    backupProgress = "Menyiapkan backup..."
 
-                            // Setelah fetch, lanjut backup
-                            doBackup(
-                                context = context,
-                                settings = settings,
-                                buildHistoryText = cachedBuildHistoryText,
-                                onSuccess = { path ->
-                                    lastBackupPath = path
-                                    lastBackupStatus = "✅ Backup berhasil"
-                                },
-                                onError = { msg ->
-                                    lastBackupPath = null
-                                    lastBackupStatus = "❌ Gagal: $msg"
-                                },
-                                onNeedPermission = {
-                                    needStoragePermission = true
-                                }
-                            )
+                    scope.launch {
+                        // ==== STEP 1: Fetch build history kalau belum ada ====
+                        if (cachedBuildHistoryText == null) {
+                            backupProgress = "Mengambil build history..."
+                            val builds = BuildHistoryFetcher.fetchRecentBuilds()
+                            cachedBuildHistoryText = if (builds.isNotEmpty()) {
+                                BuildHistoryFetcher.formatBuildsAsText(builds)
+                            } else null
                         }
-                    } else {
-                        // Sudah ada cache, langsung backup
+
+                        // ==== STEP 2: Fetch source code dari GitHub ====
+                        backupProgress = "Mengambil source code dari GitHub..."
+                        val sourceCodeText = try {
+                            BackupManager.fetchSourceCodeText()
+                        } catch (e: Exception) {
+                            android.util.Log.e("Backup", "Fetch source gagal: ${e.message}")
+                            ""
+                        }
+
+                        // ==== STEP 3: Tulis backup ====
+                        backupProgress = "Menyimpan file backup..."
                         doBackup(
                             context = context,
                             settings = settings,
                             buildHistoryText = cachedBuildHistoryText,
+                            sourceCodeText = sourceCodeText.ifEmpty { null },
                             onSuccess = { path ->
                                 lastBackupPath = path
                                 lastBackupStatus = "✅ Backup berhasil"
@@ -281,15 +284,19 @@ fun DeveloperSettingsPane(
                                 needStoragePermission = true
                             }
                         )
+
+                        isBackupRunning = false
+                        backupProgress = ""
                     }
                 } catch (e: Exception) {
+                    isBackupRunning = false
+                    backupProgress = ""
                     lastBackupStatus = "❌ Error: ${e.message}"
                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         )
 
-        // Status backup
         if (lastBackupStatus != null) {
             Column(
                 modifier = Modifier
@@ -297,7 +304,8 @@ fun DeveloperSettingsPane(
                     .background(Color(0x33000000), RoundedCornerShape(8.dp))
                     .border(
                         1.dp,
-                        if (lastBackupStatus?.startsWith("✅") == true) IslamicGreen
+                        if (lastBackupStatus?.startsWith("✅") == true)
+                            IslamicGreen
                         else IslamicGold.copy(alpha = 0.5f),
                         RoundedCornerShape(8.dp)
                     )
@@ -307,7 +315,8 @@ fun DeveloperSettingsPane(
                     text = lastBackupStatus ?: "",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (lastBackupStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed
+                    color = if (lastBackupStatus?.startsWith("✅") == true)
+                        IslamicGreen else UrgentRed
                 )
                 if (lastBackupPath != null) {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -321,7 +330,7 @@ fun DeveloperSettingsPane(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-
+        
         // ============================================================
         // RIWAYAT CRASH
         // ============================================================
@@ -333,7 +342,8 @@ fun DeveloperSettingsPane(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-                // ============================================================
+
+        // ============================================================
         // WHATSAPP FONNTE
         // ============================================================
         Text(
@@ -352,8 +362,7 @@ fun DeveloperSettingsPane(
             label = "Aktifkan Kirim WA",
             description = if (settings.whatsappReportEnabled)
                 "Setiap crash akan dikirim ke grup WA admin"
-            else
-                "WA report tidak aktif",
+            else "WA report tidak aktif",
             isChecked = settings.whatsappReportEnabled,
             onToggle = {
                 onUpdate(settings.copy(whatsappReportEnabled = it))
@@ -412,16 +421,13 @@ fun DeveloperSettingsPane(
                     }
                 )
             }
-
             Box(modifier = Modifier.weight(1f)) {
                 FonnteButton(
                     icon = Icons.Default.Send,
                     label = if (isTestingFonnte) "MENGIRIM..." else "TEST",
                     backgroundColor = IslamicGreen,
                     textColor = Color.White,
-                    enabled = !isTestingFonnte &&
-                            tokenInput.isNotBlank() &&
-                            groupIdInput.isNotBlank(),
+                    enabled = !isTestingFonnte && tokenInput.isNotBlank() && groupIdInput.isNotBlank(),
                     onClick = {
                         if (isTestingFonnte) return@FonnteButton
                         isTestingFonnte = true
@@ -481,7 +487,7 @@ fun DeveloperSettingsPane(
                 .padding(12.dp)
         ) {
             Text(
-                text = "📁 Lokasi Backup",
+                text = "📍 Lokasi Backup",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = IslamicGoldLight
@@ -505,17 +511,21 @@ fun DeveloperSettingsPane(
 // ============================================================
 // FUNGSI HELPER: DO BACKUP
 // ============================================================
-
 private fun doBackup(
     context: android.content.Context,
     settings: AppSettings,
     buildHistoryText: String?,
+    sourceCodeText: String? = null,
     onSuccess: (String) -> Unit,
     onError: (String) -> Unit,
     onNeedPermission: () -> Unit
 ) {
     try {
-        val content = BackupManager.generateBackupContent(settings, buildHistoryText)
+        val content = BackupManager.generateBackupContent(
+            settings = settings,
+            buildHistoryText = buildHistoryText,
+            sourceCodeText = sourceCodeText
+        )
         val result = BackupManager.saveBackupToFile(context, content)
 
         if (result.success) {
@@ -543,7 +553,6 @@ private fun doBackup(
 // ============================================================
 // KOMPONEN PENDUKUNG
 // ============================================================
-
 @Composable
 private fun InfoBox(
     icon: ImageVector,
@@ -579,7 +588,6 @@ private fun PermissionWarningCard(
     onGrantClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -616,9 +624,7 @@ private fun PermissionWarningCard(
                 )
             }
         }
-
         Spacer(modifier = Modifier.height(12.dp))
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -670,7 +676,11 @@ private fun DeveloperButton(
                 if (isFocused && !disabled) Color(0x33FFD700) else Color(0x22000000),
                 RoundedCornerShape(10.dp)
             )
-            .border(if (isFocused) 3.dp else 1.5.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(
+                if (isFocused) 3.dp else 1.5.dp,
+                borderColor,
+                RoundedCornerShape(10.dp)
+            )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable(enabled = !disabled) { onClick() }
@@ -708,7 +718,6 @@ private fun FonnteToggle(
     onToggle: (Boolean) -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -769,7 +778,6 @@ private fun FonnteInputField(
     onValueChange: (String) -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -821,8 +829,7 @@ private fun FonnteInputField(
                     color = TextPrimary
                 ),
                 visualTransformation = if (isPassword && !showPassword)
-                    PasswordVisualTransformation()
-                else VisualTransformation.None,
+                    PasswordVisualTransformation() else VisualTransformation.None,
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { isFocused = it.isFocused }
@@ -841,7 +848,6 @@ private fun FonnteButton(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
