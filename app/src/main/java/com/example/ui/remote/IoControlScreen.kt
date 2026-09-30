@@ -25,8 +25,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
@@ -117,9 +119,7 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ============================================================
     // MULAI SCAN SAAT DIBUKA
-    // ============================================================
     LaunchedEffect(Unit) {
         DeviceDiscovery.configure(
             name = deviceName,
@@ -130,18 +130,14 @@ fun IoControlScreen(
         DeviceDiscovery.startScan(context, scope)
     }
 
-    // ============================================================
     // CLEANUP SAAT DITUTUP
-    // ============================================================
     DisposableEffect(Unit) {
         onDispose {
             DeviceDiscovery.stopScan()
         }
     }
 
-    // ============================================================
     // AUTO-CONNECT SAAT DEVICE DIPILIH
-    // ============================================================
     LaunchedEffect(selectedDevice, phase) {
         if (phase == IoPhase.CONNECTING && selectedDevice != null) {
             statusMessage = "Menghubungkan ke ${selectedDevice!!.name}..."
@@ -159,9 +155,7 @@ fun IoControlScreen(
         }
     }
 
-    // ============================================================
     // REAL SEND — pakai RemoteControlClient
-    // ============================================================
     LaunchedEffect(phase) {
         if (phase == IoPhase.SENDING) {
             val target = selectedDevice ?: return@LaunchedEffect
@@ -194,10 +188,8 @@ fun IoControlScreen(
             }
         }
     }
-    
-    // ============================================================
+
     // UI UTAMA
-    // ============================================================
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -265,9 +257,7 @@ fun IoControlScreen(
             IoPhase.RECEIVING -> {
                 WaitingReceiveView(
                     deviceName = selectedDevice?.name ?: "Pengirim",
-                    onCancel = {
-                        phase = IoPhase.CONNECTED
-                    }
+                    onCancel = { phase = IoPhase.CONNECTED }
                 )
             }
             IoPhase.DONE -> {
@@ -343,7 +333,7 @@ private fun IoTopBar(
 }
 
 // ============================================================
-// SCANNING VIEW — RADAR BIRU + DAFTAR DEVICE
+// SCANNING VIEW
 // ============================================================
 @Composable
 private fun ScanningView(
@@ -636,7 +626,7 @@ private fun DeviceCard(
 }
 
 // ============================================================
-// CONNECTED VIEW — 2 TOMBOL KIRIM & TERIMA
+// CONNECTED VIEW — dengan SCROLL
 // ============================================================
 @Composable
 private fun ConnectedView(
@@ -646,10 +636,15 @@ private fun ConnectedView(
     onDisconnect: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "✓ TERHUBUNG",
             fontSize = 20.sp,
@@ -717,6 +712,8 @@ private fun ConnectedView(
                 color = Color(0xFFFF8A80)
             )
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -762,7 +759,7 @@ private fun BigActionButton(
 }
 
 // ============================================================
-// TRANSFER PROGRESS VIEW (SENDING)
+// TRANSFER PROGRESS VIEW — dengan SCROLL
 // ============================================================
 @Composable
 private fun TransferProgressView(
@@ -772,10 +769,15 @@ private fun TransferProgressView(
     message: String
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Spacer(modifier = Modifier.height(32.dp))
+
         Text(
             text = if (isSending) "📤 MENGIRIM..." else "📥 MENERIMA...",
             fontSize = 24.sp,
@@ -832,11 +834,13 @@ private fun TransferProgressView(
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 // ============================================================
-// WAITING RECEIVE VIEW (RECEIVING)
+// WAITING RECEIVE VIEW — dengan SCROLL
 // ============================================================
 @Composable
 private fun WaitingReceiveView(
@@ -855,10 +859,15 @@ private fun WaitingReceiveView(
     )
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Spacer(modifier = Modifier.height(32.dp))
+
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -919,19 +928,26 @@ private fun WaitingReceiveView(
                 color = Color(0xFFFF8A80)
             )
         }
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 // ============================================================
-// DONE VIEW
+// DONE VIEW — dengan SCROLL
 // ============================================================
 @Composable
 private fun DoneView(message: String) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Spacer(modifier = Modifier.height(48.dp))
+
         Text(
             text = "✓",
             fontSize = 96.sp,
@@ -952,11 +968,13 @@ private fun DoneView(message: String) {
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(48.dp))
     }
 }
 
 // ============================================================
-// ERROR VIEW
+// ERROR VIEW — dengan SCROLL (FIX UTAMA)
 // ============================================================
 @Composable
 private fun ErrorView(
@@ -965,10 +983,15 @@ private fun ErrorView(
     onBackToScan: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Spacer(modifier = Modifier.height(48.dp))
+
         Text(
             text = "⚠️",
             fontSize = 96.sp,
@@ -982,14 +1005,57 @@ private fun ErrorView(
             fontWeight = FontWeight.Bold,
             color = IoRed
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = message,
-            fontSize = 14.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center,
-            lineHeight = 20.sp
-        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ==== PESAN ERROR (bisa panjang) ====
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoRed.copy(alpha = 0.1f))
+                .border(1.dp, IoRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                .padding(16.dp)
+        ) {
+            Text(
+                text = message,
+                fontSize = 14.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // ==== PETUNJUK ====
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoBlue.copy(alpha = 0.1f))
+                .border(1.dp, IoBlue.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    text = "💡 Kemungkinan penyebab:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IoBlueLight
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "• Remote Server di perangkat tujuan belum aktif\n" +
+                            "• Port server berbeda antara kedua perangkat\n" +
+                            "• WiFi tidak sama (HP vs TV)\n" +
+                            "• Perangkat tujuan sedang offline / sleep",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(48.dp))
 
@@ -1025,5 +1091,7 @@ private fun ErrorView(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(48.dp))
     }
 }
