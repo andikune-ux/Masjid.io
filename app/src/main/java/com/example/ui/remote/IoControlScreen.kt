@@ -10,6 +10,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +55,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -63,6 +69,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.SettingsRepository
+import com.example.ui.components.NeonFocusBorder
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.MosqueDeepBg
@@ -119,6 +126,11 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
+    // FocusRequester untuk tombol SCAN ULANG
+    val scanButtonFocusRequester = remember { FocusRequester() }
+    // FocusRequester untuk device paling atas
+    val firstDeviceFocusRequester = remember { FocusRequester() }
+
     // MULAI SCAN SAAT DIBUKA
     LaunchedEffect(Unit) {
         DeviceDiscovery.configure(
@@ -128,6 +140,17 @@ fun IoControlScreen(
             port = serverPort
         )
         DeviceDiscovery.startScan(context, scope)
+        // Tunggu komposisi selesai, lalu fokus ke SCAN ULANG
+        delay(300)
+        runCatching { scanButtonFocusRequester.requestFocus() }
+    }
+
+    // Setelah device ditemukan, fokus ke device paling atas
+    LaunchedEffect(devices, phase) {
+        if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
+            delay(150)
+            runCatching { firstDeviceFocusRequester.requestFocus() }
+        }
     }
 
     // CLEANUP SAAT DITUTUP
@@ -229,7 +252,9 @@ fun IoControlScreen(
                             delay(300)
                             DeviceDiscovery.startScan(context, scope)
                         }
-                    }
+                    },
+                    scanButtonFocusRequester = scanButtonFocusRequester,
+                    firstDeviceFocusRequester = firstDeviceFocusRequester
                 )
             }
             IoPhase.CONNECTED -> {
@@ -282,8 +307,7 @@ fun IoControlScreen(
             }
         }
     }
-}
-
+    
 // ============================================================
 // TOP BAR
 // ============================================================
@@ -333,7 +357,7 @@ private fun IoTopBar(
 }
 
 // ============================================================
-// SCANNING VIEW
+// SCANNING VIEW — dengan focus management
 // ============================================================
 @Composable
 private fun ScanningView(
@@ -341,7 +365,9 @@ private fun ScanningView(
     isScanning: Boolean,
     myRole: String,
     onDeviceClick: (DiscoveredDevice) -> Unit,
-    onRescan: () -> Unit
+    onRescan: () -> Unit,
+    scanButtonFocusRequester: FocusRequester,
+    firstDeviceFocusRequester: FocusRequester
 ) {
     Row(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Box(
@@ -403,31 +429,63 @@ private fun ScanningView(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(devices) { device ->
+                        val isFirst = devices.firstOrNull()?.ip == device.ip
                         DeviceCard(
                             device = device,
-                            onClick = { onDeviceClick(device) }
+                            onClick = { onDeviceClick(device) },
+                            focusRequester = if (isFirst) firstDeviceFocusRequester else null
                         )
                     }
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IoBlue.copy(alpha = 0.15f))
-                    .border(1.5.dp, IoBlue, RoundedCornerShape(12.dp))
-                    .clickable { onRescan() }
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "🔄 SCAN ULANG",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoBlueLight
-                )
-            }
+            ScanButton(
+                onClick = onRescan,
+                focusRequester = scanButtonFocusRequester
+            )
+        }
+    }
+}
+
+// ============================================================
+// SCAN BUTTON — NeonFocusBorder
+// ============================================================
+@Composable
+private fun ScanButton(
+    onClick: () -> Unit,
+    focusRequester: FocusRequester
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoBlue.copy(alpha = 0.15f))
+                .focusRequester(focusRequester)
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "🔄 SCAN ULANG",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = IoBlueLight
+            )
         }
     }
 }
@@ -565,68 +623,88 @@ private fun RadarView(
 }
 
 // ============================================================
-// DEVICE CARD
+// DEVICE CARD — NeonFocusBorder
 // ============================================================
 @Composable
 private fun DeviceCard(
     device: DiscoveredDevice,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(IoCard)
-            .border(1.5.dp, IoBlue.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(IoBlue.copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoCard)
+                .then(
+                    if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                    else Modifier
+                )
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = if (device.role == "TV") Icons.Default.Tv else Icons.Default.PhoneAndroid,
-                contentDescription = null,
-                tint = IoBlueLight,
-                modifier = Modifier.size(28.dp)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(IoBlue.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (device.role == "TV") Icons.Default.Tv else Icons.Default.PhoneAndroid,
+                    contentDescription = null,
+                    tint = IoBlueLight,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = device.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "${device.role} • ${device.version}",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "IP: ${device.ip}",
+                    fontSize = 11.sp,
+                    color = TextSecondary.copy(alpha = 0.7f),
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(IoGreen)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = device.name,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-            Text(
-                text = "${device.role} • ${device.version}",
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-            Text(
-                text = "IP: ${device.ip}",
-                fontSize = 11.sp,
-                color = TextSecondary.copy(alpha = 0.7f),
-                fontFamily = FontFamily.Monospace
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(IoGreen)
-        )
     }
 }
 
 // ============================================================
-// CONNECTED VIEW — dengan SCROLL
+// CONNECTED VIEW
 // ============================================================
 @Composable
 private fun ConnectedView(
@@ -697,12 +775,33 @@ private fun ConnectedView(
 
         Spacer(modifier = Modifier.height(48.dp))
 
+        DisconnectButton(onClick = onDisconnect)
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun DisconnectButton(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp
+    ) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0x33FF5252))
-                .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
-                .clickable { onDisconnect() }
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
                 .padding(horizontal = 32.dp, vertical = 14.dp)
         ) {
             Text(
@@ -712,8 +811,6 @@ private fun ConnectedView(
                 color = Color(0xFFFF8A80)
             )
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -726,40 +823,55 @@ private fun BigActionButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Column(
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 20.dp,
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(color.copy(alpha = 0.15f))
-            .border(2.dp, color, RoundedCornerShape(20.dp))
-            .clickable { onClick() }
-            .padding(vertical = 32.dp, horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(56.dp)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = title,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = subtitle,
-            fontSize = 12.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center
-        )
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(color.copy(alpha = 0.15f))
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(vertical = 32.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(56.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
 // ============================================================
-// TRANSFER PROGRESS VIEW — dengan SCROLL
+// TRANSFER PROGRESS VIEW
 // ============================================================
 @Composable
 private fun TransferProgressView(
@@ -840,7 +952,7 @@ private fun TransferProgressView(
 }
 
 // ============================================================
-// WAITING RECEIVE VIEW — dengan SCROLL
+// WAITING RECEIVE VIEW
 // ============================================================
 @Composable
 private fun WaitingReceiveView(
@@ -934,7 +1046,7 @@ private fun WaitingReceiveView(
 }
 
 // ============================================================
-// DONE VIEW — dengan SCROLL
+// DONE VIEW
 // ============================================================
 @Composable
 private fun DoneView(message: String) {
@@ -974,7 +1086,7 @@ private fun DoneView(message: String) {
 }
 
 // ============================================================
-// ERROR VIEW — dengan SCROLL (FIX UTAMA)
+// ERROR VIEW
 // ============================================================
 @Composable
 private fun ErrorView(
@@ -1007,7 +1119,6 @@ private fun ErrorView(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ==== PESAN ERROR (bisa panjang) ====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1028,7 +1139,6 @@ private fun ErrorView(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // ==== PETUNJUK ====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1094,4 +1204,5 @@ private fun ErrorView(
 
         Spacer(modifier = Modifier.height(48.dp))
     }
+}
 }
