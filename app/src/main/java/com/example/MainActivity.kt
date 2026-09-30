@@ -42,6 +42,7 @@ import com.example.ui.theme.MosqueDeepBg
 import com.example.util.CrashAutoShowHelper
 import com.example.util.CrashLogDialog
 import com.example.util.CrashReporter
+import com.example.util.FonnteSender
 import com.example.util.SettingsTransferHelper
 import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
@@ -125,7 +126,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ============ REMOTE SERVER (dengan callback iO Control) ============
+            // ============ REMOTE SERVER ============
             val remoteServer = remember {
                 RemoteServer(
                     context = this@MainActivity,
@@ -140,7 +141,6 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onSettingsReceived = { jsonBody ->
-                        // Terima settings dari device lain → apply
                         try {
                             val current = settingsRepository.settingsFlow.value
                             val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
@@ -156,12 +156,71 @@ class MainActivity : ComponentActivity() {
             var isRemoteServerRunning by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
 
+            // ============ FIX: CEK REAL STATUS SERVER ============
             LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
                 if (settings.remoteControlEnabled) {
                     remoteServer.stop()
                     delay(300)
                     remoteServer.start(scope)
-                    isRemoteServerRunning = true
+
+                    // Tunggu server benar-benar start
+                    delay(800)
+
+                    // CEK REAL: apakah server benar-benar running?
+                    val realStatus = remoteServer.isRunning()
+                    isRemoteServerRunning = realStatus
+
+                    if (!realStatus) {
+                        // ============ SERVER GAGAL → REPORT KE WA ============
+                        val errorMsg = remoteServer.lastError ?: "Unknown error"
+                        val port = settings.remoteServerPort
+                        android.util.Log.e(
+                            "MainActivity",
+                            "❌ Remote Server gagal start di port $port: $errorMsg"
+                        )
+
+                        // Kirim WA ke grup admin
+                        if (settings.whatsappReportEnabled &&
+                            settings.fonnteToken.isNotBlank() &&
+                            settings.fonnteGroupId.isNotBlank()
+                        ) {
+                            val reportMsg = """
+🚨 SERVER REMOTE GAGAL START 🚨
+
+Device: $deviceName
+Role: $deviceRole
+Port: $port
+Error: $errorMsg
+
+Kemungkinan penyebab:
+• Port $port sedang dipakai app lain
+• Port diblokir sistem
+• Ada bug di aplikasi
+
+Solusi:
+1. Restart HP
+2. Atau force stop app lain yang pakai port $port
+3. Atau hubungi developer
+
+Waktu: ${java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
+                            """.trimIndent()
+
+                            scope.launch {
+                                try {
+                                    FonnteSender.sendMessage(
+                                        token = settings.fonnteToken,
+                                        target = settings.fonnteGroupId,
+                                        message = reportMsg
+                                    )
+                                    android.util.Log.d("MainActivity", "✅ Report WA terkirim")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainActivity", "❌ Gagal kirim report WA: ${e.message}")
+                                }
+                            }
+                        }
+                    } else {
+                        android.util.Log.d("MainActivity", "✅ Remote Server running at port ${remoteServer.actualPort}")
+                    }
                 } else {
                     remoteServer.stop()
                     isRemoteServerRunning = false
@@ -173,27 +232,27 @@ class MainActivity : ComponentActivity() {
                     remoteServer.stop()
                 }
             }
-
-            // ============ PERMISSIONS ============
-            val permissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { }
-
-            LaunchedEffect(Unit) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    permissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.READ_MEDIA_IMAGES,
-                            Manifest.permission.READ_MEDIA_VIDEO
-                        )
-                    )
-                } else {
-                    permissionLauncher.launch(
-                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-                    )
-                }
-            }
             
+// ============ PERMISSIONS ============
+val permissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestMultiplePermissions()
+) { }
+
+LaunchedEffect(Unit) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+        )
+    } else {
+        permissionLauncher.launch(
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        )
+    }
+}
+
 // ============ KEEP SCREEN ON ============
 DisposableEffect(settings.keepScreenOn) {
     if (settings.keepScreenOn) {
@@ -367,82 +426,82 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
     }
 }
 
-MasjidTheme {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MosqueDeepBg
-    ) {
-        // ============ DIALOG CRASH (PALING ATAS) ============
-        if (showCrashDialog) {
-            CrashLogDialog(
-                log = pendingCrashLog,
-                onDismiss = {
-                    CrashAutoShowHelper.markAsSeen(this@MainActivity)
-                    showCrashDialog = false
-                }
-            )
-        } else {
-            Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                when (screen) {
-                    AppScreen.HOME -> HomeScreen(
-                        settings = settings,
-                        schedule = prayerSchedule,
-                        currentTimeString = currentTimeString,
-                        hijriDateString = hijriDateString,
-                        gregorianDateString = gregorianDateString,
-                        upcomingEvent = upcomingEvent,
-                        temperature = currentTemperature,
-                        weatherCondition = currentWeatherCondition,
-                        onSettingsClick = { showPinDialog = true }
-                    )
-                    AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-                        prayerId = focusPrayerId,
-                        prayerTimeFormatted = focusPrayerTime,
-                        totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                        iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                        qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                        settings = settings,
-                        onDismiss = { currentScreen = AppScreen.HOME }
-                    )
-                    AppScreen.SETTINGS -> SettingsScreen(
-                        currentSettings = settings,
-                        soundManager = soundManager,
-                        isRemoteServerRunning = isRemoteServerRunning,
-                        onSaveSettings = { updated ->
-                            settingsRepository.updateSettings(updated)
-                            currentScreen = AppScreen.HOME
-                        },
-                        onBack = { currentScreen = AppScreen.HOME },
-                        onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
-                        onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
-                    )
-                    AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-                        settings = settings,
-                        onDismiss = { currentScreen = AppScreen.SETTINGS }
-                    )
-                    AppScreen.RAMADHAN -> RamadhanOverlay(
-                        settings = settings,
-                        currentTimeString = currentTimeString,
-                        imsakTime = prayerSchedule.imsak,
-                        maghribTime = prayerSchedule.maghrib,
-                        secondsToImsak = secondsToImsak,
-                        secondsToMaghrib = secondsToMaghrib,
-                        onDismiss = {
-                            currentScreen = AppScreen.HOME
-                            userDismissedRamadhan = true
+            MasjidTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MosqueDeepBg
+                ) {
+                    // ============ DIALOG CRASH (PALING ATAS) ============
+                    if (showCrashDialog) {
+                        CrashLogDialog(
+                            log = pendingCrashLog,
+                            onDismiss = {
+                                CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                                showCrashDialog = false
+                            }
+                        )
+                    } else {
+                        Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                            when (screen) {
+                                AppScreen.HOME -> HomeScreen(
+                                    settings = settings,
+                                    schedule = prayerSchedule,
+                                    currentTimeString = currentTimeString,
+                                    hijriDateString = hijriDateString,
+                                    gregorianDateString = gregorianDateString,
+                                    upcomingEvent = upcomingEvent,
+                                    temperature = currentTemperature,
+                                    weatherCondition = currentWeatherCondition,
+                                    onSettingsClick = { showPinDialog = true }
+                                )
+                                AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                                    prayerId = focusPrayerId,
+                                    prayerTimeFormatted = focusPrayerTime,
+                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                                    settings = settings,
+                                    onDismiss = { currentScreen = AppScreen.HOME }
+                                )
+                                AppScreen.SETTINGS -> SettingsScreen(
+                                    currentSettings = settings,
+                                    soundManager = soundManager,
+                                    isRemoteServerRunning = isRemoteServerRunning,
+                                    onSaveSettings = { updated ->
+                                        settingsRepository.updateSettings(updated)
+                                        currentScreen = AppScreen.HOME
+                                    },
+                                    onBack = { currentScreen = AppScreen.HOME },
+                                    onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
+                                    onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
+                                )
+                                AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                                    settings = settings,
+                                    onDismiss = { currentScreen = AppScreen.SETTINGS }
+                                )
+                                AppScreen.RAMADHAN -> RamadhanOverlay(
+                                    settings = settings,
+                                    currentTimeString = currentTimeString,
+                                    imsakTime = prayerSchedule.imsak,
+                                    maghribTime = prayerSchedule.maghrib,
+                                    secondsToImsak = secondsToImsak,
+                                    secondsToMaghrib = secondsToMaghrib,
+                                    onDismiss = {
+                                        currentScreen = AppScreen.HOME
+                                        userDismissedRamadhan = true
+                                    }
+                                )
+                                AppScreen.IO_CONTROL -> IoControlScreen(
+                                    settingsRepository = settingsRepository,
+                                    deviceName = deviceName,
+                                    deviceRole = deviceRole,
+                                    appVersion = com.example.BuildConfig.VERSION_NAME,
+                                    serverPort = settings.remoteServerPort,
+                                    onBack = { currentScreen = AppScreen.SETTINGS }
+                                )
+                            }
                         }
-                    )
-                    AppScreen.IO_CONTROL -> IoControlScreen(
-                        settingsRepository = settingsRepository,
-                        deviceName = deviceName,
-                        deviceRole = deviceRole,
-                        appVersion = com.example.BuildConfig.VERSION_NAME,
-                        serverPort = settings.remoteServerPort,
-                        onBack = { currentScreen = AppScreen.SETTINGS }
-                    )
-                }
-            }
-            
+
                         // PIN DIALOG
                         if (showPinDialog) {
                             PinDialog(
@@ -537,3 +596,4 @@ MasjidTheme {
         }
     }
 }
+
