@@ -75,23 +75,19 @@ class MainActivity : ComponentActivity() {
         settingsRepository = SettingsRepository(this)
         soundManager = SoundManager(this)
 
-        // ============ CEK PENDING CRASH ============
         val hasPendingCrash = CrashAutoShowHelper.hasPendingCrash(this)
         val pendingCrashLog = if (hasPendingCrash) {
             CrashAutoShowHelper.getLastCrashLog(this)
         } else ""
 
-        // ============ INFO DEVICE UNTUK iO CONTROL ============
         val deviceRole = if (isTV()) "TV" else "HP"
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
         setContent {
             val settings by settingsRepository.settingsFlow.collectAsState()
 
-            // ============ DIALOG CRASH AUTO-SHOW ============
             var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
-            // ============ SYNC FONNTE ============
             LaunchedEffect(
                 settings.fonnteToken,
                 settings.fonnteGroupId,
@@ -104,7 +100,6 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            // ============ KIOSK MODE ============
             LaunchedEffect(settings.kioskModeEnabled) {
                 if (settings.kioskModeEnabled) {
                     KioskManager.enableKiosk(this@MainActivity)
@@ -113,7 +108,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ============ WATCHDOG SERVICE ============
             DisposableEffect(settings.kioskModeEnabled) {
                 val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
                 if (settings.kioskModeEnabled) {
@@ -126,7 +120,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ============ REMOTE SERVER ============
             val remoteServer = remember {
                 RemoteServer(
                     context = this@MainActivity,
@@ -156,7 +149,7 @@ class MainActivity : ComponentActivity() {
             var isRemoteServerRunning by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
 
-            // ============ FIX: CEK REAL STATUS SERVER ============
+            // ============ CEK REAL STATUS SERVER + AUTO REPORT WA ============
             LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
                 if (settings.remoteControlEnabled) {
                     remoteServer.stop()
@@ -171,55 +164,59 @@ class MainActivity : ComponentActivity() {
                     isRemoteServerRunning = realStatus
 
                     if (!realStatus) {
-                        // ============ SERVER GAGAL → REPORT KE WA ============
                         val errorMsg = remoteServer.lastError ?: "Unknown error"
                         val port = settings.remoteServerPort
                         android.util.Log.e(
                             "MainActivity",
-                            "❌ Remote Server gagal start di port $port: $errorMsg"
+                            "❌ Remote Server GAGAL start di port $port: $errorMsg"
                         )
 
-                        // Kirim WA ke grup admin
+                        // ============ AUTO REPORT KE WA ============
                         if (settings.whatsappReportEnabled &&
                             settings.fonnteToken.isNotBlank() &&
                             settings.fonnteGroupId.isNotBlank()
                         ) {
                             val reportMsg = """
-🚨 SERVER REMOTE GAGAL START 🚨
+🚨 *SERVER REMOTE GAGAL START* 🚨
 
-Device: $deviceName
-Role: $deviceRole
-Port: $port
-Error: $errorMsg
+📟 Device: $deviceName
+🎭 Role: $deviceRole
+🔌 Port: $port
+❗ Error: $errorMsg
 
-Kemungkinan penyebab:
-• Port $port sedang dipakai app lain
-• Port diblokir sistem
+*Kemungkinan penyebab:*
+• Port $port sedang dipakai aplikasi lain
+• Port $port diblokir sistem Android
 • Ada bug di aplikasi
 
-Solusi:
-1. Restart HP
-2. Atau force stop app lain yang pakai port $port
+*Solusi:*
+1. Restart HP/TV
+2. Atau force stop aplikasi lain yang pakai port $port
 3. Atau hubungi developer
-
-Waktu: ${java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
                             """.trimIndent()
 
                             scope.launch {
                                 try {
-                                    FonnteSender.sendMessage(
+                                    val result = FonnteSender.sendToGroup(
                                         token = settings.fonnteToken,
-                                        target = settings.fonnteGroupId,
-                                        message = reportMsg
+                                        groupId = settings.fonnteGroupId,
+                                        messageText = reportMsg
                                     )
-                                    android.util.Log.d("MainActivity", "✅ Report WA terkirim")
+                                    if (result.success) {
+                                        android.util.Log.d("MainActivity", "✅ Report WA terkirim")
+                                    } else {
+                                        android.util.Log.e("MainActivity", "❌ Report WA gagal: ${result.message}")
+                                    }
                                 } catch (e: Exception) {
-                                    android.util.Log.e("MainActivity", "❌ Gagal kirim report WA: ${e.message}")
+                                    android.util.Log.e("MainActivity", "❌ Exception kirim report: ${e.message}")
                                 }
                             }
                         }
                     } else {
-                        android.util.Log.d("MainActivity", "✅ Remote Server running at port ${remoteServer.actualPort}")
+                        android.util.Log.d(
+                            "MainActivity",
+                            "✅ Remote Server RUNNING di port ${remoteServer.actualPort}"
+                        )
                     }
                 } else {
                     remoteServer.stop()
@@ -233,7 +230,6 @@ Waktu: ${java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss", java.util.Locale.getD
                 }
             }
             
-// ============ PERMISSIONS ============
 val permissionLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.RequestMultiplePermissions()
 ) { }
@@ -253,7 +249,6 @@ LaunchedEffect(Unit) {
     }
 }
 
-// ============ KEEP SCREEN ON ============
 DisposableEffect(settings.keepScreenOn) {
     if (settings.keepScreenOn) {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -268,7 +263,6 @@ var showPinDialog by remember { mutableStateOf(false) }
 var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
 var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-// ============ UPDATE STATE ============
 var showUpdateDialog by remember { mutableStateOf(false) }
 var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
 
@@ -283,7 +277,6 @@ LaunchedEffect(Unit) {
     } catch (_: Exception) { }
 }
 
-// ============ WEATHER ============
 var currentTemperature by remember { mutableStateOf(30) }
 var currentWeatherCondition by remember { mutableStateOf("Cerah") }
 
@@ -298,7 +291,6 @@ LaunchedEffect(settings.latitude, settings.longitude) {
     }
 }
 
-// ============ BACK PRESS ============
 DisposableEffect(settings.kioskModeEnabled, currentScreen) {
     val callback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
@@ -321,13 +313,11 @@ DisposableEffect(settings.kioskModeEnabled, currentScreen) {
     onDispose { callback.remove() }
 }
 
-// ============ CLOCK & SCHEDULE ============
 var currentTimeString by remember { mutableStateOf("12:00:00") }
 var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
 var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
 var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
 
-// ============ RAMADHAN STATE ============
 var secondsToImsak by remember { mutableLongStateOf(0L) }
 var secondsToMaghrib by remember { mutableLongStateOf(0L) }
 var userDismissedRamadhan by remember { mutableStateOf(false) }
@@ -398,7 +388,6 @@ LaunchedEffect(
     }
 }
 
-// ============ RAMADHAN OVERLAY TRIGGER ============
 LaunchedEffect(
     settings.ramadhanModeEnabled,
     secondsToImsak,
@@ -431,7 +420,6 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
                     modifier = Modifier.fillMaxSize(),
                     color = MosqueDeepBg
                 ) {
-                    // ============ DIALOG CRASH (PALING ATAS) ============
                     if (showCrashDialog) {
                         CrashLogDialog(
                             log = pendingCrashLog,
@@ -502,7 +490,6 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
                             }
                         }
 
-                        // PIN DIALOG
                         if (showPinDialog) {
                             PinDialog(
                                 correctPin = settings.pinCode,
@@ -515,7 +502,6 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
                             )
                         }
 
-                        // UPDATE DIALOG
                         if (showUpdateDialog && updateInfo != null) {
                             val info = updateInfo!!
                             UpdateDialog(
@@ -567,18 +553,12 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
         soundManager.stopAll()
     }
 
-    // ============================================================
-    // HELPER: DETEKSI TV / HP
-    // ============================================================
     private fun isTV(): Boolean {
         val uiMode = resources.configuration.uiMode
         val uiModeType = uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK
         return uiModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     }
 
-    // ============================================================
-    // HELPER: HITUNG DETIK KE WAKTU TERTENTU
-    // ============================================================
     private fun calculateSecondsTo(timeString: String, now: LocalDateTime): Long {
         return try {
             val parts = timeString.split(":")
@@ -596,4 +576,3 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
         }
     }
 }
-
