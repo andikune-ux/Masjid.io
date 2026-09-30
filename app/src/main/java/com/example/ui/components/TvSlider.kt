@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -129,8 +133,7 @@ fun TvSlider(
                         Key.DirectionLeft -> {
                             if (isSliderActive) {
                                 val newValue = (value - stepSize).coerceIn(
-                                    valueRange.start,
-                                    valueRange.endInclusive
+                                    valueRange.start, valueRange.endInclusive
                                 )
                                 onValueChange(newValue)
                                 true
@@ -139,8 +142,7 @@ fun TvSlider(
                         Key.DirectionRight -> {
                             if (isSliderActive) {
                                 val newValue = (value + stepSize).coerceIn(
-                                    valueRange.start,
-                                    valueRange.endInclusive
+                                    valueRange.start, valueRange.endInclusive
                                 )
                                 onValueChange(newValue)
                                 true
@@ -150,9 +152,7 @@ fun TvSlider(
                     }
                 } else false
             }
-            .clickable {
-                isSliderActive = !isSliderActive
-            }
+            .clickable { isSliderActive = !isSliderActive }
             .padding(16.dp)
     ) {
         Row(
@@ -183,13 +183,44 @@ fun TvSlider(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-
+        
+        // ===== TRACK DENGAN TOUCH SUPPORT =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(32.dp),
+                .height(32.dp)
+                .pointerInput(valueRange) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        isSliderActive = true
+
+                        val initialFraction =
+                            (down.position.x / size.width).coerceIn(0f, 1f)
+                        onValueChange(
+                            valueRange.start +
+                                    initialFraction * (valueRange.endInclusive - valueRange.start)
+                        )
+                        down.consume()
+
+                        var pointer = down
+                        while (pointer.pressed) {
+                            val event = awaitPointerEvent()
+                            pointer = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (pointer.positionChanged()) {
+                                val fraction =
+                                    (pointer.position.x / size.width).coerceIn(0f, 1f)
+                                onValueChange(
+                                    valueRange.start +
+                                            fraction * (valueRange.endInclusive - valueRange.start)
+                                )
+                                pointer.consume()
+                            }
+                        }
+                    }
+                },
             contentAlignment = Alignment.CenterStart
         ) {
+            // Background track
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -202,6 +233,7 @@ fun TvSlider(
                 (value - valueRange.start) / (valueRange.endInclusive - valueRange.start)
             } else 0f
 
+            // Progress fill
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
@@ -210,6 +242,7 @@ fun TvSlider(
                     .background(if (isSliderActive) IslamicGreen else IslamicGold)
             )
 
+            // Thumb
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
@@ -233,6 +266,7 @@ fun TvSlider(
         }
 
         Spacer(modifier = Modifier.height(6.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -246,7 +280,10 @@ fun TvSlider(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isSliderActive) "KIRI / KANAN untuk atur" else "Tekan OK untuk aktifkan",
+                    text = if (isSliderActive)
+                        "Geser / KIRI-KANAN untuk atur"
+                    else
+                        "Tap / Tekan OK untuk aktifkan",
                     fontSize = 11.sp,
                     color = if (isSliderActive) IslamicGreen else TextSecondary
                 )
