@@ -153,7 +153,7 @@ private fun IoTopBar(
 }
 
 // ============================================================
-// SCANNING VIEW — dengan focus management
+// SCANNING VIEW
 // ============================================================
 @Composable
 private fun ScanningView(
@@ -244,7 +244,7 @@ private fun ScanningView(
 }
 
 // ============================================================
-// SCAN BUTTON — NeonFocusBorder
+// SCAN BUTTON
 // ============================================================
 @Composable
 private fun ScanButton(
@@ -419,7 +419,7 @@ private fun RadarView(
 }
 
 // ============================================================
-// DEVICE CARD — NeonFocusBorder
+// DEVICE CARD
 // ============================================================
 @Composable
 private fun DeviceCard(
@@ -518,7 +518,6 @@ private fun ConnectedView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(24.dp))
-
         Text(
             text = "✓ TERHUBUNG",
             fontSize = 20.sp,
@@ -536,9 +535,7 @@ private fun ConnectedView(
             fontSize = 13.sp,
             color = TextSecondary
         )
-
         Spacer(modifier = Modifier.height(48.dp))
-
         Text(
             text = "Pilih aksi:",
             fontSize = 18.sp,
@@ -546,7 +543,6 @@ private fun ConnectedView(
             color = TextPrimary
         )
         Spacer(modifier = Modifier.height(24.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
@@ -568,11 +564,8 @@ private fun ConnectedView(
                 onClick = onReceive
             )
         }
-
         Spacer(modifier = Modifier.height(48.dp))
-
         DisconnectButton(onClick = onDisconnect)
-
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -685,7 +678,6 @@ private fun TransferProgressView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-
         Text(
             text = if (isSending) "📤 MENGIRIM..." else "📥 MENERIMA...",
             fontSize = 24.sp,
@@ -698,9 +690,7 @@ private fun TransferProgressView(
             fontSize = 14.sp,
             color = TextSecondary
         )
-
         Spacer(modifier = Modifier.height(48.dp))
-
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.8f)
@@ -723,9 +713,7 @@ private fun TransferProgressView(
                     )
             )
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = "${(progress * 100).toInt()}%",
             fontSize = 32.sp,
@@ -733,16 +721,13 @@ private fun TransferProgressView(
             color = if (isSending) IoBlueLight else IoGreenLight,
             fontFamily = FontFamily.Monospace
         )
-
         Spacer(modifier = Modifier.height(24.dp))
-
         Text(
             text = message,
             fontSize = 13.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -775,7 +760,6 @@ private fun WaitingReceiveView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -791,9 +775,7 @@ private fun WaitingReceiveView(
                 modifier = Modifier.size(56.dp)
             )
         }
-
         Spacer(modifier = Modifier.height(32.dp))
-
         Text(
             text = "Menunggu data dari $deviceName",
             fontSize = 18.sp,
@@ -808,13 +790,10 @@ private fun WaitingReceiveView(
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
-
         Spacer(modifier = Modifier.height(48.dp))
-
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused by interactionSource.collectIsFocusedAsState()
         val isPressed by interactionSource.collectIsPressedAsState()
-
         NeonFocusBorder(
             focused = isFocused,
             pressed = isPressed,
@@ -840,7 +819,6 @@ private fun WaitingReceiveView(
                 )
             }
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -859,7 +837,6 @@ private fun DoneView(message: String) {
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -875,9 +852,7 @@ private fun DoneView(message: String) {
                 modifier = Modifier.size(56.dp)
             )
         }
-
         Spacer(modifier = Modifier.height(32.dp))
-
         Text(
             text = "✓ BERHASIL",
             fontSize = 24.sp,
@@ -891,7 +866,6 @@ private fun DoneView(message: String) {
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
-
         Spacer(modifier = Modifier.height(48.dp))
     }
 }
@@ -914,7 +888,6 @@ private fun ErrorView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -930,9 +903,7 @@ private fun ErrorView(
                 color = IoRed
             )
         }
-
         Spacer(modifier = Modifier.height(32.dp))
-
         Text(
             text = "⚠ TERJADI KESALAHAN",
             fontSize = 20.sp,
@@ -946,9 +917,7 @@ private fun ErrorView(
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
-
         Spacer(modifier = Modifier.height(48.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -956,7 +925,6 @@ private fun ErrorView(
             val interactionSource1 = remember { MutableInteractionSource() }
             val isFocused1 by interactionSource1.collectIsFocusedAsState()
             val isPressed1 by interactionSource1.collectIsPressedAsState()
-
             NeonFocusBorder(
                 focused = isFocused1,
                 pressed = isPressed1,
@@ -985,11 +953,9 @@ private fun ErrorView(
                     )
                 }
             }
-
             val interactionSource2 = remember { MutableInteractionSource() }
             val isFocused2 by interactionSource2.collectIsFocusedAsState()
             val isPressed2 by interactionSource2.collectIsPressedAsState()
-
             NeonFocusBorder(
                 focused = isFocused2,
                 pressed = isPressed2,
@@ -1019,11 +985,13 @@ private fun ErrorView(
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
+// ============================================================
+// MAIN SCREEN
+// ============================================================
 @Composable
 fun IoControlScreen(
     settingsRepository: SettingsRepository,
@@ -1046,12 +1014,9 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
-    // FocusRequester untuk tombol SCAN ULANG
     val scanButtonFocusRequester = remember { FocusRequester() }
-    // FocusRequester untuk device paling atas
     val firstDeviceFocusRequester = remember { FocusRequester() }
 
-    // MULAI SCAN SAAT DIBUKA
     LaunchedEffect(Unit) {
         DeviceDiscovery.configure(
             name = deviceName,
@@ -1060,12 +1025,10 @@ fun IoControlScreen(
             port = serverPort
         )
         DeviceDiscovery.startScan(context, scope)
-        // Tunggu komposisi selesai, lalu fokus ke SCAN ULANG
         delay(300)
         runCatching { scanButtonFocusRequester.requestFocus() }
     }
 
-    // Setelah device ditemukan, fokus ke device paling atas
     LaunchedEffect(devices, phase) {
         if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
             delay(150)
@@ -1073,14 +1036,12 @@ fun IoControlScreen(
         }
     }
 
-    // CLEANUP SAAT DITUTUP
     DisposableEffect(Unit) {
         onDispose {
             DeviceDiscovery.stopScan()
         }
     }
 
-    // AUTO-CONNECT SAAT DEVICE DIPILIH
     LaunchedEffect(selectedDevice, phase) {
         if (phase == IoPhase.CONNECTING && selectedDevice != null) {
             statusMessage = "Menghubungkan ke ${selectedDevice!!.name}..."
@@ -1098,13 +1059,11 @@ fun IoControlScreen(
         }
     }
 
-    // REAL SEND — pakai RemoteControlClient
     LaunchedEffect(phase) {
         if (phase == IoPhase.SENDING) {
             val target = selectedDevice ?: return@LaunchedEffect
             transferProgress = 0f
             statusMessage = "Menyiapkan data..."
-
             val result = RemoteControlClient.sendSettings(
                 targetIp = target.ip,
                 targetPort = target.port,
@@ -1119,7 +1078,6 @@ fun IoControlScreen(
                     }
                 }
             )
-
             if (result.success) {
                 transferProgress = 1f
                 statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
@@ -1132,7 +1090,6 @@ fun IoControlScreen(
         }
     }
 
-    // UI UTAMA
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1155,7 +1112,6 @@ fun IoControlScreen(
             },
             onBack = onBack
         )
-
         when (phase) {
             IoPhase.SCANNING, IoPhase.CONNECTING -> {
                 ScanningView(
