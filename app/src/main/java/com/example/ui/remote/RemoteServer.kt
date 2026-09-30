@@ -8,35 +8,40 @@ import com.example.data.local.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.BindException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketException
 import java.net.URLDecoder
 
 /**
  * HTTP Server mini untuk Remote Control via HP.
  *
- * FIX V3:
- *   - Tambah property `lastError` — pesan error saat bind gagal
- *   - Tambah property `actualPort` — port yang benar-benar terpakai
- *   - Log stack trace lengkap saat bind gagal (ketahuan penyebabnya)
- *   - reuseAddress = true (biar bisa rebind cepat)
- *   - TIDAK ganti port default (tetap dari settings)
+ * V4 (final):
+ *   - Port KONSISTEN dari settings (tidak ganti-ganti)
+ *   - Auto-kill socket lama sebelum bind ulang
+ *   - Retry bind 3x dengan delay (kalau socket belum release)
+ *   - Pesan error spesifik: Port bentrok / Izin ditolak / Lain
+ *   - lastError & actualPort untuk UI
  */
 class RemoteServer(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
-    private val port: Int = 8080,
+    private val port: Int = 14039,
     private val authToken: String = "masjid-io",
     private val onRestart: (() -> Unit)? = null,
     private val onSettingsReceived: ((String) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "RemoteServer"
+        private const val MAX_RETRY = 3
+        private const val RETRY_DELAY_MS = 500L
     }
 
     private var serverSocket: ServerSocket? = null
@@ -45,62 +50,163 @@ class RemoteServer(
     private var isRunning = false
     private var serverJob: Job? = null
 
-    /** Pesan error terakhir saat bind gagal — null kalau sukses. */
+    /** Pesan error terakhir — null kalau sukses. */
     @Volatile
     var lastError: String? = null
         private set
 
-    /** Port yang benar-benar terpakai — -1 kalau belum start. */
+    /** Port yang benar-benar terpakai — -1 kalau gagal. */
     @Volatile
     var actualPort: Int = -1
         private set
 
+    // ============================================================
+    // START — dengan retry & socket cleanup
+    // ============================================================
     fun start(scope: CoroutineScope) {
-        if (isRunning) return
+        if (isRunning) {
+            Log.d(TAG, "Server sudah jalan, skip start")
+            return
+        }
+
         serverJob = scope.launch(Dispatchers.IO) {
-            try {
-                val socket = ServerSocket()
-                socket.reuseAddress = true
-                socket.bind(InetSocketAddress(port))
-                serverSocket = socket
-                isRunning = true
-                actualPort = port
-                lastError = null
-                Log.d(TAG, "✅ Server STARTED on port $port")
-                while (isRunning) {
-                    try {
-                        val client = serverSocket?.accept() ?: break
-                        handleClient(client)
-                    } catch (e: Exception) {
-                        if (isRunning) {
-                            Log.e(TAG, "Error accepting client: ${e.message}")
-                        }
-                    }
+            // Bersihkan socket lama dulu
+            cleanupSocket()
+
+            var bound: ServerSocket? = null
+            var lastException: Exception? = null
+
+            // Coba bind sampai MAX_RETRY kali
+            for (attempt in 1..MAX_RETRY) {
+                try {
+                    Log.d(TAG, "🔵 Attempt $attempt/$MAX_RETRY: bind port $port")
+                    val socket = ServerSocket()
+                    socket.reuseAddress = true
+                    socket.bind(InetSocketAddress(port))
+                    bound = socket
+                    Log.d(TAG, "✅ BIND SUCCESS di port $port (attempt $attempt)")
+                    break
+                } catch (e: BindException) {
+                    lastException = e
+                    Log.w(TAG, "⚠️ Attempt $attempt GAGAL (BindException): ${e.message}")
+                    delay(RETRY_DELAY_MS)
+                } catch (e: SocketException) {
+                    lastException = e
+                    Log.w(TAG, "⚠️ Attempt $attempt GAGAL (SocketException): ${e.message}")
+                    delay(RETRY_DELAY_MS)
+                } catch (e: Exception) {
+                    lastException = e
+                    Log.w(TAG, "⚠️ Attempt $attempt GAGAL (${e.javaClass.simpleName}): ${e.message}")
+                    delay(RETRY_DELAY_MS)
                 }
-            } catch (e: Exception) {
-                lastError = "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+            }
+
+            // Semua attempt gagal
+            if (bound == null) {
                 isRunning = false
                 actualPort = -1
-                Log.e(TAG, "❌ Server FAILED bind port $port → $lastError", e)
+                lastError = buildErrorMessage(lastException)
+                Log.e(TAG, "❌ SERVER GAGAL START: $lastError")
+                return@launch
+            }
+
+            // Bind sukses
+            serverSocket = bound
+            isRunning = true
+            actualPort = port
+            lastError = null
+            Log.d(TAG, "🚀 Remote Server RUNNING di port $port")
+
+            // Accept loop
+            while (isRunning) {
+                try {
+                    val client = serverSocket?.accept() ?: break
+                    handleClient(client)
+                } catch (e: Exception) {
+                    if (isRunning) {
+                        Log.e(TAG, "Error accepting client: ${e.message}")
+                    }
+                }
             }
         }
     }
 
+    // ============================================================
+    // STOP — tutup semua resource
+    // ============================================================
     fun stop() {
+        Log.d(TAG, "Stop server...")
         isRunning = false
+        cleanupSocket()
+        serverJob?.cancel()
+        serverJob = null
+        Log.d(TAG, "Server stopped")
+    }
+
+    private fun cleanupSocket() {
         try {
-            serverSocket?.close()
+            serverSocket?.let { sock ->
+                if (!sock.isClosed) {
+                    try {
+                        sock.close()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error close socket: ${e.message}")
+                    }
+                }
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing server: ${e.message}")
+            Log.w(TAG, "Error cleanup socket: ${e.message}")
         }
         serverSocket = null
         actualPort = -1
-        serverJob?.cancel()
-        Log.d(TAG, "Remote Server stopped")
+    }
+
+    // ============================================================
+    // PESAN ERROR DETAIL
+    // ============================================================
+    private fun buildErrorMessage(e: Exception?): String {
+        if (e == null) return "Server gagal start tanpa error jelas"
+
+        return when (e) {
+            is BindException -> {
+                val msg = e.message ?: ""
+                when {
+                    msg.contains("Address already in use", ignoreCase = true) ||
+                            msg.contains("EADDRINUSE", ignoreCase = true) ->
+                        "Port $port SUDAH DIPAKAI aplikasi lain di perangkat ini.\n\n" +
+                                "Solusi:\n" +
+                                "1. Force close aplikasi lain (misal: remote TV)\n" +
+                                "2. Restart HP/TV\n" +
+                                "3. Coba lagi"
+
+                    msg.contains("Permission denied", ignoreCase = true) ||
+                            msg.contains("EACCES", ignoreCase = true) ->
+                        "Akses port $port DITOLAK sistem.\n\n" +
+                                "Solusi: restart HP/TV, atau hubungi developer."
+
+                    else ->
+                        "Gagal bind ke port $port: $msg"
+                }
+            }
+            is SocketException -> {
+                val msg = e.message ?: ""
+                if (msg.contains("Permission denied", ignoreCase = true)) {
+                    "Akses port $port DITOLAK sistem.\n\nSolusi: restart HP/TV."
+                } else {
+                    "Socket error di port $port: $msg"
+                }
+            }
+            else -> {
+                "${e.javaClass.simpleName}: ${e.message ?: "unknown error"}"
+            }
+        }
     }
 
     fun isRunning(): Boolean = isRunning
 
+    // ============================================================
+    // HANDLE CLIENT
+    // ============================================================
     private fun handleClient(client: Socket) {
         try {
             val reader = BufferedReader(InputStreamReader(client.getInputStream()))
@@ -269,7 +375,7 @@ class RemoteServer(
             try { client.close() } catch (_: Exception) {}
         }
     }
-    
+
     private fun sendResponse(
         writer: OutputStreamWriter,
         code: Int,
@@ -328,7 +434,7 @@ class RemoteServer(
                 "waReport":${settings.whatsappReportEnabled},
                 "port":$actualPort,
                 "running":$isRunning,
-                "lastError":"${lastError ?: ""}"
+                "lastError":"${(lastError ?: "").replace("\"", "\\\"").replace("\n", " ")}"
             }
         """.trimIndent()
     }
@@ -362,6 +468,8 @@ class RemoteServer(
                 button:hover { background: #1976D2; }
                 input, textarea { background: #132F4C; color: #fff; border: 1px solid #2196F3; padding: 10px; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 14px; }
                 .card { background: #132F4C; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+                .success { color: #4CAF50; }
+                .error { color: #FF5252; }
             </style>
         </head>
         <body>
