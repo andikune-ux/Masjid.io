@@ -25,31 +25,46 @@ import com.example.ui.theme.TextPrimary
  * RunningTextMarquee — Teks berjalan di bawah layar utama.
  *
  * @param text Teks yang akan berjalan
- * @param speed Kecepatan 1-10 (1 = paling lambat, 10 = paling cepat, 5 = normal)
+ * @param speed Kecepatan 1-10 (1 = PALING LAMBAT, 5 = normal, 10 = paling cepat)
  * @param fontSize Ukuran huruf dalam sp
  */
 @Composable
 fun RunningTextMarquee(
     text: String,
-    speed: Int = 5,  // 1: Paling Lambat, 5: Sedang, 10: Paling Cepat
+    speed: Int = 5,
     fontSize: Int = 20,
     modifier: Modifier = Modifier
 ) {
-    // GUARD: Kalau text kosong, jangan render apapun
-    // (cegah crash divide by zero di animation tween)
+    // GUARD: Kalau text kosong, jangan render
     if (text.isBlank()) return
 
     // ============================================================
-    // KECEPATAN MARQUEE — range 1-10
+    // KECEPATAN MARQUEE — range 1-10 (formula baru)
     // ============================================================
-    // Durasi dasar: panjang teks × 100 ms per karakter (speed 5).
-    // Speed 1 → ×2 (paling lambat) | Speed 10 → ÷2 (paling cepat)
-    // Formula: (11 - speed) / 5 → multiplier 0.2 sampai 2.0
+    // Speed 1  = 7.0x  (PALING LAMBAT — ±2 menit untuk teks panjang)
+    // Speed 5  = 1.8x  (Normal — ±40 detik)
+    // Speed 10 = 0.25x (Paling cepat — ±5 detik)
+    // ============================================================
     val safeSpeed = speed.coerceIn(1, 10)
-    val speedMultiplier = (11 - safeSpeed) / 5f  // Speed 1 = 2.0, Speed 5 = 1.2, Speed 10 = 0.2
+    val speedMultiplier = when (safeSpeed) {
+        1 -> 7.0f
+        2 -> 5.5f
+        3 -> 4.2f
+        4 -> 3.0f
+        5 -> 1.8f
+        6 -> 1.4f
+        7 -> 1.0f
+        8 -> 0.7f
+        9 -> 0.45f
+        10 -> 0.25f
+        else -> 1.8f
+    }
+
+    // Durasi dasar: panjang teks × 100 ms × multiplier
+    // Minimal 2 detik (biar teks pendek tidak terlalu cepat)
     val baseDurationMs = (text.length * 100 * speedMultiplier)
         .toInt()
-        .coerceAtLeast(1000)  // Minimal 1 detik
+        .coerceAtLeast(2000)
 
     val infiniteTransition = rememberInfiniteTransition(label = "marquee")
     val scrollOffset by infiniteTransition.animateFloat(
@@ -105,7 +120,7 @@ fun RunningTextMarquee(
             }
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Marquee Content Container
+            // Marquee Content
             Box(
                 modifier = Modifier
                     .weight(1f)
