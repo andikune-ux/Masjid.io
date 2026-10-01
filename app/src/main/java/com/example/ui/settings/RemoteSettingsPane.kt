@@ -7,6 +7,10 @@ import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusGroup
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -48,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
+import com.example.ui.components.NeonFocusBorder
 import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
@@ -87,9 +93,14 @@ fun RemoteSettingsPane(
         }
     }
 
+    // ============================================================
+    // ROOT COLUMN — focusGroup + verticalScroll
+    // (D-pad bisa navigasi antar tombol, Compose auto-scroll)
+    // ============================================================
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .focusGroup()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -112,45 +123,60 @@ fun RemoteSettingsPane(
         Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
-        // TOMBOL BESAR — BUKA iO CONTROL
+        // TOMBOL BESAR — BUKA iO CONTROL (FOCUSABLE)
         // ============================================================
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(IoBlue.copy(alpha = 0.25f), IoBlueLight.copy(alpha = 0.15f))
-                    )
-                )
-                .border(2.dp, IoBlue, RoundedCornerShape(16.dp))
-                .clickable { onOpenIoControl() }
-                .padding(vertical = 28.dp, horizontal = 20.dp)
+        val ioInteraction = remember { MutableInteractionSource() }
+        val ioFocused by ioInteraction.collectIsFocusedAsState()
+        val ioPressed by ioInteraction.collectIsPressedAsState()
+
+        NeonFocusBorder(
+            focused = ioFocused,
+            pressed = ioPressed,
+            cornerRadius = 16.dp,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(IoBlue.copy(alpha = 0.25f), IoBlueLight.copy(alpha = 0.15f))
+                        )
+                    )
+                    .border(2.dp, IoBlue, RoundedCornerShape(16.dp))
+                    .focusable(interactionSource = ioInteraction)
+                    .clickable(
+                        interactionSource = ioInteraction,
+                        indication = null
+                    ) { onOpenIoControl() }
+                    .padding(vertical = 28.dp, horizontal = 20.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.PhoneAndroid,
-                    contentDescription = null,
-                    tint = IoBlueLight,
-                    modifier = Modifier.size(42.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = "BUKA iO CONTROL",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IoBlueLight
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = IoBlueLight,
+                        modifier = Modifier.size(42.dp)
                     )
-                    Text(
-                        text = "Cari perangkat & transfer pengaturan",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "BUKA iO CONTROL",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IoBlueLight
+                        )
+                        Text(
+                            text = "Cari perangkat & transfer pengaturan",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
                 }
             }
         }
@@ -158,7 +184,7 @@ fun RemoteSettingsPane(
         Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
-        // STATUS SERVER
+        // STATUS SERVER (bukan tombol — tidak perlu focusable)
         // ============================================================
         RemoteSectionCard(title = "STATUS SERVER") {
             Row(
@@ -193,7 +219,7 @@ fun RemoteSettingsPane(
         }
 
         // ============================================================
-        // AKTIFKAN REMOTE SERVER (toggle)
+        // AKTIFKAN REMOTE SERVER (toggle — TvToggle sudah focusable)
         // ============================================================
         RemoteSectionCard(title = "AKTIFKAN REMOTE SERVER") {
             Column {
@@ -217,7 +243,7 @@ fun RemoteSettingsPane(
         }
         
         // ============================================================
-        // AKSES DARI HP — dengan TOMBOL SALIN OTOMATIS
+        // AKSES DARI HP (kalau server ON)
         // ============================================================
         if (isServerRunning) {
             val fullUrl = "http://$currentIp:${settings.remoteServerPort}/?token=${settings.remoteAuthToken}"
@@ -253,7 +279,7 @@ fun RemoteSettingsPane(
         }
 
         // ============================================================
-        // KONEKSI JARINGAN
+        // KONEKSI JARINGAN (info saja)
         // ============================================================
         RemoteSectionCard(title = "KONEKSI JARINGAN") {
             Row(
@@ -289,7 +315,7 @@ fun RemoteSettingsPane(
 }
 
 // ============================================================
-// COPY URL BOX
+// COPY URL BOX — tombol SALIN URL FOCUSABLE
 // ============================================================
 @Composable
 private fun CopyUrlBox(
@@ -302,6 +328,11 @@ private fun CopyUrlBox(
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
+    // InteractionSource untuk tombol SALIN URL
+    val copyInteraction = remember { MutableInteractionSource() }
+    val copyFocused by copyInteraction.collectIsFocusedAsState()
+    val copyPressed by copyInteraction.collectIsPressedAsState()
+
     LaunchedEffect(copied) {
         if (copied) {
             delay(3000)
@@ -311,6 +342,7 @@ private fun CopyUrlBox(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
+        // URL Display (bukan tombol — tidak perlu focusable)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -332,43 +364,56 @@ private fun CopyUrlBox(
             )
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(
-                    if (copied) IoGreen.copy(alpha = 0.25f) else IoBlue.copy(alpha = 0.2f)
-                )
-                .border(
-                    1.5.dp,
-                    if (copied) IoGreen else IoBlue,
-                    RoundedCornerShape(10.dp)
-                )
-                .clickable {
-                    clipboard.setText(AnnotatedString(url))
-                    copied = true
-                }
-                .padding(vertical = 16.dp),
-            contentAlignment = Alignment.Center
+        // Tombol SALIN URL (FOCUSABLE)
+        NeonFocusBorder(
+            focused = copyFocused,
+            pressed = copyPressed,
+            cornerRadius = 10.dp,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    tint = if (copied) IoGreen else IoBlueLight,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = if (copied) "✓ TERSALIN" else "📋 SALIN URL",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (copied) IoGreen else IoBlueLight,
-                    letterSpacing = 0.5.sp
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (copied) IoGreen.copy(alpha = 0.25f) else IoBlue.copy(alpha = 0.2f)
+                    )
+                    .border(
+                        1.5.dp,
+                        if (copied) IoGreen else IoBlue,
+                        RoundedCornerShape(10.dp)
+                    )
+                    .focusable(interactionSource = copyInteraction)
+                    .clickable(
+                        interactionSource = copyInteraction,
+                        indication = null
+                    ) {
+                        clipboard.setText(AnnotatedString(url))
+                        copied = true
+                    }
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        tint = if (copied) IoGreen else IoBlueLight,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (copied) "✓ TERSALIN" else "📋 SALIN URL",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (copied) IoGreen else IoBlueLight,
+                        letterSpacing = 0.5.sp
+                    )
+                }
             }
         }
 
+        // Info chip
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -378,6 +423,7 @@ private fun CopyUrlBox(
             InfoChip(label = "TOKEN", value = token)
         }
 
+        // Warning jika network off
         if (!networkOn) {
             Box(
                 modifier = Modifier
@@ -466,12 +512,9 @@ private fun RemoteSectionCard(
 }
 
 // ============================================================
-// HELPERS — PAKAI ConnectivityManager (Android 12+ friendly)
+// HELPERS
 // ============================================================
 
-/**
- * Cek apakah device terhubung ke jaringan apapun (WiFi, Ethernet, Cellular).
- */
 private fun isNetworkConnected(context: Context): Boolean {
     return try {
         val cm = context.applicationContext
@@ -487,9 +530,6 @@ private fun isNetworkConnected(context: Context): Boolean {
     }
 }
 
-/**
- * Ambil IP lokal dari network aktif (WiFi / Ethernet / Cellular).
- */
 private fun getLocalIpAddress(context: Context): String {
     return try {
         val cm = context.applicationContext
