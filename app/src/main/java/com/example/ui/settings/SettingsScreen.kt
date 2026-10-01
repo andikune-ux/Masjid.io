@@ -3,7 +3,6 @@ package com.example.ui.settings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -59,11 +58,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +74,6 @@ import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.MosqueDeepBg
 import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -106,10 +102,6 @@ enum class SettingsCategory(
     DEVELOPER("Opsi Developer", Icons.Default.Code)
 }
 
-/**
- * SettingsNavState — State holder untuk persist kategori terakhir
- * selama app berjalan. Reset saat app restart.
- */
 object SettingsNavState {
     var lastCategory: SettingsCategory = SettingsCategory.LOCATION
 }
@@ -125,34 +117,22 @@ fun SettingsScreen(
     onTestQrisFocus: () -> Unit,
     onOpenIoControl: () -> Unit = {}
 ) {
-    // Kategori yang dipilih (persist)
     var selectedCategory by remember { mutableStateOf(SettingsNavState.lastCategory) }
-
-    // Kategori yang di-preview di pane kanan
     var previewCategory by remember { mutableStateOf(SettingsNavState.lastCategory) }
-
     var draftSettings by remember { mutableStateOf(currentSettings) }
     var showDeveloperPinDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRiwayatUpdate by remember { mutableStateOf(false) }
-
-    // Skip auto-save pertama (initial load)
     var isInitialLoad by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
-
-    // FocusRequester untuk pane kanan (target tombol KANAN)
     val paneFocusRequester = remember { FocusRequester() }
 
-    // Sync selectedCategory → SettingsNavState
     LaunchedEffect(selectedCategory) {
         SettingsNavState.lastCategory = selectedCategory
     }
 
-    // ============================================================
-    // AUTO-SAVE — debounce 500ms
-    // Setiap perubahan draftSettings → tunggu 500ms → save
-    // ============================================================
+    // AUTO-SAVE debounce 500ms
     LaunchedEffect(draftSettings) {
         if (isInitialLoad) {
             isInitialLoad = false
@@ -197,10 +177,7 @@ fun SettingsScreen(
                 )
             }
             SaveButton(
-                onClick = {
-                    // Force save terakhir + kembali ke Home
-                    onSaveSettings(draftSettings)
-                }
+                onClick = { onSaveSettings(draftSettings) }
             )
         }
 
@@ -213,8 +190,8 @@ fun SettingsScreen(
                     .fillMaxHeight()
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(vertical = 16.dp, horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)   // ← 8 → 16 dp
             ) {
                 SettingsCategory.values().forEach { cat ->
                     SidebarItem(
@@ -240,7 +217,7 @@ fun SettingsScreen(
                     )
                 }
             }
-
+            
             // ============ PANE KANAN ============
             Box(
                 modifier = Modifier
@@ -389,12 +366,6 @@ private fun SidebarItem(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.03f else 1f,
-        animationSpec = tween(150),
-        label = "sidebar_scale"
-    )
-
     val bgColor = when {
         isSelected -> Color(0x44FFD700)
         isFocused -> Color(0x33FFD700)
@@ -415,7 +386,6 @@ private fun SidebarItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .scale(scale)
                 .clip(RoundedCornerShape(12.dp))
                 .background(bgColor)
                 .focusProperties {
@@ -482,7 +452,6 @@ private fun TopBarIconButton(
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .scale(scale)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF142735))
                 .focusable(interactionSource = interactionSource)
@@ -508,12 +477,6 @@ private fun SaveButton(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.05f else 1f,
-        animationSpec = tween(150),
-        label = "save_scale"
-    )
-
     NeonFocusBorder(
         focused = isFocused,
         pressed = isPressed,
@@ -522,7 +485,6 @@ private fun SaveButton(
     ) {
         Box(
             modifier = Modifier
-                .scale(scale)
                 .clip(RoundedCornerShape(12.dp))
                 .background(IslamicGold)
                 .focusable(interactionSource = interactionSource)
