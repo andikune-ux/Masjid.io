@@ -20,26 +20,21 @@ import java.net.NetworkInterface
 
 /**
  * Representasi perangkat Masjid.io lain yang ditemukan di jaringan.
+ *
+ * V2 (FIX): Tambah `deviceId` unik (Android ID) sebagai identitas utama.
+ *   → IP boleh berubah, device tetap dikenali
+ *   → Dedup by deviceId, bukan IP
  */
 data class DiscoveredDevice(
+    val deviceId: String,
     val name: String,
     val ip: String,
     val port: Int,
-    val role: String,        // "TV" atau "HP"
+    val role: String,
     val version: String,
     val lastSeen: Long = System.currentTimeMillis()
 )
 
-/**
- * DeviceDiscovery — Mencari & ditemukan perangkat Masjid.io lain
- * di WiFi/Hotspot yang sama menggunakan UDP broadcast.
- *
- * Cara kerja:
- *   1. Kirim UDP broadcast ke port 45678 tiap 3 detik
- *   2. Dengarkan UDP balasan dari device lain
- *   3. Filter device yang sudah tidak aktif (>10 detik)
- *   4. Expose state via StateFlow
- */
 object DeviceDiscovery {
 
     private const val TAG = "DeviceDiscovery"
@@ -58,33 +53,35 @@ object DeviceDiscovery {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
-    // Info device ini (di-set dari luar)
+    private var myDeviceId: String = ""
     private var myName: String = "Masjid.io Device"
     private var myRole: String = "TV"
     private var myVersion: String = "V1.0.0"
-    private var myPort: Int = 8080
+    private var myPort: Int = 14039
 
-    /**
-     * Konfigurasi info device ini.
-     */
-    fun configure(name: String, role: String, version: String, port: Int) {
+    fun configure(
+        deviceId: String,
+        name: String,
+        role: String,
+        version: String,
+        port: Int
+    ) {
+        myDeviceId = deviceId
         myName = name
         myRole = role
         myVersion = version
         myPort = port
+        Log.d(TAG, "Configured: id=$deviceId, name=$name, role=$role, port=$port")
     }
 
-    /**
-     * Mulai scanning — broadcast + listen.
-     */
     fun startScan(context: Context, scope: CoroutineScope) {
         if (_isScanning.value) return
         _isScanning.value = true
         _devices.value = emptyList()
 
-        // Acquire multicast lock (Android butuh ini untuk UDP broadcast)
         try {
-            val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val wifi = context.applicationContext
+                .getSystemService(Context.WIFI_SERVICE) as WifiManager
             multicastLock = wifi.createMulticastLock("masjid_io_discovery").apply {
                 setReferenceCounted(false)
                 acquire()
@@ -97,9 +94,6 @@ object DeviceDiscovery {
         listenJob = scope.launch(Dispatchers.IO) { listenLoop() }
     }
 
-    /**
-     * Stop scanning & bersihkan.
-     */
     fun stopScan() {
         _isScanning.value = false
         sendJob?.cancel()
@@ -108,19 +102,19 @@ object DeviceDiscovery {
         listenJob = null
         socket?.close()
         socket = null
-        try {
-            multicastLock?.release()
-        } catch (_: Exception) {}
+        try { multicastLock?.release() } catch (_: Exception) {}
         multicastLock = null
         _devices.value = emptyList()
     }
 
-    // ============================================================
-    // BROADCAST LOOP — Kirim sinyal "saya di sini"
-    // ============================================================
+    fun findById(deviceId: String): DiscoveredDevice? {
+        return _devices.value.firstOrNull { it.deviceId == deviceId }
+    }
+
     private suspend fun broadcastLoop() {
         val payload = JSONObject().apply {
             put("type", "masjid_io_discover")
+            put("deviceId", myDeviceId)
             put("name", myName)
             put("role", myRole)
             put("version", myVersion)
@@ -143,35 +137,26 @@ object DeviceDiscovery {
         }
     }
 
-    // ============================================================
-    // LISTEN LOOP — Terima sinyal dari device lain
-    // ============================================================
     private suspend fun listenLoop() {
         try {
             val s = DatagramSocket(BROADCAST_PORT)
             s.broadcast = true
             s.soTimeout = 5000
             socket = s
-
             val buffer = ByteArray(2048)
             while (_isScanning.value) {
                 try {
                     val packet = DatagramPacket(buffer, buffer.size)
                     s.receive(packet)
-
                     val raw = String(packet.data, 0, packet.length, Charsets.UTF_8)
                     val senderIp = packet.address.hostAddress ?: continue
-
-                    // Skip kalau dari diri sendiri
                     if (isMyIp(senderIp)) continue
-
                     handleIncoming(raw, senderIp)
                 } catch (e: java.net.SocketTimeoutException) {
-                    // Timeout normal, lanjut loop
+                    // normal
                 } catch (e: Exception) {
                     if (_isScanning.value) Log.w(TAG, "Listen error: ${e.message}")
                 }
-
                 pruneInactiveDevices()
             }
         } catch (e: Exception) {
@@ -185,17 +170,27 @@ object DeviceDiscovery {
             if (json.optString("type") != "masjid_io_discover") return
 
             val device = DiscoveredDevice(
+                deviceId = json.optString("deviceId", ""),
                 name = json.optString("name", "Unknown"),
                 ip = senderIp,
-                port = json.optInt("port", 8080),
+                port = json.optInt("port", 14039),
                 role = json.optString("role", "TV"),
-                version = json.optString("version", "V1.0.0")
+                version = json.optString("version", "V1.0.0"),
+                lastSeen = System.currentTimeMillis()
             )
 
-            // Update atau tambah ke list
             val current = _devices.value.toMutableList()
-            val idx = current.indexOfFirst { it.ip == device.ip }
-            if (idx >= 0) current[idx] = device else current.add(device)
+            val idx = if (device.deviceId.isNotBlank()) {
+                current.indexOfFirst { it.deviceId == device.deviceId }
+            } else {
+                current.indexOfFirst { it.ip == device.ip && it.port == device.port }
+            }
+
+            if (idx >= 0) {
+                current[idx] = device
+            } else {
+                current.add(device)
+            }
             _devices.value = current
         } catch (e: Exception) {
             Log.w(TAG, "Parse incoming gagal: ${e.message}")
@@ -215,8 +210,6 @@ object DeviceDiscovery {
             NetworkInterface.getNetworkInterfaces().toList()
                 .flatMap { it.inetAddresses.toList() }
                 .any { it.hostAddress == ip }
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     }
 }
