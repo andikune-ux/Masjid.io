@@ -19,7 +19,9 @@ import java.net.URL
 object ApkDownloader {
 
     private const val TAG = "ApkDownloader"
-    private const val FOLDER_DOWNLOAD = "masjid.io/update"
+    private const val FOLDER_APP = "masjid.io"
+    private const val FOLDER_UPDATE = "pembaharuan aplikasi"
+    private const val MAX_KEEP_APK = 2
 
     data class DownloadState(
         val isDownloading: Boolean = false,
@@ -31,9 +33,43 @@ object ApkDownloader {
         val isFinished: Boolean = false
     )
 
+    // ============================================================
+    // FOLDER — /sdcard/masjid.io/pembaharuan aplikasi/
+    // ============================================================
     /**
-     * Download APK dari URL ke folder internal app.
-     * Return Flow yang meng-emit DownloadState.
+     * Ambil folder target untuk simpan APK.
+     * Prioritas: /sdcard/masjid.io/pembaharuan aplikasi/
+     * Fallback: getExternalFilesDir()/masjid.io/pembaharuan aplikasi/
+     */
+    private fun getUpdateDir(context: Context): File {
+        // Coba external storage dulu
+        return try {
+            val externalDir = File(
+                Environment.getExternalStorageDirectory(),
+                "$FOLDER_APP/$FOLDER_UPDATE"
+            )
+            if (!externalDir.exists()) externalDir.mkdirs()
+            if (externalDir.exists() && externalDir.canWrite()) {
+                externalDir
+            } else {
+                // Fallback ke app external files
+                File(context.getExternalFilesDir(null), "$FOLDER_APP/$FOLDER_UPDATE")
+                    .also { if (!it.exists()) it.mkdirs() }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "External dir gagal, pakai fallback: ${e.message}")
+            File(context.getExternalFilesDir(null), "$FOLDER_APP/$FOLDER_UPDATE")
+                .also { if (!it.exists()) it.mkdirs() }
+        }
+    }
+
+    // ============================================================
+    // DOWNLOAD
+    // ============================================================
+    /**
+     * Download APK dari URL ke folder update.
+     *
+     * @param fileName Nama file (misal "masjid-io-V1.30.5.apk")
      */
     fun downloadApk(
         context: Context,
@@ -43,10 +79,26 @@ object ApkDownloader {
         emit(DownloadState(isDownloading = true, progress = 0f))
 
         try {
-            val targetDir = File(context.getExternalFilesDir(null), FOLDER_DOWNLOAD)
-            if (!targetDir.exists()) targetDir.mkdirs()
-
+            val targetDir = getUpdateDir(context)
             val targetFile = File(targetDir, fileName)
+
+            // Kalau sudah ada file versi sama → langsung selesai (tidak download ulang)
+            if (targetFile.exists() && targetFile.length() > 0) {
+                Log.d(TAG, "File sudah ada: ${targetFile.absolutePath}")
+                emit(
+                    DownloadState(
+                        isDownloading = false,
+                        progress = 1f,
+                        downloadedBytes = targetFile.length(),
+                        totalBytes = targetFile.length(),
+                        savedFilePath = targetFile.absolutePath,
+                        isFinished = true
+                    )
+                )
+                return@flow
+            }
+
+            // Hapus file parsial kalau ada
             if (targetFile.exists()) targetFile.delete()
 
             val url = URL(downloadUrl)
@@ -57,10 +109,39 @@ object ApkDownloader {
             connection.setRequestProperty("User-Agent", "MasjidIO-App")
             connection.instanceFollowRedirects = true
 
-            val responseCode = connection.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK &&
-                responseCode != HttpURLConnection.HTTP_MOVED_TEMP &&
-                responseCode != HttpURLConnection.HTTP_MOVED_PERM) {
+            var responseCode = connection.responseCode
+
+            // Follow redirect manual kalau perlu
+            if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                responseCode == HttpURLConnection.HTTP_MOVED_PERM
+            ) {
+                val redirectUrl = connection.getHeaderField("Location")
+                if (redirectUrl != null) {
+                    val redirectConn = URL(redirectUrl).openConnection() as HttpURLConnection
+                    redirectConn.setRequestProperty("User-Agent", "MasjidIO-App")
+                    redirectConn.connectTimeout = 30000
+                    redirectConn.readTimeout = 60000
+                    responseCode = redirectConn.responseCode
+
+                    if (responseCode != HttpURLConnection.HTTP_OK) {
+                        emit(
+                            DownloadState(
+                                errorMessage = "Redirect error: $responseCode",
+                                isDownloading = false
+                            )
+                        )
+                        return@flow
+                    }
+
+                    downloadFromConnection(
+                        redirectConn, targetFile,
+                        onProgress = { state -> emit(state) }
+                    )
+                    return@flow
+                }
+            }
+
+            if (responseCode != HttpURLConnection.HTTP_OK) {
                 emit(
                     DownloadState(
                         errorMessage = "Server error: $responseCode",
@@ -70,20 +151,29 @@ object ApkDownloader {
                 return@flow
             }
 
-            // Follow redirect kalau ada
-            var inputStream = connection.inputStream
-            val contentLength = connection.contentLengthLong
+            downloadFromConnection(
+                connection, targetFile,
+                onProgress = { state -> emit(state) }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Download gagal: ${e.message}", e)
+            emit(
+                DownloadState(
+                    isDownloading = false,
+                    errorMessage = e.message ?: "Download gagal"
+                )
+            )
+        }
+    }.flowOn(Dispatchers.IO)
 
-            // Kalau ada redirect, ikuti
-            if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-                responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
-                val redirectUrl = connection.getHeaderField("Location")
-                if (redirectUrl != null) {
-                    val redirectConn = URL(redirectUrl).openConnection() as HttpURLConnection
-                    redirectConn.setRequestProperty("User-Agent", "MasjidIO-App")
-                    inputStream = redirectConn.inputStream
-                }
-            }
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<DownloadState>.downloadFromConnection(
+        connection: HttpURLConnection,
+        targetFile: File,
+        onProgress: suspend (DownloadState) -> Unit
+    ) {
+        try {
+            val inputStream = connection.inputStream
+            val contentLength = connection.contentLengthLong
 
             val fileOutput = FileOutputStream(targetFile)
             val buffer = ByteArray(8192)
@@ -96,11 +186,9 @@ object ApkDownloader {
 
                 val progress = if (contentLength > 0) {
                     totalRead.toFloat() / contentLength.toFloat()
-                } else {
-                    0f
-                }
+                } else 0f
 
-                emit(
+                onProgress(
                     DownloadState(
                         isDownloading = true,
                         progress = progress.coerceIn(0f, 1f),
@@ -115,7 +203,7 @@ object ApkDownloader {
             inputStream.close()
             connection.disconnect()
 
-            emit(
+            onProgress(
                 DownloadState(
                     isDownloading = false,
                     progress = 1f,
@@ -126,39 +214,86 @@ object ApkDownloader {
                 )
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Download gagal: ${e.message}", e)
-            emit(
+            Log.e(TAG, "Error download connection: ${e.message}", e)
+            onProgress(
                 DownloadState(
                     isDownloading = false,
                     errorMessage = e.message ?: "Download gagal"
                 )
             )
         }
-    }.flowOn(Dispatchers.IO)
+    }
+    
+    // ============================================================
+    // LIST & CLEANUP APK
+    // ============================================================
+    /**
+     * Ambil daftar semua APK yang tersimpan (untuk Info Aplikasi).
+     * Diurutkan dari terbaru (lastModified desc).
+     */
+    fun getDownloadedApkList(context: Context): List<File> {
+        return try {
+            val dir = getUpdateDir(context)
+            if (!dir.exists()) return emptyList()
+            dir.listFiles()
+                ?.filter { it.isFile && it.name.endsWith(".apk", ignoreCase = true) }
+                ?.sortedByDescending { it.lastModified() }
+                ?: emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal list APK: ${e.message}")
+            emptyList()
+        }
+    }
 
     /**
-     * Cek apakah APK sudah pernah di-download.
+     * Hapus APK lama — sisakan hanya N terbaru (default 2).
+     * Panggil setelah install selesai.
      */
+    fun deleteOldApks(context: Context, keepCount: Int = MAX_KEEP_APK) {
+        try {
+            val list = getDownloadedApkList(context)
+            if (list.size <= keepCount) return
+
+            val toDelete = list.drop(keepCount)
+            toDelete.forEach { file ->
+                if (file.delete()) {
+                    Log.d(TAG, "🗑️ Hapus APK lama: ${file.name}")
+                } else {
+                    Log.w(TAG, "Gagal hapus: ${file.name}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal hapus APK lama: ${e.message}")
+        }
+    }
+
+    /**
+     * Hapus 1 file APK spesifik (dari UI Info Aplikasi).
+     */
+    fun deleteApk(filePath: String): Boolean {
+        return try {
+            val file = File(filePath)
+            if (file.exists()) file.delete() else false
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal hapus APK: ${e.message}")
+            false
+        }
+    }
+
+    // ============================================================
+    // BACKWARD COMPAT — method lama
+    // ============================================================
     fun hasDownloadedApk(context: Context): Boolean {
-        val targetDir = File(context.getExternalFilesDir(null), FOLDER_DOWNLOAD)
-        return targetDir.exists() && (targetDir.listFiles()?.any { it.name.endsWith(".apk") } == true)
+        return getDownloadedApkList(context).isNotEmpty()
     }
 
-    /**
-     * Ambil path APK yang sudah di-download.
-     */
     fun getDownloadedApkPath(context: Context): String? {
-        val targetDir = File(context.getExternalFilesDir(null), FOLDER_DOWNLOAD)
-        if (!targetDir.exists()) return null
-        return targetDir.listFiles()
-            ?.firstOrNull { it.name.endsWith(".apk") }
-            ?.absolutePath
+        return getDownloadedApkList(context).firstOrNull()?.absolutePath
     }
 
-    /**
-     * Buka installer APK.
-     * Butuh permission REQUEST_INSTALL_PACKAGES di Manifest.
-     */
+    // ============================================================
+    // INSTALL APK
+    // ============================================================
     fun installApk(context: Context, apkPath: String): Boolean {
         return try {
             val apkFile = File(apkPath)
@@ -191,9 +326,6 @@ object ApkDownloader {
         }
     }
 
-    /**
-     * Buka halaman pengaturan "Install unknown apps" untuk app ini.
-     */
     fun openInstallPermissionSettings(context: Context) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -208,14 +340,22 @@ object ApkDownloader {
         }
     }
 
-    /**
-     * Cek apakah app punya izin install APK.
-     */
     fun canInstallApk(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.packageManager.canRequestPackageInstalls()
         } else {
             true
+        }
+    }
+
+    // ============================================================
+    // HELPER — Format ukuran file (untuk UI)
+    // ============================================================
+    fun formatSize(bytes: Long): String {
+        return when {
+            bytes < 1024 -> "$bytes B"
+            bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+            else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
         }
     }
 }
