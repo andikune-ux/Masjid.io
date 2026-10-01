@@ -31,21 +31,30 @@ data class DiscoveredDevice(
 )
 
 /**
- * DeviceDiscovery — Mencari & ditemukan perangkat Masjid.io lain
+ * DeviceDiscovery — Mencari & temukan perangkat Masjid.io lain
  * di WiFi/Hotspot yang sama menggunakan UDP broadcast.
  *
+ * PERBAIKAN V1.31.0:
+ * - Auto-retry broadcast jika socket gagal
+ * - Timeout lebih pendek (3 detik) untuk respon cepat
+ * - Deduplikasi device by IP + PORT combo
+ * - Logging detail untuk debugging koneksi
+ * - Guard untuk multicast lock
+ * - Sort device list by role (TV first)
+ *
  * Cara kerja:
- *   1. Kirim UDP broadcast ke port 45678 tiap 3 detik
+ *   1. Kirim UDP broadcast ke port 45678 tiap 2 detik
  *   2. Dengarkan UDP balasan dari device lain
- *   3. Filter device yang sudah tidak aktif (>10 detik)
- *   4. Expose state via StateFlow
+ *   3. Filter device yang sudah tidak aktif (>8 detik)
+ *   4. Expose state via StateFlow (sorted)
  */
 object DeviceDiscovery {
 
     private const val TAG = "DeviceDiscovery"
     private const val BROADCAST_PORT = 45678
-    private const val BROADCAST_INTERVAL_MS = 3000L
-    private const val DEVICE_TIMEOUT_MS = 10000L
+    private const val BROADCAST_INTERVAL_MS = 2000L  // Dipercepat dari 3s
+    private const val DEVICE_TIMEOUT_MS = 8000L      // Lebih pendek dari 10s
+    private const val SOCKET_TIMEOUT_MS = 3000
 
     private var sendJob: Job? = null
     private var listenJob: Job? = null
@@ -57,6 +66,9 @@ object DeviceDiscovery {
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _lastError = MutableStateFlow<String?>(null)
+    val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
     // Info device ini (di-set dari luar)
     private var myName: String = "Masjid.io Device"
@@ -72,15 +84,21 @@ object DeviceDiscovery {
         myRole = role
         myVersion = version
         myPort = port
+        Log.d(TAG, "Configured: $name ($role) v$version at :$port")
     }
 
     /**
      * Mulai scanning — broadcast + listen.
      */
     fun startScan(context: Context, scope: CoroutineScope) {
-        if (_isScanning.value) return
+        if (_isScanning.value) {
+            Log.w(TAG, "Scan sudah berjalan")
+            return
+        }
         _isScanning.value = true
         _devices.value = emptyList()
+        _lastError.value = null
+        Log.d(TAG, "🔍 Scanning dimulai...")
 
         // Acquire multicast lock (Android butuh ini untuk UDP broadcast)
         try {
@@ -89,8 +107,10 @@ object DeviceDiscovery {
                 setReferenceCounted(false)
                 acquire()
             }
+            Log.d(TAG, "✅ Multicast lock acquired")
         } catch (e: Exception) {
-            Log.w(TAG, "Multicast lock gagal: ${e.message}")
+            Log.w(TAG, "⚠ Multicast lock gagal: ${e.message}")
+            _lastError.value = "Multicast lock: ${e.message}"
         }
 
         sendJob = scope.launch(Dispatchers.IO) { broadcastLoop() }
@@ -113,6 +133,7 @@ object DeviceDiscovery {
         } catch (_: Exception) {}
         multicastLock = null
         _devices.value = emptyList()
+        Log.d(TAG, "🛑 Scanning stopped")
     }
 
     // ============================================================
@@ -127,7 +148,8 @@ object DeviceDiscovery {
             put("port", myPort)
         }.toString()
 
-        while (CoroutineScope(Dispatchers.IO).isActive) {
+        var retryCount = 0
+        while (_isScanning.value) {
             try {
                 val s = DatagramSocket()
                 s.broadcast = true
@@ -136,8 +158,15 @@ object DeviceDiscovery {
                 val packet = DatagramPacket(bytes, bytes.size, address, BROADCAST_PORT)
                 s.send(packet)
                 s.close()
+                retryCount = 0  // Reset retry counter on success
+                Log.v(TAG, "📤 Broadcast sent")
             } catch (e: Exception) {
-                Log.w(TAG, "Broadcast gagal: ${e.message}")
+                retryCount++
+                val msg = "Broadcast gagal (attempt $retryCount): ${e.message}"
+                Log.w(TAG, msg)
+                if (retryCount >= 3) {
+                    _lastError.value = "Broadcast failed after 3 attempts: ${e.message}"
+                }
             }
             delay(BROADCAST_INTERVAL_MS)
         }
@@ -150,8 +179,9 @@ object DeviceDiscovery {
         try {
             val s = DatagramSocket(BROADCAST_PORT)
             s.broadcast = true
-            s.soTimeout = 5000
+            s.soTimeout = SOCKET_TIMEOUT_MS
             socket = s
+            Log.d(TAG, "📡 Listen socket ready on port $BROADCAST_PORT")
 
             val buffer = ByteArray(2048)
             while (_isScanning.value) {
@@ -163,19 +193,26 @@ object DeviceDiscovery {
                     val senderIp = packet.address.hostAddress ?: continue
 
                     // Skip kalau dari diri sendiri
-                    if (isMyIp(senderIp)) continue
+                    if (isMyIp(senderIp)) {
+                        Log.v(TAG, "🔄 Loopback ignored: $senderIp")
+                        continue
+                    }
 
                     handleIncoming(raw, senderIp)
                 } catch (e: java.net.SocketTimeoutException) {
                     // Timeout normal, lanjut loop
                 } catch (e: Exception) {
-                    if (_isScanning.value) Log.w(TAG, "Listen error: ${e.message}")
+                    if (_isScanning.value) {
+                        Log.w(TAG, "Listen error: ${e.message}")
+                    }
                 }
 
                 pruneInactiveDevices()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Listen loop error: ${e.message}")
+            val msg = "Listen loop error: ${e.message}"
+            Log.e(TAG, msg)
+            _lastError.value = msg
         }
     }
 
@@ -192,11 +229,18 @@ object DeviceDiscovery {
                 version = json.optString("version", "V1.0.0")
             )
 
-            // Update atau tambah ke list
+            // Update atau tambah ke list (deduplikasi by IP + PORT)
             val current = _devices.value.toMutableList()
-            val idx = current.indexOfFirst { it.ip == device.ip }
-            if (idx >= 0) current[idx] = device else current.add(device)
-            _devices.value = current
+            val idx = current.indexOfFirst { it.ip == device.ip && it.port == device.port }
+            if (idx >= 0) {
+                current[idx] = device
+            } else {
+                current.add(device)
+                Log.d(TAG, "✨ New device: ${device.name} (${device.role}) at ${device.ip}:${device.port}")
+            }
+            // Sort: TV dulu, kemudian HP
+            _devices.value = current.sortedBy { if (it.role == "TV") 0 else 1 }
+            _lastError.value = null  // Clear error jika ada device
         } catch (e: Exception) {
             Log.w(TAG, "Parse incoming gagal: ${e.message}")
         }
@@ -206,6 +250,7 @@ object DeviceDiscovery {
         val now = System.currentTimeMillis()
         val filtered = _devices.value.filter { now - it.lastSeen < DEVICE_TIMEOUT_MS }
         if (filtered.size != _devices.value.size) {
+            Log.d(TAG, "🧹 Pruned inactive devices: ${_devices.value.size} -> ${filtered.size}")
             _devices.value = filtered
         }
     }
