@@ -27,17 +27,19 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 
 private enum class BorderPhase {
-    HIDDEN, LOADING_1X, DELAY, IDLE, PRESSED
+    HIDDEN,
+    IDLE,
+    PRESSED
 }
 
 /**
- * NeonFocusBorder V4.2:
- *   - Glow SMOOTH: 48 dot + BlurMaskFilter (bukan petak/bulat-bulat)
- *   - Glow "jreng" (vibrant) dengan alpha kepala 100%
- *   - Multi-fase: loading 1x → delay 1s → loop → pressed flash
+ * NeonFocusBorder V5:
+ *   - HAPUS fase 1 (loading 1x) — setelah fokus langsung loop 2 warna
+ *   - Kedip saat OK: ON/OFF tegas (alpha 100% ↔ 0%), tiap 100ms
+ *   - Glow smooth (48 dot + blur)
+ *   - Glow di luar tombol, tipis
  */
 @Composable
 fun NeonFocusBorder(
@@ -58,19 +60,15 @@ fun NeonFocusBorder(
     val rotation = remember { Animatable(0f) }
     var currentPhase by remember { mutableStateOf(BorderPhase.HIDDEN) }
 
+    // ============================================================
+    // Fokus → langsung loop 2 warna (tanpa fase 1)
+    // ============================================================
     LaunchedEffect(focused) {
         if (!focused) {
             currentPhase = BorderPhase.HIDDEN
             rotation.snapTo(0f)
             return@LaunchedEffect
         }
-        currentPhase = BorderPhase.LOADING_1X
-        rotation.snapTo(0f)
-        rotation.animateTo(360f, tween(1200, easing = LinearEasing))
-
-        currentPhase = BorderPhase.DELAY
-        delay(1000)
-
         currentPhase = BorderPhase.IDLE
         while (true) {
             rotation.snapTo(0f)
@@ -78,12 +76,15 @@ fun NeonFocusBorder(
         }
     }
 
+    // ============================================================
+    // Pressed → kedip ON/OFF tegas (100ms on, 100ms off)
+    // ============================================================
     val flashAlpha = remember { Animatable(1f) }
     LaunchedEffect(pressed) {
         if (pressed) {
             while (true) {
-                flashAlpha.animateTo(1f, tween(150, easing = LinearEasing))
-                flashAlpha.animateTo(0.3f, tween(150, easing = LinearEasing))
+                flashAlpha.animateTo(1f, tween(100, easing = LinearEasing))
+                flashAlpha.animateTo(0f, tween(100, easing = LinearEasing))
             }
         } else {
             flashAlpha.snapTo(1f)
@@ -99,7 +100,6 @@ fun NeonFocusBorder(
                     glowPx = glowRadius.toPx(),
                     radiusPx = cornerRadius.toPx(),
                     rotationDeg = rotation.value,
-                    phase = currentPhase,
                     isPressed = pressed,
                     flash = flashAlpha.value
                 )
@@ -110,7 +110,7 @@ fun NeonFocusBorder(
 }
 
 // ============================================================
-// CORE DRAW — Glow SMOOTH (48 dot + BlurMaskFilter)
+// CORE DRAW — Glow smooth (48 dot + blur)
 // ============================================================
 private fun DrawScope.drawGlowBorder(
     canvasSize: Size,
@@ -118,7 +118,6 @@ private fun DrawScope.drawGlowBorder(
     glowPx: Float,
     radiusPx: Float,
     rotationDeg: Float,
-    phase: BorderPhase,
     isPressed: Boolean,
     flash: Float
 ) {
@@ -137,7 +136,13 @@ private fun DrawScope.drawGlowBorder(
             isAntiAlias = true
             style = AndroidPaint.Style.STROKE
             strokeWidth = strokePx
-            color = 0x33FFD700.toInt()
+            color = if (isPressed) {
+                // Saat pressed: warna emas terang (mengikuti flash)
+                val a = (flash * 255).toInt().coerceIn(0, 255)
+                (0xFFFFD700.toInt() and 0x00FFFFFF) or (a shl 24)
+            } else {
+                0x33FFD700.toInt()
+            }
         }
         native.drawRoundRect(coreRect, radiusPx, radiusPx, corePaint)
 
@@ -161,23 +166,24 @@ private fun DrawScope.drawGlowBorder(
         val pathMeasure = PathMeasure(glowPath, false)
         val pathLength = pathMeasure.length
 
-        val headColors = when {
-            isPressed -> listOf(0xFFFFD700.toInt())
-            phase == BorderPhase.LOADING_1X || phase == BorderPhase.DELAY ->
-                listOf(0xFFFFD700.toInt())
-            phase == BorderPhase.IDLE ->
-                listOf(0xFFFFFFFF.toInt(), 0xFFFFD700.toInt())
-            else -> emptyList()
+        // ============ WARNA ============
+        // Kalau pressed → emas saja (terang)
+        // Kalau tidak pressed → 2 kutub (putih + emas)
+        val headColors = if (isPressed) {
+            listOf(0xFFFFD700.toInt())
+        } else {
+            listOf(0xFFFFFFFF.toInt(), 0xFFFFD700.toInt())
         }
 
-        // ============ SMOOTH: 48 dot + blur ============
-        val tailLenFraction = 0.30f     // ekor sedikit lebih panjang
-        val dotCount = 48               // 2.4x dari sebelumnya (halus)
-        val blurRadius = glowPx * 1.2f  // soft edge
+        val tailLenFraction = 0.30f
+        val dotCount = 48
+        val blurRadius = glowPx * 1.2f
 
         headColors.forEachIndexed { idx, color ->
             val baseT = rotationDeg / 360f
-            val headT = (baseT + idx * 0.5f) % 1f
+            // Kalau pressed, head cuma 1 (di depan)
+            // Kalau tidak, head ke-2 offset 180°
+            val headT = if (isPressed) baseT else (baseT + idx * 0.5f) % 1f
 
             for (i in 0 until dotCount) {
                 val t = headT - (i.toFloat() / dotCount) * tailLenFraction
@@ -186,27 +192,22 @@ private fun DrawScope.drawGlowBorder(
                 val pos = FloatArray(2)
                 pathMeasure.getPosTan(wrapped * pathLength, pos, null)
 
-                // Alpha: kepala 100% → ekor 0%, kurva eksponensial (lebih smooth)
                 val linear = 1f - (i.toFloat() / dotCount)
-                val alphaBase = linear * linear * 0.7f + linear * 0.3f   // boost kepala
+                val alphaBase = linear * linear * 0.7f + linear * 0.3f
                 val alpha = if (isPressed) alphaBase * flash else alphaBase
 
-                // Radius: 35% - 70% glowPx (overlap antar dot)
                 val dotRadius = glowPx * (0.35f + 0.35f * linear)
-
-                val headColor = if (isPressed) 0xFFFFD700.toInt() else color
 
                 val paint = AndroidPaint().apply {
                     isAntiAlias = true
-                    // Blur untuk smooth edge
                     maskFilter = BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
                     shader = RadialGradient(
                         pos[0], pos[1], dotRadius,
                         intArrayOf(
-                            colorWithAlpha(headColor, alpha * 1.0f),    // core 100%
-                            colorWithAlpha(headColor, alpha * 0.7f),    // mid 70%
-                            colorWithAlpha(headColor, alpha * 0.3f),    // outer 30%
-                            colorWithAlpha(headColor, 0f)               // fade 0%
+                            colorWithAlpha(color, alpha * 1.0f),
+                            colorWithAlpha(color, alpha * 0.7f),
+                            colorWithAlpha(color, alpha * 0.3f),
+                            colorWithAlpha(color, 0f)
                         ),
                         floatArrayOf(0f, 0.3f, 0.7f, 1f),
                         Shader.TileMode.CLAMP
