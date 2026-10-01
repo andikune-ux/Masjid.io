@@ -84,7 +84,6 @@ fun AboutSettingsPane(
     var isDownloading by remember { mutableStateOf(false) }
     var downloadedApkPath by remember { mutableStateOf<String?>(null) }
 
-    // ============ STATE BARU: List APK Tersimpan ============
     var apkList by remember { mutableStateOf<List<File>>(emptyList()) }
     var apkListRefreshKey by remember { mutableStateOf(0) }
 
@@ -94,7 +93,6 @@ fun AboutSettingsPane(
         "Unknown"
     }
 
-    // Load path APK terakhir (untuk tombol Install)
     LaunchedEffect(apkListRefreshKey) {
         downloadedApkPath = ApkDownloader.getDownloadedApkPath(context)
         apkList = ApkDownloader.getDownloadedApkList(context)
@@ -106,9 +104,6 @@ fun AboutSettingsPane(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ============================================================
-        // HEADER
-        // ============================================================
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Info,
@@ -134,9 +129,6 @@ fun AboutSettingsPane(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ============================================================
-        // CARD APP INFO
-        // ============================================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,9 +173,6 @@ fun AboutSettingsPane(
             }
         }
 
-        // ============================================================
-        // UPDATE APLIKASI
-        // ============================================================
         Text(
             text = "UPDATE APLIKASI",
             fontSize = 14.sp,
@@ -238,233 +227,237 @@ fun AboutSettingsPane(
                 )
             }
         }
-        
-// ============================================================
-// DOWNLOAD UPDATE
-// ============================================================
-if (isUpdateAvailable) {
-    ActionButton(
-        icon = Icons.Default.Download,
-        title = if (isDownloading) "MENGUNDUH..." else "DOWNLOAD UPDATE $latestVersion",
-        description = "Download APK terbaru dari GitHub",
-        backgroundColor = IslamicGreen,
-        textColor = Color.White,
-        enabled = !isDownloading && downloadUrl != null,
-        onClick = {
-            if (isDownloading) return@ActionButton
-            val url = downloadUrl
-            if (url.isNullOrBlank()) {
-                Toast.makeText(context, "URL download belum tersedia", Toast.LENGTH_LONG).show()
-                return@ActionButton
-            }
-            isDownloading = true
-            downloadProgress = 0f
-            downloadedApkPath = null
 
-            scope.launch {
-                ApkDownloader.downloadApk(
-                    context = context,
-                    downloadUrl = url,
-                    fileName = "masjid-io-$latestVersion.apk"
-                ).collect { state ->
-                    if (state.errorMessage != null) {
-                        isDownloading = false
-                        Toast.makeText(
-                            context,
-                            "Download gagal: ${state.errorMessage}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        downloadProgress = state.progress
-                        if (state.isFinished && state.savedFilePath != null) {
-                            isDownloading = false
-                            downloadedApkPath = state.savedFilePath
-                            apkListRefreshKey++
-                            Toast.makeText(
-                                context,
-                                "Download selesai! Siap install.",
-                                Toast.LENGTH_LONG
-                            ).show()
+        if (isUpdateAvailable) {
+            ActionButton(
+                icon = Icons.Default.Download,
+                title = if (isDownloading) "MENGUNDUH..." else "DOWNLOAD UPDATE $latestVersion",
+                description = "Download APK terbaru dari GitHub",
+                backgroundColor = IslamicGreen,
+                textColor = Color.White,
+                enabled = !isDownloading && downloadUrl != null,
+                onClick = {
+                    if (isDownloading) return@ActionButton
+                    val url = downloadUrl
+                    if (url.isNullOrBlank()) {
+                        Toast.makeText(context, "URL download belum tersedia", Toast.LENGTH_LONG).show()
+                        return@ActionButton
+                    }
+                    isDownloading = true
+                    downloadProgress = 0f
+                    downloadedApkPath = null
+
+                    scope.launch {
+                        ApkDownloader.downloadApk(
+                            context = context,
+                            downloadUrl = url,
+                            fileName = "masjid-io-$latestVersion.apk"
+                        ).collect { state ->
+                            if (state.errorMessage != null) {
+                                isDownloading = false
+                                Toast.makeText(
+                                    context,
+                                    "Download gagal: ${state.errorMessage}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                downloadProgress = state.progress
+                                if (state.isFinished && state.savedFilePath != null) {
+                                    isDownloading = false
+                                    downloadedApkPath = state.savedFilePath
+                                    apkListRefreshKey++
+                                    Toast.makeText(
+                                        context,
+                                        "Download selesai! Siap install.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-    )
+            )
 
-    // Progress bar
-    if (isDownloading || downloadProgress > 0f) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Progress Download", fontSize = 12.sp, color = TextSecondary)
-                Text(
-                    "${(downloadProgress * 100).toInt()}%",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
+            if (isDownloading || downloadProgress > 0f) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Progress Download", fontSize = 12.sp, color = TextSecondary)
+                        Text(
+                            "${(downloadProgress * 100).toInt()}%",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IslamicGoldLight
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0x33FFFFFF))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(downloadProgress)
+                                .height(12.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(IslamicGold)
+                        )
+                    }
+                }
+            }
+
+            if (downloadedApkPath != null && !isDownloading) {
+                ActionButton(
+                    icon = Icons.Default.CheckCircle,
+                    title = "INSTALL UPDATE $latestVersion",
+                    description = "Install APK yang sudah di-download",
+                    backgroundColor = IslamicGold,
+                    textColor = Color(0xFF09141D),
+                    enabled = true,
+                    onClick = {
+                        val path = downloadedApkPath
+                        if (path.isNullOrBlank()) {
+                            Toast.makeText(context, "Path APK tidak ditemukan", Toast.LENGTH_SHORT).show()
+                            return@ActionButton
+                        }
+                        if (!ApkDownloader.canInstallApk(context)) {
+                            Toast.makeText(context, "Beri izin 'Install unknown apps' dulu", Toast.LENGTH_LONG).show()
+                            ApkDownloader.openInstallPermissionSettings(context)
+                            return@ActionButton
+                        }
+                        val ok = ApkDownloader.installApk(context, path)
+                        if (!ok) {
+                            Toast.makeText(context, "Gagal membuka installer APK", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0x33FFFFFF))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(downloadProgress)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(IslamicGold)
-                )
-            }
         }
-    }
 
-    // Install button
-    if (downloadedApkPath != null && !isDownloading) {
-        ActionButton(
-            icon = Icons.Default.CheckCircle,
-            title = "INSTALL UPDATE $latestVersion",
-            description = "Install APK yang sudah di-download",
-            backgroundColor = IslamicGold,
-            textColor = Color(0xFF09141D),
-            enabled = true,
-            onClick = {
-                val path = downloadedApkPath
-                if (path.isNullOrBlank()) {
-                    Toast.makeText(context, "Path APK tidak ditemukan", Toast.LENGTH_SHORT).show()
-                    return@ActionButton
-                }
-                if (!ApkDownloader.canInstallApk(context)) {
-                    Toast.makeText(context, "Beri izin 'Install unknown apps' dulu", Toast.LENGTH_LONG).show()
-                    ApkDownloader.openInstallPermissionSettings(context)
-                    return@ActionButton
-                }
-                val ok = ApkDownloader.installApk(context, path)
-                if (!ok) {
-                    Toast.makeText(context, "Gagal membuka installer APK", Toast.LENGTH_LONG).show()
-                }
-            }
-        )
-    }
-}
-
-// ============================================================
-// SECTION BARU: FILE UPDATE TERSIMPAN
-// ============================================================
-Spacer(modifier = Modifier.height(4.dp))
-Text(
-    text = "FILE UPDATE TERSIMPAN",
-    fontSize = 14.sp,
-    fontWeight = FontWeight.Bold,
-    color = IslamicGoldLight
-)
-
-Box(
-    modifier = Modifier
-        .fillMaxWidth()
-        .background(Color(0x22000000), RoundedCornerShape(12.dp))
-        .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-        .padding(14.dp)
-) {
-    Column {
-        // Info jumlah + path
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Folder,
-                contentDescription = null,
-                tint = IslamicGold,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "${apkList.size} file tersimpan",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "/sdcard/masjid.io/pembaharuan aplikasi/",
-            fontSize = 10.sp,
-            color = TextSecondary,
-            fontFamily = FontFamily.Monospace
+            text = "FILE UPDATE TERSIMPAN",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        if (apkList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0x22000000), RoundedCornerShape(12.dp))
+                .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                .padding(14.dp)
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = IslamicGold,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${apkList.size} file tersimpan",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Belum ada file update tersimpan",
-                    fontSize = 13.sp,
-                    color = TextSecondary
+                    text = "/sdcard/masjid.io/pembaharuan aplikasi/",
+                    fontSize = 10.sp,
+                    color = TextSecondary,
+                    fontFamily = FontFamily.Monospace
                 )
-            }
-        } else {
-            apkList.forEach { file ->
-                ApkFileItem(
-                    file = file,
-                    onDelete = {
-                        val deleted = ApkDownloader.deleteApk(file.absolutePath)
-                        if (deleted) {
-                            Toast.makeText(
-                                context,
-                                "Terhapus: ${file.name}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            apkListRefreshKey++
-                        } else {
-                            Toast.makeText(
-                                context,
-                                "Gagal menghapus file",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (apkList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Belum ada file update tersimpan",
+                            fontSize = 13.sp,
+                            color = TextSecondary
+                        )
                     }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
+                } else {
+                    apkList.forEach { file ->
+                        ApkFileItem(
+                            file = file,
+                            onInstall = {
+                                if (!ApkDownloader.canInstallApk(context)) {
+                                    Toast.makeText(
+                                        context,
+                                        "Beri izin 'Install unknown apps' dulu",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    ApkDownloader.openInstallPermissionSettings(context)
+                                } else {
+                                    val ok = ApkDownloader.installApk(context, file.absolutePath)
+                                    if (!ok) {
+                                        Toast.makeText(
+                                            context,
+                                            "Gagal membuka installer APK",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
+                            },
+                            onDelete = {
+                                val deleted = ApkDownloader.deleteApk(file.absolutePath)
+                                if (deleted) {
+                                    Toast.makeText(
+                                        context,
+                                        "Terhapus: ${file.name}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    apkListRefreshKey++
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Gagal menghapus file",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
             }
         }
-    }
-}
 
-// ============================================================
-// RIWAYAT UPDATE
-// ============================================================
-Spacer(modifier = Modifier.height(4.dp))
-Text(
-    text = "RIWAYAT UPDATE",
-    fontSize = 14.sp,
-    fontWeight = FontWeight.Bold,
-    color = IslamicGoldLight
-)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "RIWAYAT UPDATE",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
 
-ActionButton(
-    icon = Icons.Default.History,
-    title = "LIHAT RIWAYAT UPDATE",
-    description = "${UpdateHistory.entries.size} versi tercatat (tidak bisa dihapus)",
-    backgroundColor = Color(0xFF142735),
-    textColor = TextPrimary,
-    enabled = true,
-    onClick = onOpenRiwayatUpdate
-)
+        ActionButton(
+            icon = Icons.Default.History,
+            title = "LIHAT RIWAYAT UPDATE",
+            description = "${UpdateHistory.entries.size} versi tercatat (tidak bisa dihapus)",
+            backgroundColor = Color(0xFF142735),
+            textColor = TextPrimary,
+            enabled = true,
+            onClick = onOpenRiwayatUpdate
+        )
 
-        // ============================================================
-        // IKUTI KAMI
-        // ============================================================
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "IKUTI KAMI",
@@ -508,9 +501,6 @@ ActionButton(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ============================================================
-        // DEVELOPER INFO
-        // ============================================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -553,13 +543,15 @@ ActionButton(
 }
 
 // ============================================================
-// APK FILE ITEM — baris per file APK
+// APK FILE ITEM — Kiri: INSTALL | Kanan: HAPUS (terpisah)
 // ============================================================
 @Composable
 private fun ApkFileItem(
     file: File,
+    onInstall: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var isFocusedInstall by remember { mutableStateOf(false) }
     var isFocusedDelete by remember { mutableStateOf(false) }
 
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
@@ -571,44 +563,70 @@ private fun ApkFileItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF0F2636))
-            .border(1.dp, IslamicGold.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+            .border(
+                width = if (isFocusedInstall) 2.dp else 1.dp,
+                color = if (isFocusedInstall) IslamicGreen else IslamicGold.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(10.dp)
+            )
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon
-        Icon(
-            imageVector = Icons.Default.Download,
-            contentDescription = null,
-            tint = IslamicGreen,
-            modifier = Modifier.size(28.dp)
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Info file
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = file.name,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isFocusedInstall) IslamicGreen.copy(alpha = 0.15f)
+                    else Color.Transparent
+                )
+                .onFocusChanged { isFocusedInstall = it.isFocused }
+                .focusable()
+                .clickable { onInstall() }
+                .padding(vertical = 4.dp, horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isFocusedInstall) Icons.Default.CheckCircle else Icons.Default.Download,
+                contentDescription = "Install",
+                tint = IslamicGreen,
+                modifier = Modifier.size(28.dp)
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "$sizeText · $dateText",
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.name,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "$sizeText · $dateText",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+                if (isFocusedInstall) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "TAP UNTUK INSTALL",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGreen
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Tombol Hapus
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (isFocusedDelete) UrgentRed.copy(alpha = 0.3f) else UrgentRed.copy(alpha = 0.15f))
+                .background(
+                    if (isFocusedDelete) UrgentRed.copy(alpha = 0.3f)
+                    else UrgentRed.copy(alpha = 0.15f)
+                )
                 .border(
                     if (isFocusedDelete) 2.dp else 1.dp,
                     if (isFocusedDelete) UrgentRed else UrgentRed.copy(alpha = 0.6f),
@@ -629,9 +647,6 @@ private fun ApkFileItem(
     }
 }
 
-// ============================================================
-// ACTION BUTTON
-// ============================================================
 @Composable
 private fun ActionButton(
     icon: ImageVector,
@@ -683,9 +698,6 @@ private fun ActionButton(
     }
 }
 
-// ============================================================
-// SOCIAL BUTTON
-// ============================================================
 @Composable
 private fun SocialButton(
     label: String,
@@ -722,9 +734,6 @@ private fun SocialButton(
     }
 }
 
-// ============================================================
-// HELPER — Buka URL
-// ============================================================
 private fun openUrl(context: android.content.Context, url: String) {
     try {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
