@@ -78,6 +78,7 @@ import com.example.ui.theme.TextSecondary
 import com.example.util.RemoteControlClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 // ============================================================
 // WARNA TEMA iO CONTROL — BIRU TEKNOLOGI
@@ -96,13 +97,7 @@ private val IoAmber = Color(0xFFFFA726)
 // STATE MACHINE
 // ============================================================
 enum class IoPhase {
-    SCANNING,
-    CONNECTING,
-    CONNECTED,
-    SENDING,
-    RECEIVING,
-    DONE,
-    ERROR
+    SCANNING, CONNECTING, CONNECTED, SENDING, RECEIVING, DONE, ERROR
 }
 
 @Composable
@@ -127,7 +122,6 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ============ PANDUAN + INFO JARINGAN ============
     var showHelp by remember { mutableStateOf(false) }
     var currentIp by remember { mutableStateOf("...") }
     var isWifiOn by remember { mutableStateOf(false) }
@@ -135,7 +129,9 @@ fun IoControlScreen(
     val scanButtonFocusRequester = remember { FocusRequester() }
     val firstDeviceFocusRequester = remember { FocusRequester() }
 
-    // ============ DETEKSI IP & WIFI VIA NetworkHelper ============
+    // ============================================================
+    // DETEKSI IP & WIFI
+    // ============================================================
     LaunchedEffect(Unit) {
         while (true) {
             currentIp = NetworkHelper.getWiFiIp(context) ?: "Tidak terdeteksi"
@@ -144,9 +140,21 @@ fun IoControlScreen(
         }
     }
 
-    // ============ MULAI SCAN SAAT DIBUKA ============
+    // ============================================================
+    // MULAI SCAN SAAT DIBUKA — SUDAH DI-FIX (kirim deviceId)
+    // ============================================================
     LaunchedEffect(Unit) {
+        val deviceUniqueId = try {
+            android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "masjid-${UUID.randomUUID().toString().take(8)}"
+        } catch (e: Exception) {
+            "masjid-${UUID.randomUUID().toString().take(8)}"
+        }
+
         DeviceDiscovery.configure(
+            deviceId = deviceUniqueId,
             name = deviceName,
             role = deviceRole,
             version = appVersion,
@@ -157,7 +165,9 @@ fun IoControlScreen(
         runCatching { scanButtonFocusRequester.requestFocus() }
     }
 
-    // ============ FOKUS KE DEVICE PERTAMA ============
+    // ============================================================
+    // AUTO-FOKUS KE DEVICE PERTAMA
+    // ============================================================
     LaunchedEffect(devices, phase) {
         if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
             delay(150)
@@ -165,12 +175,16 @@ fun IoControlScreen(
         }
     }
 
-    // ============ CLEANUP ============
+    // ============================================================
+    // CLEANUP
+    // ============================================================
     DisposableEffect(Unit) {
         onDispose { DeviceDiscovery.stopScan() }
     }
 
-    // ============ AUTO-CONNECT ============
+    // ============================================================
+    // AUTO-CONNECT
+    // ============================================================
     LaunchedEffect(selectedDevice, phase) {
         if (phase == IoPhase.CONNECTING && selectedDevice != null) {
             val target = selectedDevice!!
@@ -202,7 +216,9 @@ fun IoControlScreen(
         }
     }
 
-    // ============ REAL SEND ============
+    // ============================================================
+    // REAL SEND
+    // ============================================================
     LaunchedEffect(phase) {
         if (phase == IoPhase.SENDING) {
             val target = selectedDevice ?: return@LaunchedEffect
@@ -236,23 +252,21 @@ fun IoControlScreen(
         }
     }
 
-    // ============ UI — JIKA PANDUAN DIBUKA ============
+    // ============================================================
+    // UI — JIKA PANDUAN DIBUKA
+    // ============================================================
     if (showHelp) {
-        IoControlHelpSheet(
-            onClose = { showHelp = false }
-        )
+        IoControlHelpSheet(onClose = { showHelp = false })
         return
     }
 
-    // ============ UI UTAMA ============
+    // ============================================================
+    // UI UTAMA
+    // ============================================================
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(IoBg, Color(0xFF041020))
-                )
-            )
+            .background(Brush.verticalGradient(listOf(IoBg, Color(0xFF041020))))
     ) {
         IoTopBar(
             title = "iO Control",
@@ -269,11 +283,7 @@ fun IoControlScreen(
             onHelp = { showHelp = true }
         )
 
-        NetworkInfoBar(
-            ip = currentIp,
-            wifiOn = isWifiOn,
-            deviceName = deviceName
-        )
+        NetworkInfoBar(ip = currentIp, wifiOn = isWifiOn, deviceName = deviceName)
 
         when (phase) {
             IoPhase.SCANNING, IoPhase.CONNECTING -> {
@@ -304,9 +314,7 @@ fun IoControlScreen(
                     onDisconnect = {
                         selectedDevice = null
                         phase = IoPhase.SCANNING
-                        scope.launch {
-                            DeviceDiscovery.startScan(context, scope)
-                        }
+                        scope.launch { DeviceDiscovery.startScan(context, scope) }
                     }
                 )
             }
@@ -324,9 +332,7 @@ fun IoControlScreen(
                     onCancel = { phase = IoPhase.CONNECTED }
                 )
             }
-            IoPhase.DONE -> {
-                DoneView(message = statusMessage)
-            }
+            IoPhase.DONE -> DoneView(message = statusMessage)
             IoPhase.ERROR -> {
                 ErrorView(
                     message = errorMessage,
@@ -338,9 +344,7 @@ fun IoControlScreen(
                         selectedDevice = null
                         errorMessage = ""
                         phase = IoPhase.SCANNING
-                        scope.launch {
-                            DeviceDiscovery.startScan(context, scope)
-                        }
+                        scope.launch { DeviceDiscovery.startScan(context, scope) }
                     }
                 )
             }
