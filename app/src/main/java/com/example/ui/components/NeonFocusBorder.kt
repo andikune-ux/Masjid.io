@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import android.graphics.Matrix
+import android.graphics.Paint as AndroidPaint
+import android.graphics.RectF
+import android.graphics.SweepGradient
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -12,33 +16,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * NeonFocusBorder — Border fokus dengan animasi rainbow neon.
+ * NeonFocusBorder — Border fokus dengan animasi rainbow NEON.
  *
- * Fitur:
- *   - 8 warna smooth (merah → oranye → kuning → hijau → cyan → biru → pink → merah)
- *   - Animasi berputar searah jarum jam (3 detik per putaran)
+ * V2 (FIX):
+ *   - Border TETAP DI TEMPAT (bentuk tidak muter)
+ *   - Warna rainbow yang MUTER mengelilingi border (via SweepGradient + Matrix)
  *   - Saat D-pad ditekan (OK) → warna emas berkedip cepat
- *   - Hanya aktif saat `focused = true` (hemat GPU)
- *
- * Cara pakai:
- *   NeonFocusBorder(
- *       focused = isFocused,
- *       pressed = isPressed,
- *       cornerRadius = 12.dp
- *   ) {
- *       // konten di sini
- *   }
  */
 @Composable
 fun NeonFocusBorder(
@@ -82,49 +71,53 @@ fun NeonFocusBorder(
                 val stroke = borderWidth.toPx()
                 val inset = stroke / 2f
                 val radiusPx = cornerRadius.toPx()
+                val cx = size.width / 2f
+                val cy = size.height / 2f
 
-                if (pressed) {
-                    // ===== EFEK DI-TEKAN: EMAS BERKEDIP =====
-                    drawRoundRect(
-                        color = Color(0xFFFFD700).copy(alpha = flashAlpha),
-                        topLeft = Offset(inset, inset),
-                        size = Size(
-                            width = size.width - stroke,
-                            height = size.height - stroke
-                        ),
-                        cornerRadius = CornerRadius(radiusPx, radiusPx),
-                        style = Stroke(width = stroke * 1.3f)
-                    )
-                } else {
-                    // ===== RAINBOW BERPUTAR =====
-                    val rainbowColors = listOf(
-                        Color(0xFFFF1744),  // Merah
-                        Color(0xFFFF6D00),  // Oranye
-                        Color(0xFFFFEA00),  // Kuning
-                        Color(0xFF00E676),  // Hijau
-                        Color(0xFF00E5FF),  // Cyan
-                        Color(0xFF2979FF),  // Biru
-                        Color(0xFFD500F9),  // Pink
-                        Color(0xFFFF1744)   // Merah (loop)
-                    )
-
-                    val sweep = Brush.sweepGradient(
-                        colors = rainbowColors,
-                        center = Offset(size.width / 2f, size.height / 2f)
-                    )
-
-                    rotate(rotation, pivot = Offset(size.width / 2f, size.height / 2f)) {
-                        drawRoundRect(
-                            brush = sweep,
-                            topLeft = Offset(inset, inset),
-                            size = Size(
-                                width = size.width - stroke,
-                                height = size.height - stroke
-                            ),
-                            cornerRadius = CornerRadius(radiusPx, radiusPx),
-                            style = Stroke(width = stroke)
-                        )
+                drawIntoCanvas { canvas ->
+                    val paint = AndroidPaint().apply {
+                        isAntiAlias = true
+                        style = AndroidPaint.Style.STROKE
+                        strokeWidth = stroke
                     }
+
+                    if (pressed) {
+                        // ===== EFEK DI-TEKAN: EMAS BERKEDIP =====
+                        paint.color = 0xFFFFD700.toInt()
+                        paint.alpha = (flashAlpha * 255).toInt()
+                    } else {
+                        // ===== RAINBOW GRADIENT YANG BERPUTAR =====
+                        // Warna 8 titik (loop) — smooth transition antar warna
+                        val rainbowColors = intArrayOf(
+                            0xFFFF1744.toInt(), // Merah
+                            0xFFFF6D00.toInt(), // Oranye
+                            0xFFFFEA00.toInt(), // Kuning
+                            0xFF00E676.toInt(), // Hijau
+                            0xFF00E5FF.toInt(), // Cyan
+                            0xFF2979FF.toInt(), // Biru
+                            0xFFD500F9.toInt(), // Pink
+                            0xFFFF1744.toInt()  // Merah (loop ke awal)
+                        )
+
+                        // SweepGradient: warna menyebar 360° dari center
+                        val shader = SweepGradient(cx, cy, rainbowColors, null)
+
+                        // Matrix rotate: putar gradient supaya warnanya "berjalan"
+                        val matrix = Matrix()
+                        matrix.setRotate(rotation, cx, cy)
+                        shader.setLocalMatrix(matrix)
+
+                        paint.shader = shader
+                    }
+
+                    // Gambar outline border (bentuk TETAP — hanya warna yang muter)
+                    val rect = RectF(
+                        inset,
+                        inset,
+                        size.width - inset,
+                        size.height - inset
+                    )
+                    canvas.nativeCanvas.drawRoundRect(rect, radiusPx, radiusPx, paint)
                 }
             }
         }
