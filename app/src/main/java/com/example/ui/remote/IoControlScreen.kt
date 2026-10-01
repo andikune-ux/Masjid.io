@@ -73,7 +73,6 @@ import com.example.data.local.SettingsRepository
 import com.example.ui.components.NeonFocusBorder
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.MosqueDeepBg
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.util.RemoteControlClient
@@ -120,7 +119,6 @@ fun IoControlScreen(
 
     val devices by DeviceDiscovery.devices.collectAsState()
     val isScanning by DeviceDiscovery.isScanning.collectAsState()
-    val discoveryError by DeviceDiscovery.lastError.collectAsState()
     val currentSettings by settingsRepository.settingsFlow.collectAsState()
 
     var phase by remember { mutableStateOf(IoPhase.SCANNING) }
@@ -129,7 +127,7 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ============ STATE BARU: Panduan + Info Jaringan ============
+    // ============ PANDUAN + INFO JARINGAN ============
     var showHelp by remember { mutableStateOf(false) }
     var currentIp by remember { mutableStateOf("...") }
     var isWifiOn by remember { mutableStateOf(false) }
@@ -178,7 +176,6 @@ fun IoControlScreen(
             val target = selectedDevice!!
             statusMessage = "Menghubungi ${target.name}..."
 
-            // Pre-check: pakai NetworkHelper.testConnectivity dulu
             val reachable = NetworkHelper.testConnectivity(target.ip, target.port, 3000)
             if (!reachable) {
                 phase = IoPhase.ERROR
@@ -272,7 +269,6 @@ fun IoControlScreen(
             onHelp = { showHelp = true }
         )
 
-        // ============ INFO JARINGAN (KECIL DI BAWAH TOP BAR) ============
         NetworkInfoBar(
             ip = currentIp,
             wifiOn = isWifiOn,
@@ -285,7 +281,6 @@ fun IoControlScreen(
                     devices = devices,
                     isScanning = isScanning,
                     myRole = deviceRole,
-                    discoveryError = discoveryError,
                     onDeviceClick = { device ->
                         selectedDevice = device
                         phase = IoPhase.CONNECTING
@@ -354,7 +349,7 @@ fun IoControlScreen(
 }
 
 // ============================================================
-// TOP BAR — dengan tombol Panduan
+// TOP BAR
 // ============================================================
 @Composable
 private fun IoTopBar(
@@ -372,7 +367,6 @@ private fun IoTopBar(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Tombol Kembali
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -404,7 +398,6 @@ private fun IoTopBar(
             }
         }
 
-        // Tombol Panduan
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
@@ -487,7 +480,6 @@ private fun ScanningView(
     devices: List<DiscoveredDevice>,
     isScanning: Boolean,
     myRole: String,
-    discoveryError: String?,
     onDeviceClick: (DiscoveredDevice) -> Unit,
     onRescan: () -> Unit,
     scanButtonFocusRequester: FocusRequester,
@@ -548,17 +540,6 @@ private fun ScanningView(
                             fontSize = 12.sp,
                             color = TextSecondary.copy(alpha = 0.6f)
                         )
-
-                        // Kalau ada error dari discovery
-                        if (!discoveryError.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "⚠ $discoveryError",
-                                fontSize = 11.sp,
-                                color = IoAmber,
-                                textAlign = TextAlign.Center
-                            )
-                        }
                     }
                 }
             } else {
