@@ -183,7 +183,7 @@ fun SettingsScreen(
 
         // BODY
         Row(modifier = Modifier.fillMaxSize()) {
-            // ============ SIDEBAR ============
+            // SIDEBAR
             Column(
                 modifier = Modifier
                     .weight(0.32f)
@@ -191,7 +191,7 @@ fun SettingsScreen(
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = 16.dp, horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)   // ← 8 → 16 dp
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SettingsCategory.values().forEach { cat ->
                     SidebarItem(
@@ -218,14 +218,14 @@ fun SettingsScreen(
                 }
             }
             
-            // ============ PANE KANAN ============
+            // PANE KANAN — TANPA .focusable() (fix D-pad scroll)
             Box(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
                     .focusRequester(paneFocusRequester)
-                    .focusable()
+                    // .focusable() ← DIHAPUS: biar fokus masuk ke tombol di dalam pane
             ) {
                 key(previewCategory) {
                     var visible by remember { mutableStateOf(false) }
