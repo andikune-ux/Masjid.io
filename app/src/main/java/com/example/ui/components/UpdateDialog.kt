@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SkipNext
@@ -26,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,18 +51,33 @@ import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
 
 /**
- * Dialog update dengan 3 tombol: Update / Nanti / Skip
+ * UpdateDialog — Dialog update aplikasi.
  *
- * @param currentVersion Versi saat ini (contoh: V1.28.1)
- * @param latestVersion Versi terbaru dari GitHub
+ * MODE NORMAL (forceUpdate=false):
+ *   ┌─────────────────────────────────────┐
+ *   │  [Isi info update + changelog]      │
+ *   ├─────────────────────────────────────┤
+ *   │  [Skip]              [Nanti] [Update]│
+ *   └─────────────────────────────────────┘
+ *
+ * MODE FORCE (forceUpdate=true):
+ *   ┌─────────────────────────────────────┐
+ *   │  [Isi info update + changelog]      │
+ *   ├─────────────────────────────────────┤
+ *   │  [Tidak]                    [Update]│
+ *   └─────────────────────────────────────┘
+ *
+ * @param currentVersion Versi saat ini
+ * @param latestVersion Versi terbaru
  * @param releaseNotes Catatan rilis dari GitHub
- * @param forceUpdate Kalau true → hanya tombol "Update" yang muncul (wajib update)
+ * @param forceUpdate Kalau true → mode wajib update (2 tombol)
  * @param downloadProgress Progress download (0f..1f). Null = belum mulai.
  * @param isDownloading Sedang download?
  * @param isInstalling Sedang install?
- * @param onUpdateClick Klik tombol "Update Sekarang"
- * @param onLaterClick Klik tombol "Nanti" (tampil lagi nanti)
- * @param onSkipClick Klik tombol "Skip" (tidak tampil lagi sampai versi lebih tinggi)
+ * @param onUpdateClick Klik UPDATE SEKARANG
+ * @param onLaterClick Klik NANTI (muncul lagi di buka berikutnya)
+ * @param onSkipClick Klik SKIP (tidak muncul sampai versi lebih tinggi)
+ * @param onTidakClick Klik TIDAK (mode force) — app akan keluar
  */
 @Composable
 fun UpdateDialog(
@@ -74,14 +90,18 @@ fun UpdateDialog(
     isInstalling: Boolean = false,
     onUpdateClick: () -> Unit,
     onLaterClick: () -> Unit,
-    onSkipClick: () -> Unit
+    onSkipClick: () -> Unit,
+    onTidakClick: () -> Unit = onSkipClick
 ) {
+    val isLocked = isDownloading || isInstalling
+
     Dialog(
         onDismissRequest = {
-            if (!forceUpdate && !isDownloading) onLaterClick()
+            // Saat force update atau sedang download/install → tidak bisa dismiss
+            if (!forceUpdate && !isLocked) onLaterClick()
         },
         properties = DialogProperties(
-            dismissOnBackPress = !forceUpdate && !isDownloading,
+            dismissOnBackPress = !forceUpdate && !isLocked,
             dismissOnClickOutside = false
         )
     ) {
@@ -95,7 +115,9 @@ fun UpdateDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // ============================================================
             // HEADER
+            // ============================================================
             Icon(
                 imageVector = Icons.Default.SystemUpdate,
                 contentDescription = null,
@@ -117,7 +139,9 @@ fun UpdateDialog(
                 textAlign = TextAlign.Center
             )
 
+            // ============================================================
             // VERSI
+            // ============================================================
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -128,15 +152,27 @@ fun UpdateDialog(
             ) {
                 Column {
                     Text("Versi Saat Ini", fontSize = 11.sp, color = TextSecondary)
-                    Text(currentVersion, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text(
+                        currentVersion,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Versi Terbaru", fontSize = 11.sp, color = TextSecondary)
-                    Text(latestVersion, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGreen)
+                    Text(
+                        latestVersion,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGreen
+                    )
                 }
             }
 
-            // CATATAN RILIS
+            // ============================================================
+            // CHANGELOG
+            // ============================================================
             if (!releaseNotes.isNullOrBlank()) {
                 Column(
                     modifier = Modifier
@@ -155,7 +191,7 @@ fun UpdateDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
+                            .height(140.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
                         Text(
@@ -168,11 +204,13 @@ fun UpdateDialog(
                 }
             }
 
-            // PROGRESS (saat download/install)
+            // ============================================================
+            // PROGRESS BAR
+            // ============================================================
             if (isDownloading && downloadProgress != null) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Mengunduh update... ${(downloadProgress * 100).toInt()}%",
+                        text = "⬇️ Mengunduh update... ${(downloadProgress * 100).toInt()}%",
                         fontSize = 13.sp,
                         color = IslamicGoldLight,
                         fontWeight = FontWeight.Bold
@@ -197,83 +235,126 @@ fun UpdateDialog(
             }
 
             if (isInstalling) {
-                Text(
-                    text = "📦 Menginstall update...",
-                    fontSize = 14.sp,
-                    color = IslamicGreen,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(IslamicGreen.copy(alpha = 0.15f))
+                        .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📦 Menginstall update...",
+                        fontSize = 14.sp,
+                        color = IslamicGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
-            // TOMBOL
             Spacer(modifier = Modifier.height(8.dp))
 
+            // ============================================================
+            // TOMBOL — 2 MODE
+            // ============================================================
             if (forceUpdate) {
-                // MODE WAJIB UPDATE — hanya 1 tombol
-                DialogButton(
-                    icon = Icons.Default.Download,
-                    text = "UPDATE SEKARANG",
-                    backgroundColor = IslamicGold,
-                    textColor = Color(0xFF09141D),
-                    enabled = !isDownloading && !isInstalling,
-                    onClick = onUpdateClick
-                )
+                // ===== MODE FORCE: 2 TOMBOL =====
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        DialogButton(
+                            icon = Icons.Default.Cancel,
+                            text = "TIDAK",
+                            backgroundColor = Color(0xFF142735),
+                            textColor = UrgentRed,
+                            enabled = !isLocked,
+                            onClick = onTidakClick
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        DialogButton(
+                            icon = Icons.Default.Download,
+                            text = "UPDATE",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            enabled = !isLocked,
+                            onClick = onUpdateClick
+                        )
+                    }
+                }
 
                 Text(
-                    text = "⚠️ Update wajib. Aplikasi tidak dapat digunakan sebelum update selesai.",
+                    text = "⚠️ Update ini WAJIB. Aplikasi tidak dapat digunakan sebelum update selesai.",
                     fontSize = 12.sp,
                     color = UrgentRed,
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Bold
                 )
             } else {
-                // MODE BOLEH SKIP — 3 tombol
-                DialogButton(
-                    icon = Icons.Default.Download,
-                    text = "UPDATE SEKARANG",
-                    backgroundColor = IslamicGold,
-                    textColor = Color(0xFF09141D),
-                    enabled = !isDownloading && !isInstalling,
-                    onClick = onUpdateClick
-                )
-
+                // ===== MODE NORMAL: 3 TOMBOL (Skip kiri, Nanti+Update kanan) =====
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        DialogButton(
-                            icon = Icons.Default.Schedule,
-                            text = "NANTI",
-                            backgroundColor = Color(0xFF142735),
-                            textColor = TextPrimary,
-                            enabled = !isDownloading && !isInstalling,
-                            onClick = onLaterClick
-                        )
-                    }
+                    // [Skip] — kiri
                     Box(modifier = Modifier.weight(1f)) {
                         DialogButton(
                             icon = Icons.Default.SkipNext,
                             text = "SKIP",
                             backgroundColor = Color(0xFF142735),
                             textColor = UrgentRed,
-                            enabled = !isDownloading && !isInstalling,
+                            enabled = !isLocked,
                             onClick = onSkipClick
+                        )
+                    }
+
+                    // Spacer pemisah
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // [Nanti] — kanan
+                    Box(modifier = Modifier.weight(1f)) {
+                        DialogButton(
+                            icon = Icons.Default.Schedule,
+                            text = "NANTI",
+                            backgroundColor = Color(0xFF142735),
+                            textColor = TextPrimary,
+                            enabled = !isLocked,
+                            onClick = onLaterClick
+                        )
+                    }
+
+                    // [Update] — kanan
+                    Box(modifier = Modifier.weight(1f)) {
+                        DialogButton(
+                            icon = Icons.Default.Download,
+                            text = "UPDATE",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            enabled = !isLocked,
+                            onClick = onUpdateClick
                         )
                     }
                 }
 
                 Text(
-                    text = "Nanti: muncul lagi saat app dibuka. Skip: tidak muncul sampai versi lebih tinggi.",
+                    text = "Nanti: muncul lagi saat app dibuka.\nSkip: tidak muncul sampai versi lebih tinggi.",
                     fontSize = 11.sp,
                     color = TextSecondary,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp
                 )
             }
         }
     }
 }
 
+// ============================================================
+// DIALOG BUTTON
+// ============================================================
 @Composable
 private fun DialogButton(
     icon: ImageVector,
@@ -292,11 +373,15 @@ private fun DialogButton(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(bg)
-            .border(if (isFocused && enabled) 3.dp else 0.dp, borderColor, RoundedCornerShape(12.dp))
+            .border(
+                if (isFocused && enabled) 3.dp else 0.dp,
+                borderColor,
+                RoundedCornerShape(12.dp)
+            )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable(enabled)
             .clickable(enabled) { onClick() }
-            .padding(vertical = 14.dp, horizontal = 16.dp),
+            .padding(vertical = 14.dp, horizontal = 12.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -304,12 +389,12 @@ private fun DialogButton(
             imageVector = icon,
             contentDescription = text,
             tint = textColor,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = textColor
         )
