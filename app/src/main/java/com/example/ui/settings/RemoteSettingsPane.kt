@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -41,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusGroup
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -79,6 +79,9 @@ fun RemoteSettingsPane(
         mutableStateOf(settings.remoteControlEnabled)
     }
 
+    // ============================================================
+    // AUTO-REFRESH IP & STATUS JARINGAN SETIAP 5 DETIK
+    // ============================================================
     var currentIp by remember { mutableStateOf(getLocalIpAddress(context)) }
     var currentNetworkOn by remember { mutableStateOf(isNetworkConnected(context)) }
 
@@ -90,10 +93,13 @@ fun RemoteSettingsPane(
         }
     }
 
+    // ============================================================
+    // ROOT COLUMN — focusGroup + verticalScroll
+    // ============================================================
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .focusGroup()   // ← TAMBAH INI — biar D-pad bisa navigasi antar elemen
+            .focusGroup()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -205,7 +211,7 @@ fun RemoteSettingsPane(
             }
         }
 
-        // AKTIFKAN REMOTE SERVER (toggle — TvToggle sudah focusable)
+        // AKTIFKAN REMOTE SERVER (toggle)
         RemoteSectionCard(title = "AKTIFKAN REMOTE SERVER") {
             Column {
                 Text(
@@ -227,7 +233,7 @@ fun RemoteSettingsPane(
             }
         }
         
-        // AKSES DARI HP (kalau server ON)
+        // AKSES DARI HP — dengan TOMBOL SALIN OTOMATIS
         if (isServerRunning) {
             val fullUrl = "http://$currentIp:${settings.remoteServerPort}/?token=${settings.remoteAuthToken}"
 
@@ -322,7 +328,6 @@ private fun CopyUrlBox(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        // URL Display
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -393,7 +398,6 @@ private fun CopyUrlBox(
             }
         }
 
-        // Info chip
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -403,7 +407,6 @@ private fun CopyUrlBox(
             InfoChip(label = "TOKEN", value = token)
         }
 
-        // Warning kalau network off
         if (!networkOn) {
             Box(
                 modifier = Modifier
@@ -492,7 +495,7 @@ private fun RemoteSectionCard(
 }
 
 // ============================================================
-// HELPERS
+// HELPERS — PAKAI ConnectivityManager (Android 12+ friendly)
 // ============================================================
 private fun isNetworkConnected(context: Context): Boolean {
     return try {
