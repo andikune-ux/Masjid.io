@@ -3,6 +3,7 @@ package com.example.ui.settings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Notifications
@@ -64,6 +66,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.audio.SoundManager
@@ -74,6 +77,7 @@ import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.MosqueDeepBg
 import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -104,6 +108,8 @@ enum class SettingsCategory(
 
 object SettingsNavState {
     var lastCategory: SettingsCategory = SettingsCategory.LOCATION
+    // Flag unlock Opsi Developer (persist selama app berjalan)
+    var isDeveloperUnlocked: Boolean = false
 }
 
 @Composable
@@ -199,7 +205,14 @@ fun SettingsScreen(
                         isSelected = selectedCategory == cat,
                         onClick = {
                             if (cat == SettingsCategory.DEVELOPER) {
-                                showDeveloperPinDialog = true
+                                if (SettingsNavState.isDeveloperUnlocked) {
+                                    // Sudah unlock — langsung tampil
+                                    selectedCategory = cat
+                                    previewCategory = cat
+                                } else {
+                                    // Belum unlock — tampil PIN dialog
+                                    showDeveloperPinDialog = true
+                                }
                             } else {
                                 selectedCategory = cat
                                 previewCategory = cat
@@ -209,7 +222,13 @@ fun SettingsScreen(
                             if (isFocused) {
                                 scope.launch {
                                     delay(100)
-                                    previewCategory = cat
+                                    // Preview hanya untuk kategori NON-DEVELOPER
+                                    // atau kalau developer sudah unlock
+                                    if (cat != SettingsCategory.DEVELOPER ||
+                                        SettingsNavState.isDeveloperUnlocked
+                                    ) {
+                                        previewCategory = cat
+                                    }
                                 }
                             }
                         },
@@ -218,14 +237,13 @@ fun SettingsScreen(
                 }
             }
             
-            // PANE KANAN — TANPA .focusable() (fix D-pad scroll)
+            // PANE KANAN
             Box(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
                     .focusRequester(paneFocusRequester)
-                    // .focusable() ← DIHAPUS: biar fokus masuk ke tombol di dalam pane
             ) {
                 key(previewCategory) {
                     var visible by remember { mutableStateOf(false) }
@@ -238,88 +256,97 @@ fun SettingsScreen(
                         label = "pane_fade"
                     )
                     Box(modifier = Modifier.fillMaxSize().alpha(alpha)) {
-                        when (previewCategory) {
-                            SettingsCategory.LOCATION -> LocationSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.COUNTDOWN -> CountdownSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.IDENTITY -> IdentitySettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.QRIS_DONATION -> QrisSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it },
-                                onTestQrisFocus = onTestQrisFocus
-                            )
-                            SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.APPEARANCE -> CustomBackgroundPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.AUDIO -> AudioSettingsPane(
-                                settings = draftSettings,
-                                soundManager = soundManager,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.RAMADHAN -> RamadhanSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.SECURITY -> SecuritySettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it },
-                                onChangePinClick = { showChangePinDialog = true }
-                            )
-                            SettingsCategory.POWER -> PowerSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.SLIDESHOW -> SlideSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.CCTV -> CctvSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it }
-                            )
-                            SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
-                                settings = draftSettings,
-                                isServerRunning = isRemoteServerRunning,
-                                onUpdate = { draftSettings = it },
-                                onOpenIoControl = onOpenIoControl
-                            )
-                            SettingsCategory.ABOUT -> AboutSettingsPane(
-                                onOpenRiwayatUpdate = { showRiwayatUpdate = true }
-                            )
-                            SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
-                                settings = draftSettings,
-                                onUpdate = { draftSettings = it },
-                                modifier = Modifier.fillMaxSize()
-                            )
+
+                        // ============ CEK DEVELOPER BELUM UNLOCK ============
+                        if (previewCategory == SettingsCategory.DEVELOPER &&
+                            !SettingsNavState.isDeveloperUnlocked
+                        ) {
+                            // Tampilkan placeholder kosong (LOCKED)
+                            DeveloperLockedPane()
+                        } else {
+                            when (previewCategory) {
+                                SettingsCategory.LOCATION -> LocationSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.COUNTDOWN -> CountdownSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.IDENTITY -> IdentitySettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.QRIS_DONATION -> QrisSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it },
+                                    onTestQrisFocus = onTestQrisFocus
+                                )
+                                SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.APPEARANCE -> CustomBackgroundPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.AUDIO -> AudioSettingsPane(
+                                    settings = draftSettings,
+                                    soundManager = soundManager,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.RAMADHAN -> RamadhanSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.SECURITY -> SecuritySettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it },
+                                    onChangePinClick = { showChangePinDialog = true }
+                                )
+                                SettingsCategory.POWER -> PowerSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.SLIDESHOW -> SlideSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.CCTV -> CctvSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
+                                    settings = draftSettings,
+                                    isServerRunning = isRemoteServerRunning,
+                                    onUpdate = { draftSettings = it },
+                                    onOpenIoControl = onOpenIoControl
+                                )
+                                SettingsCategory.ABOUT -> AboutSettingsPane(
+                                    onOpenRiwayatUpdate = { showRiwayatUpdate = true }
+                                )
+                                SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 }
@@ -332,6 +359,7 @@ fun SettingsScreen(
             correctPin = "140399",
             onSuccess = {
                 showDeveloperPinDialog = false
+                SettingsNavState.isDeveloperUnlocked = true   // ← Set unlock
                 selectedCategory = SettingsCategory.DEVELOPER
                 previewCategory = SettingsCategory.DEVELOPER
             },
@@ -348,6 +376,43 @@ fun SettingsScreen(
             },
             onDismiss = { showChangePinDialog = false }
         )
+    }
+}
+
+// ============================================================
+// DEVELOPER LOCKED PANE — placeholder sebelum PIN benar
+// ============================================================
+@Composable
+private fun DeveloperLockedPane() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Terkunci",
+                tint = IslamicGold.copy(alpha = 0.5f),
+                modifier = Modifier.size(72.dp)
+            )
+            Text(
+                text = "🔒 AKSES TERKUNCI",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight
+            )
+            Text(
+                text = "Menu ini memerlukan PIN Developer.\n" +
+                        "Klik \"Opsi Developer\" di sidebar kiri untuk memasukkan PIN.",
+                fontSize = 13.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp
+            )
+        }
     }
 }
 
