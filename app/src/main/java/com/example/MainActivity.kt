@@ -1,10 +1,12 @@
 package com.example
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -39,6 +42,7 @@ import com.example.ui.remote.RemoteServer
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.MasjidTheme
 import com.example.ui.theme.MosqueDeepBg
+import com.example.util.ApkDownloader
 import com.example.util.CrashAutoShowHelper
 import com.example.util.CrashLogDialog
 import com.example.util.CrashReporter
@@ -60,6 +64,9 @@ enum class AppScreen {
     RAMADHAN,
     IO_CONTROL
 }
+
+private const val UPDATE_PREFS = "update_prefs"
+private const val KEY_SKIPPED_VERSION = "skipped_version"
 
 class MainActivity : ComponentActivity() {
 
@@ -84,9 +91,29 @@ class MainActivity : ComponentActivity() {
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
         setContent {
+            val context = LocalContext.current
             val settings by settingsRepository.settingsFlow.collectAsState()
+            val scope = rememberCoroutineScope()
 
             var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
+
+            // ============ UPDATE STATE BARU ============
+            var showUpdateDialog by remember { mutableStateOf(false) }
+            var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
+            var downloadProgress by remember { mutableFloatStateOf(0f) }
+            var isDownloading by remember { mutableStateOf(false) }
+            var isInstalling by remember { mutableStateOf(false) }
+
+            // Helper skip version (SharedPreferences)
+            val updatePrefs = remember {
+                context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
+            }
+            fun getSkippedVersion(): String? =
+                updatePrefs.getString(KEY_SKIPPED_VERSION, null)
+
+            fun setSkippedVersion(version: String) {
+                updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
+            }
 
             // ============ SYNC FONNTE ============
             LaunchedEffect(
@@ -151,70 +178,19 @@ class MainActivity : ComponentActivity() {
                 )
             }
             var isRemoteServerRunning by remember { mutableStateOf(false) }
-            val scope = rememberCoroutineScope()
 
-            // ============ CEK REAL STATUS SERVER + AUTO REPORT WA ============
             LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
                 if (settings.remoteControlEnabled) {
                     remoteServer.stop()
                     delay(300)
                     remoteServer.start(scope)
-
                     delay(2500)
-
                     val realStatus = remoteServer.isRunning()
                     isRemoteServerRunning = realStatus
-
                     if (!realStatus) {
-                        val errorMsg = remoteServer.lastError ?: "Unknown error"
-                        val port = settings.remoteServerPort
                         android.util.Log.e(
                             "MainActivity",
-                            "❌ Remote Server GAGAL start di port $port: $errorMsg"
-                        )
-
-                        if (settings.whatsappReportEnabled &&
-                            settings.fonnteToken.isNotBlank() &&
-                            settings.fonnteGroupId.isNotBlank()
-                        ) {
-                            val reportMsg = """
-🚨 *SERVER REMOTE GAGAL START* 🚨
-
-📟 Device: $deviceName
-🎭 Role: $deviceRole
-🔌 Port: $port
-❗ Error: $errorMsg
-
-*Detail:*
-Cek Logcat dengan tag "RemoteServer" untuk info lengkap.
-
-*Solusi:*
-1. Force close aplikasi lain (misal remote TV)
-2. Restart HP/TV
-3. Coba aktifkan lagi
-                            """.trimIndent()
-
-                            scope.launch {
-                                try {
-                                    val result = FonnteSender.sendToGroup(
-                                        token = settings.fonnteToken,
-                                        groupId = settings.fonnteGroupId,
-                                        messageText = reportMsg
-                                    )
-                                    if (result.success) {
-                                        android.util.Log.d("MainActivity", "✅ Report WA terkirim")
-                                    } else {
-                                        android.util.Log.e("MainActivity", "❌ Report WA gagal: ${result.message}")
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MainActivity", "❌ Exception kirim report: ${e.message}")
-                                }
-                            }
-                        }
-                    } else {
-                        android.util.Log.d(
-                            "MainActivity",
-                            "✅ Remote Server RUNNING di port ${remoteServer.actualPort}"
+                            "❌ Remote Server gagal: ${remoteServer.lastError}"
                         )
                     }
                 } else {
@@ -224,31 +200,108 @@ Cek Logcat dengan tag "RemoteServer" untuk info lengkap.
             }
 
             DisposableEffect(Unit) {
-                onDispose {
-                    remoteServer.stop()
-                }
+                onDispose { remoteServer.stop() }
             }
 
-            // ============ PERMISSIONS ============
-            val permissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { }
-
+            // ============ CEK UPDATE ============
             LaunchedEffect(Unit) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    permissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.READ_MEDIA_IMAGES,
-                            Manifest.permission.READ_MEDIA_VIDEO
-                        )
-                    )
+                try {
+                    delay(3000)
+                    val info = UpdateManager.checkForUpdate()
+                    if (info.available) {
+                        val skippedVersion = getSkippedVersion()
+                        val isSkipped = skippedVersion == info.latestVersion
+
+                        // Tampil dialog kalau:
+                        //   - Force update → WAJIB tampil (meski di-skip)
+                        //   - Belum di-skip → tampil
+                        if (info.isForceUpdate || !isSkipped) {
+                            updateInfo = info
+                            showUpdateDialog = true
+                        }
+                    }
+                } catch (_: Exception) { }
+            }
+
+            // ============ HANDLER TOMBOL UPDATE ============
+            val startDownload: () -> Unit = {
+                val info = updateInfo
+                if (info?.downloadUrl.isNullOrBlank()) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "URL download tidak tersedia",
+                        Toast.LENGTH_LONG
+                    ).show()
                 } else {
-                    permissionLauncher.launch(
-                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-                    )
+                    isDownloading = true
+                    downloadProgress = 0f
+
+                    scope.launch {
+                        ApkDownloader.downloadApk(
+                            context = this@MainActivity,
+                            downloadUrl = info!!.downloadUrl!!,
+                            fileName = "masjid-io-${info.latestVersion}.apk"
+                        ).collect { state ->
+                            when {
+                                state.errorMessage != null -> {
+                                    isDownloading = false
+                                    isInstalling = false
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Download gagal: ${state.errorMessage}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                state.isFinished && state.savedFilePath != null -> {
+                                    isDownloading = false
+                                    isInstalling = true
+
+                                    // Auto install
+                                    val ok = ApkDownloader.installApk(
+                                        this@MainActivity,
+                                        state.savedFilePath
+                                    )
+                                    if (!ok) {
+                                        isInstalling = false
+                                        // Minta izin install
+                                        ApkDownloader.openInstallPermissionSettings(this@MainActivity)
+                                    } else {
+                                        // Hapus APK lama (keep 2) setelah install
+                                        ApkDownloader.deleteOldApks(
+                                            this@MainActivity,
+                                            keepCount = 2
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    downloadProgress = state.progress
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
+// ============ PERMISSIONS ============
+val permissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestMultiplePermissions()
+) { }
+
+LaunchedEffect(Unit) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+        )
+    } else {
+        permissionLauncher.launch(
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        )
+    }
+}
+
 // ============ KEEP SCREEN ON ============
 DisposableEffect(settings.keepScreenOn) {
     if (settings.keepScreenOn) {
@@ -263,21 +316,6 @@ var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
 var showPinDialog by remember { mutableStateOf(false) }
 var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
 var focusPrayerTime by remember { mutableStateOf("17:52") }
-
-// ============ UPDATE STATE ============
-var showUpdateDialog by remember { mutableStateOf(false) }
-var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
-
-LaunchedEffect(Unit) {
-    try {
-        delay(3000)
-        val info = UpdateManager.checkForUpdate()
-        if (info.available) {
-            updateInfo = info
-            showUpdateDialog = true
-        }
-    } catch (_: Exception) { }
-}
 
 // ============ WEATHER ============
 var currentTemperature by remember { mutableStateOf(30) }
@@ -298,6 +336,10 @@ LaunchedEffect(settings.latitude, settings.longitude) {
 DisposableEffect(settings.kioskModeEnabled, currentScreen) {
     val callback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
+            // Kalau update dialog muncul + force atau sedang download → tahan back
+            if (showUpdateDialog && updateInfo?.isForceUpdate == true) return
+            if (isDownloading || isInstalling) return
+
             when (currentScreen) {
                 AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW,
                 AppScreen.RAMADHAN, AppScreen.IO_CONTROL ->
@@ -422,126 +464,141 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
     }
 }
 
-            MasjidTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MosqueDeepBg
-                ) {
-                    // ============ DIALOG CRASH ============
-                    if (showCrashDialog) {
-                        CrashLogDialog(
-                            log = pendingCrashLog,
-                            onDismiss = {
-                                CrashAutoShowHelper.markAsSeen(this@MainActivity)
-                                showCrashDialog = false
+        MasjidTheme {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MosqueDeepBg
+            ) {
+                // ============ DIALOG CRASH ============
+                if (showCrashDialog) {
+                    CrashLogDialog(
+                        log = pendingCrashLog,
+                        onDismiss = {
+                            CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                            showCrashDialog = false
+                        }
+                    )
+                } else {
+                    Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                        when (screen) {
+                            AppScreen.HOME -> HomeScreen(
+                                settings = settings,
+                                schedule = prayerSchedule,
+                                currentTimeString = currentTimeString,
+                                hijriDateString = hijriDateString,
+                                gregorianDateString = gregorianDateString,
+                                upcomingEvent = upcomingEvent,
+                                temperature = currentTemperature,
+                                weatherCondition = currentWeatherCondition,
+                                onSettingsClick = { showPinDialog = true }
+                            )
+                            AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                                prayerId = focusPrayerId,
+                                prayerTimeFormatted = focusPrayerTime,
+                                totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                                iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                                qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                                settings = settings,
+                                onDismiss = { currentScreen = AppScreen.HOME }
+                            )
+                            AppScreen.SETTINGS -> SettingsScreen(
+                                currentSettings = settings,
+                                soundManager = soundManager,
+                                isRemoteServerRunning = isRemoteServerRunning,
+                                onAutoSaveSettings = { updated ->
+                                    settingsRepository.updateSettings(updated)
+                                },
+                                onSaveSettings = { updated ->
+                                    settingsRepository.updateSettings(updated)
+                                    currentScreen = AppScreen.HOME
+                                },
+                                onBack = { currentScreen = AppScreen.HOME },
+                                onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
+                                onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
+                            )
+                            AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                                settings = settings,
+                                onDismiss = { currentScreen = AppScreen.SETTINGS }
+                            )
+                            AppScreen.RAMADHAN -> RamadhanOverlay(
+                                settings = settings,
+                                currentTimeString = currentTimeString,
+                                imsakTime = prayerSchedule.imsak,
+                                maghribTime = prayerSchedule.maghrib,
+                                secondsToImsak = secondsToImsak,
+                                secondsToMaghrib = secondsToMaghrib,
+                                onDismiss = {
+                                    currentScreen = AppScreen.HOME
+                                    userDismissedRamadhan = true
+                                }
+                            )
+                            AppScreen.IO_CONTROL -> IoControlScreen(
+                                settingsRepository = settingsRepository,
+                                deviceName = deviceName,
+                                deviceRole = deviceRole,
+                                appVersion = com.example.BuildConfig.VERSION_NAME,
+                                serverPort = settings.remoteServerPort,
+                                onBack = { currentScreen = AppScreen.SETTINGS }
+                            )
+                        }
+                    }
+
+                    // ============ PIN DIALOG ============
+                    if (showPinDialog) {
+                        PinDialog(
+                            correctPin = settings.pinCode,
+                            onSuccess = {
+                                showPinDialog = false
+                                if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
+                                else currentScreen = AppScreen.SETTINGS
+                            },
+                            onDismiss = { showPinDialog = false }
+                        )
+                    }
+
+                    // ============ UPDATE DIALOG ============
+                    if (showUpdateDialog && updateInfo != null) {
+                        val info = updateInfo!!
+
+                        UpdateDialog(
+                            currentVersion = info.currentVersion,
+                            latestVersion = info.latestVersion,
+                            releaseNotes = info.releaseNotes,
+                            forceUpdate = info.isForceUpdate,
+                            downloadProgress = if (isDownloading) downloadProgress else null,
+                            isDownloading = isDownloading,
+                            isInstalling = isInstalling,
+                            onUpdateClick = { startDownload() },
+                            onLaterClick = {
+                                // Muncul lagi saat app dibuka ulang
+                                showUpdateDialog = false
+                            },
+                            onSkipClick = {
+                                // Tidak muncul lagi sampai versi lebih tinggi
+                                setSkippedVersion(info.latestVersion)
+                                showUpdateDialog = false
+                            },
+                            onTidakClick = {
+                                // Mode force + user tekan Tidak → app keluar
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Aplikasi wajib diupdate. Menutup aplikasi...",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                scope.launch {
+                                    delay(1500)
+                                    this@MainActivity.finishAffinity()
+                                    android.os.Process.killProcess(android.os.Process.myPid())
+                                }
                             }
                         )
-                    } else {
-                        Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                            when (screen) {
-                                AppScreen.HOME -> HomeScreen(
-                                    settings = settings,
-                                    schedule = prayerSchedule,
-                                    currentTimeString = currentTimeString,
-                                    hijriDateString = hijriDateString,
-                                    gregorianDateString = gregorianDateString,
-                                    upcomingEvent = upcomingEvent,
-                                    temperature = currentTemperature,
-                                    weatherCondition = currentWeatherCondition,
-                                    onSettingsClick = { showPinDialog = true }
-                                )
-                                AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-                                    prayerId = focusPrayerId,
-                                    prayerTimeFormatted = focusPrayerTime,
-                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                                    settings = settings,
-                                    onDismiss = { currentScreen = AppScreen.HOME }
-                                )
-                                AppScreen.SETTINGS -> SettingsScreen(
-                                    currentSettings = settings,
-                                    soundManager = soundManager,
-                                    isRemoteServerRunning = isRemoteServerRunning,
-                                    onAutoSaveSettings = { updated ->
-                                        // Auto-save dari perubahan toggle/slider
-                                        // TIDAK kembali ke Home — user masih di Settings
-                                        settingsRepository.updateSettings(updated)
-                                    },
-                                    onSaveSettings = { updated ->
-                                        // Tombol SIMPAN: save + kembali ke Home
-                                        settingsRepository.updateSettings(updated)
-                                        currentScreen = AppScreen.HOME
-                                    },
-                                    onBack = { currentScreen = AppScreen.HOME },
-                                    onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
-                                    onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
-                                )
-                                AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-                                    settings = settings,
-                                    onDismiss = { currentScreen = AppScreen.SETTINGS }
-                                )
-                                AppScreen.RAMADHAN -> RamadhanOverlay(
-                                    settings = settings,
-                                    currentTimeString = currentTimeString,
-                                    imsakTime = prayerSchedule.imsak,
-                                    maghribTime = prayerSchedule.maghrib,
-                                    secondsToImsak = secondsToImsak,
-                                    secondsToMaghrib = secondsToMaghrib,
-                                    onDismiss = {
-                                        currentScreen = AppScreen.HOME
-                                        userDismissedRamadhan = true
-                                    }
-                                )
-                                AppScreen.IO_CONTROL -> IoControlScreen(
-                                    settingsRepository = settingsRepository,
-                                    deviceName = deviceName,
-                                    deviceRole = deviceRole,
-                                    appVersion = com.example.BuildConfig.VERSION_NAME,
-                                    serverPort = settings.remoteServerPort,
-                                    onBack = { currentScreen = AppScreen.SETTINGS }
-                                )
-                            }
-                        }
-
-                        // PIN DIALOG
-                        if (showPinDialog) {
-                            PinDialog(
-                                correctPin = settings.pinCode,
-                                onSuccess = {
-                                    showPinDialog = false
-                                    if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
-                                    else currentScreen = AppScreen.SETTINGS
-                                },
-                                onDismiss = { showPinDialog = false }
-                            )
-                        }
-
-                        // UPDATE DIALOG
-                        if (showUpdateDialog && updateInfo != null) {
-                            val info = updateInfo!!
-                            UpdateDialog(
-                                currentVersion = info.currentVersion,
-                                latestVersion = info.latestVersion,
-                                releaseNotes = info.releaseNotes,
-                                forceUpdate = !BuildConfig.DEBUG,
-                                downloadProgress = null,
-                                isDownloading = false,
-                                isInstalling = false,
-                                onUpdateClick = {
-                                    showUpdateDialog = false
-                                    currentScreen = AppScreen.SETTINGS
-                                },
-                                onLaterClick = { showUpdateDialog = false },
-                                onSkipClick = { showUpdateDialog = false }
-                            )
-                        }
                     }
                 }
             }
         }
     }
-
+    }
+    
     override fun onResume() {
         super.onResume()
         KioskManager.isMainActivityForeground = true
