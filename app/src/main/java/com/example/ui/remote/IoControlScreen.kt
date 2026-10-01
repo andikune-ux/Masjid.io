@@ -36,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Tv
@@ -90,6 +91,7 @@ private val IoGreenLight = Color(0xFF81C784)
 private val IoRed = Color(0xFFFF5252)
 private val IoBg = Color(0xFF0A1929)
 private val IoCard = Color(0xFF132F4C)
+private val IoAmber = Color(0xFFFFA726)
 
 // ============================================================
 // STATE MACHINE
@@ -104,51 +106,376 @@ enum class IoPhase {
     ERROR
 }
 
+@Composable
+fun IoControlScreen(
+    settingsRepository: SettingsRepository,
+    deviceName: String,
+    deviceRole: String,
+    appVersion: String,
+    serverPort: Int,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val devices by DeviceDiscovery.devices.collectAsState()
+    val isScanning by DeviceDiscovery.isScanning.collectAsState()
+    val discoveryError by DeviceDiscovery.lastError.collectAsState()
+    val currentSettings by settingsRepository.settingsFlow.collectAsState()
+
+    var phase by remember { mutableStateOf(IoPhase.SCANNING) }
+    var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
+    var transferProgress by remember { mutableStateOf(0f) }
+    var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
+    var errorMessage by remember { mutableStateOf("") }
+
+    // ============ STATE BARU: Panduan + Info Jaringan ============
+    var showHelp by remember { mutableStateOf(false) }
+    var currentIp by remember { mutableStateOf("...") }
+    var isWifiOn by remember { mutableStateOf(false) }
+
+    val scanButtonFocusRequester = remember { FocusRequester() }
+    val firstDeviceFocusRequester = remember { FocusRequester() }
+
+    // ============ DETEKSI IP & WIFI VIA NetworkHelper ============
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentIp = NetworkHelper.getWiFiIp(context) ?: "Tidak terdeteksi"
+            isWifiOn = NetworkHelper.isWiFiConnected(context)
+            delay(5000)
+        }
+    }
+
+    // ============ MULAI SCAN SAAT DIBUKA ============
+    LaunchedEffect(Unit) {
+        DeviceDiscovery.configure(
+            name = deviceName,
+            role = deviceRole,
+            version = appVersion,
+            port = serverPort
+        )
+        DeviceDiscovery.startScan(context, scope)
+        delay(300)
+        runCatching { scanButtonFocusRequester.requestFocus() }
+    }
+
+    // ============ FOKUS KE DEVICE PERTAMA ============
+    LaunchedEffect(devices, phase) {
+        if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
+            delay(150)
+            runCatching { firstDeviceFocusRequester.requestFocus() }
+        }
+    }
+
+    // ============ CLEANUP ============
+    DisposableEffect(Unit) {
+        onDispose { DeviceDiscovery.stopScan() }
+    }
+
+    // ============ AUTO-CONNECT ============
+    LaunchedEffect(selectedDevice, phase) {
+        if (phase == IoPhase.CONNECTING && selectedDevice != null) {
+            val target = selectedDevice!!
+            statusMessage = "Menghubungi ${target.name}..."
+
+            // Pre-check: pakai NetworkHelper.testConnectivity dulu
+            val reachable = NetworkHelper.testConnectivity(target.ip, target.port, 3000)
+            if (!reachable) {
+                phase = IoPhase.ERROR
+                errorMessage = "Tidak bisa menjangkau ${target.name} (${target.ip}:${target.port}).\n\n" +
+                        "Kemungkinan:\n" +
+                        "• Remote Server belum aktif di perangkat tujuan\n" +
+                        "• WiFi berbeda jaringan\n" +
+                        "• Perangkat tujuan sedang offline"
+                return@LaunchedEffect
+            }
+
+            val ok = RemoteControlClient.handshake(target.ip, target.port)
+            if (ok) {
+                phase = IoPhase.CONNECTED
+                statusMessage = "Terhubung dengan ${target.name}"
+            } else {
+                phase = IoPhase.ERROR
+                errorMessage = "Gagal handshake dengan ${target.name}.\n\n" +
+                        "Kemungkinan:\n" +
+                        "• Remote Server tidak merespon\n" +
+                        "• Port berbeda (perangkat tujuan pakai port lain)\n" +
+                        "• Server sibuk"
+            }
+        }
+    }
+
+    // ============ REAL SEND ============
+    LaunchedEffect(phase) {
+        if (phase == IoPhase.SENDING) {
+            val target = selectedDevice ?: return@LaunchedEffect
+            transferProgress = 0f
+            statusMessage = "Menyiapkan data..."
+
+            val result = RemoteControlClient.sendSettings(
+                targetIp = target.ip,
+                targetPort = target.port,
+                settings = currentSettings,
+                onProgress = { prog ->
+                    transferProgress = prog
+                    statusMessage = when {
+                        prog < 0.15f -> "Menyiapkan data..."
+                        prog < 0.30f -> "Menghubungi ${target.name}..."
+                        prog < 0.95f -> "Mengirim pengaturan..."
+                        else -> "Menunggu konfirmasi..."
+                    }
+                }
+            )
+
+            if (result.success) {
+                transferProgress = 1f
+                statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
+                delay(3000)
+                phase = IoPhase.DONE
+            } else {
+                phase = IoPhase.ERROR
+                errorMessage = result.message
+            }
+        }
+    }
+
+    // ============ UI — JIKA PANDUAN DIBUKA ============
+    if (showHelp) {
+        IoControlHelpSheet(
+            onClose = { showHelp = false }
+        )
+        return
+    }
+
+    // ============ UI UTAMA ============
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(IoBg, Color(0xFF041020))
+                )
+            )
+    ) {
+        IoTopBar(
+            title = "iO Control",
+            subtitle = when (phase) {
+                IoPhase.SCANNING -> "Mencari perangkat..."
+                IoPhase.CONNECTING -> "Menghubungkan..."
+                IoPhase.CONNECTED -> "Terhubung"
+                IoPhase.SENDING -> "Mengirim..."
+                IoPhase.RECEIVING -> "Menunggu pengirim..."
+                IoPhase.DONE -> "Selesai"
+                IoPhase.ERROR -> "Error"
+            },
+            onBack = onBack,
+            onHelp = { showHelp = true }
+        )
+
+        // ============ INFO JARINGAN (KECIL DI BAWAH TOP BAR) ============
+        NetworkInfoBar(
+            ip = currentIp,
+            wifiOn = isWifiOn,
+            deviceName = deviceName
+        )
+
+        when (phase) {
+            IoPhase.SCANNING, IoPhase.CONNECTING -> {
+                ScanningView(
+                    devices = devices,
+                    isScanning = isScanning,
+                    myRole = deviceRole,
+                    discoveryError = discoveryError,
+                    onDeviceClick = { device ->
+                        selectedDevice = device
+                        phase = IoPhase.CONNECTING
+                    },
+                    onRescan = {
+                        DeviceDiscovery.stopScan()
+                        scope.launch {
+                            delay(300)
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    },
+                    scanButtonFocusRequester = scanButtonFocusRequester,
+                    firstDeviceFocusRequester = firstDeviceFocusRequester
+                )
+            }
+            IoPhase.CONNECTED -> {
+                ConnectedView(
+                    device = selectedDevice,
+                    onSend = { phase = IoPhase.SENDING },
+                    onReceive = { phase = IoPhase.RECEIVING },
+                    onDisconnect = {
+                        selectedDevice = null
+                        phase = IoPhase.SCANNING
+                        scope.launch {
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    }
+                )
+            }
+            IoPhase.SENDING -> {
+                TransferProgressView(
+                    isSending = true,
+                    progress = transferProgress,
+                    targetName = selectedDevice?.name ?: "Perangkat",
+                    message = statusMessage
+                )
+            }
+            IoPhase.RECEIVING -> {
+                WaitingReceiveView(
+                    deviceName = selectedDevice?.name ?: "Pengirim",
+                    onCancel = { phase = IoPhase.CONNECTED }
+                )
+            }
+            IoPhase.DONE -> {
+                DoneView(message = statusMessage)
+            }
+            IoPhase.ERROR -> {
+                ErrorView(
+                    message = errorMessage,
+                    onRetry = {
+                        errorMessage = ""
+                        phase = IoPhase.CONNECTED
+                    },
+                    onBackToScan = {
+                        selectedDevice = null
+                        errorMessage = ""
+                        phase = IoPhase.SCANNING
+                        scope.launch {
+                            DeviceDiscovery.startScan(context, scope)
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
 // ============================================================
-// TOP BAR
+// TOP BAR — dengan tombol Panduan
 // ============================================================
 @Composable
 private fun IoTopBar(
     title: String,
     subtitle: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onHelp: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF071A2E))
             .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Tombol Kembali
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(IoCard)
+                    .clickable { onBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali",
+                    tint = IoBlueLight,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IoBlueLight
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+
+        // Tombol Panduan
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(IoCard)
-                .clickable { onBack() },
-            contentAlignment = Alignment.Center
+                .clip(RoundedCornerShape(10.dp))
+                .background(IoBlue.copy(alpha = 0.2f))
+                .border(1.5.dp, IoBlue, RoundedCornerShape(10.dp))
+                .clickable { onHelp() }
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Kembali",
-                tint = IoBlueLight,
-                modifier = Modifier.size(24.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Panduan",
+                    tint = IoBlueLight,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Panduan",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IoBlueLight
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// INFO BAR JARINGAN
+// ============================================================
+@Composable
+private fun NetworkInfoBar(
+    ip: String,
+    wifiOn: Boolean,
+    deviceName: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0D1F30))
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (wifiOn) IoGreen else IoRed)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (wifiOn) "WiFi Aktif" else "WiFi Nonaktif",
+                fontSize = 11.sp,
+                color = if (wifiOn) IoGreen else IoRed,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "IP: $ip",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                fontFamily = FontFamily.Monospace
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(
-                text = title,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = IoBlueLight
-            )
-            Text(
-                text = subtitle,
-                fontSize = 13.sp,
-                color = TextSecondary
-            )
-        }
+        Text(
+            text = deviceName,
+            fontSize = 11.sp,
+            color = TextSecondary.copy(alpha = 0.7f)
+        )
     }
 }
 
@@ -160,6 +487,7 @@ private fun ScanningView(
     devices: List<DiscoveredDevice>,
     isScanning: Boolean,
     myRole: String,
+    discoveryError: String?,
     onDeviceClick: (DiscoveredDevice) -> Unit,
     onRescan: () -> Unit,
     scanButtonFocusRequester: FocusRequester,
@@ -199,7 +527,10 @@ private fun ScanningView(
                         .border(1.dp, IoBlue.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
                         CircularProgressIndicator(
                             color = IoBlueLight,
                             modifier = Modifier.size(48.dp)
@@ -217,6 +548,17 @@ private fun ScanningView(
                             fontSize = 12.sp,
                             color = TextSecondary.copy(alpha = 0.6f)
                         )
+
+                        // Kalau ada error dari discovery
+                        if (!discoveryError.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "⚠ $discoveryError",
+                                fontSize = 11.sp,
+                                color = IoAmber,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             } else {
@@ -483,7 +825,7 @@ private fun DeviceCard(
                     color = TextSecondary
                 )
                 Text(
-                    text = "IP: ${device.ip}",
+                    text = "IP: ${device.ip}:${device.port}",
                     fontSize = 11.sp,
                     color = TextSecondary.copy(alpha = 0.7f),
                     fontFamily = FontFamily.Monospace
@@ -518,6 +860,7 @@ private fun ConnectedView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "✓ TERHUBUNG",
             fontSize = 20.sp,
@@ -531,11 +874,13 @@ private fun ConnectedView(
             color = TextPrimary
         )
         Text(
-            text = "${device?.role} • ${device?.ip}",
+            text = "${device?.role} • ${device?.ip}:${device?.port}",
             fontSize = 13.sp,
             color = TextSecondary
         )
+
         Spacer(modifier = Modifier.height(48.dp))
+
         Text(
             text = "Pilih aksi:",
             fontSize = 18.sp,
@@ -543,6 +888,7 @@ private fun ConnectedView(
             color = TextPrimary
         )
         Spacer(modifier = Modifier.height(24.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
@@ -564,8 +910,11 @@ private fun ConnectedView(
                 onClick = onReceive
             )
         }
+
         Spacer(modifier = Modifier.height(48.dp))
+
         DisconnectButton(onClick = onDisconnect)
+
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -678,6 +1027,7 @@ private fun TransferProgressView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
+
         Text(
             text = if (isSending) "📤 MENGIRIM..." else "📥 MENERIMA...",
             fontSize = 24.sp,
@@ -690,7 +1040,9 @@ private fun TransferProgressView(
             fontSize = 14.sp,
             color = TextSecondary
         )
+
         Spacer(modifier = Modifier.height(48.dp))
+
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.8f)
@@ -713,7 +1065,9 @@ private fun TransferProgressView(
                     )
             )
         }
+
         Spacer(modifier = Modifier.height(16.dp))
+
         Text(
             text = "${(progress * 100).toInt()}%",
             fontSize = 32.sp,
@@ -721,13 +1075,16 @@ private fun TransferProgressView(
             color = if (isSending) IoBlueLight else IoGreenLight,
             fontFamily = FontFamily.Monospace
         )
+
         Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = message,
             fontSize = 13.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -760,6 +1117,7 @@ private fun WaitingReceiveView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
+
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -775,50 +1133,52 @@ private fun WaitingReceiveView(
                 modifier = Modifier.size(56.dp)
             )
         }
+
         Spacer(modifier = Modifier.height(32.dp))
+
         Text(
-            text = "Menunggu data dari $deviceName",
-            fontSize = 18.sp,
+            text = "MENUNGGU PENGIRIM",
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = TextPrimary,
-            textAlign = TextAlign.Center
+            color = IoGreen
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "Pastikan perangkat lain dalam mode kirim",
+            text = "Minta $deviceName untuk menekan tombol KIRIM di perangkatnya.",
             fontSize = 13.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Perangkat ini siap menerima pengaturan.\n" +
+                    "Setelah data diterima, aplikasi akan otomatis restart.",
+            fontSize = 12.sp,
+            color = TextSecondary.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp
+        )
+
         Spacer(modifier = Modifier.height(48.dp))
-        val interactionSource = remember { MutableInteractionSource() }
-        val isFocused by interactionSource.collectIsFocusedAsState()
-        val isPressed by interactionSource.collectIsPressedAsState()
-        NeonFocusBorder(
-            focused = isFocused,
-            pressed = isPressed,
-            borderWidth = 5.dp,
-            cornerRadius = 12.dp
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0x33FF5252))
+                .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
+                .clickable { onCancel() }
+                .padding(horizontal = 32.dp, vertical = 14.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x33FF5252))
-                    .focusable(interactionSource = interactionSource)
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null
-                    ) { onCancel() }
-                    .padding(horizontal = 32.dp, vertical = 14.dp)
-            ) {
-                Text(
-                    text = "BATAL",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF8A80)
-                )
-            }
+            Text(
+                text = "BATAL",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFF8A80)
+            )
         }
+
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -836,36 +1196,29 @@ private fun DoneView(message: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .background(IoGreen.copy(alpha = 0.3f))
-                .border(3.dp, IoGreen, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Send,
-                contentDescription = null,
-                tint = IoGreen,
-                modifier = Modifier.size(56.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(48.dp))
+
         Text(
-            text = "✓ BERHASIL",
-            fontSize = 24.sp,
+            text = "✓",
+            fontSize = 96.sp,
             fontWeight = FontWeight.Bold,
             color = IoGreen
         )
         Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "SELESAI",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoGreen
+        )
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = message,
             fontSize = 14.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+
         Spacer(modifier = Modifier.height(48.dp))
     }
 }
@@ -887,300 +1240,106 @@ private fun ErrorView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .background(IoRed.copy(alpha = 0.2f))
-                .border(3.dp, IoRed, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "!",
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Bold,
-                color = IoRed
-            )
-        }
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(48.dp))
+
         Text(
-            text = "⚠ TERJADI KESALAHAN",
-            fontSize = 20.sp,
+            text = "⚠️",
+            fontSize = 96.sp,
             fontWeight = FontWeight.Bold,
             color = IoRed
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = message,
-            fontSize = 13.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center
+            text = "GAGAL",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoRed
         )
-        Spacer(modifier = Modifier.height(48.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoRed.copy(alpha = 0.1f))
+                .border(1.dp, IoRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                .padding(16.dp)
         ) {
-            val interactionSource1 = remember { MutableInteractionSource() }
-            val isFocused1 by interactionSource1.collectIsFocusedAsState()
-            val isPressed1 by interactionSource1.collectIsPressedAsState()
-            NeonFocusBorder(
-                focused = isFocused1,
-                pressed = isPressed1,
-                borderWidth = 5.dp,
-                cornerRadius = 12.dp,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(IoBlue.copy(alpha = 0.15f))
-                        .focusable(interactionSource = interactionSource1)
-                        .clickable(
-                            interactionSource = interactionSource1,
-                            indication = null
-                        ) { onRetry() }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "COBA LAGI",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IoBlueLight
-                    )
-                }
-            }
-            val interactionSource2 = remember { MutableInteractionSource() }
-            val isFocused2 by interactionSource2.collectIsFocusedAsState()
-            val isPressed2 by interactionSource2.collectIsPressedAsState()
-            NeonFocusBorder(
-                focused = isFocused2,
-                pressed = isPressed2,
-                borderWidth = 5.dp,
-                cornerRadius = 12.dp,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x33FF5252))
-                        .focusable(interactionSource = interactionSource2)
-                        .clickable(
-                            interactionSource = interactionSource2,
-                            indication = null
-                        ) { onBackToScan() }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "KEMBALI SCAN",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF8A80)
-                    )
-                }
-            }
+            Text(
+                text = message,
+                fontSize = 14.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
+
         Spacer(modifier = Modifier.height(32.dp))
-    }
-}
 
-// ============================================================
-// MAIN SCREEN
-// ============================================================
-@Composable
-fun IoControlScreen(
-    settingsRepository: SettingsRepository,
-    deviceName: String,
-    deviceRole: String,
-    appVersion: String,
-    serverPort: Int,
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    val devices by DeviceDiscovery.devices.collectAsState()
-    val isScanning by DeviceDiscovery.isScanning.collectAsState()
-    val currentSettings by settingsRepository.settingsFlow.collectAsState()
-
-    var phase by remember { mutableStateOf(IoPhase.SCANNING) }
-    var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
-    var transferProgress by remember { mutableStateOf(0f) }
-    var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
-    var errorMessage by remember { mutableStateOf("") }
-
-    val scanButtonFocusRequester = remember { FocusRequester() }
-    val firstDeviceFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        DeviceDiscovery.configure(
-            name = deviceName,
-            role = deviceRole,
-            version = appVersion,
-            port = serverPort
-        )
-        DeviceDiscovery.startScan(context, scope)
-        delay(300)
-        runCatching { scanButtonFocusRequester.requestFocus() }
-    }
-
-    LaunchedEffect(devices, phase) {
-        if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
-            delay(150)
-            runCatching { firstDeviceFocusRequester.requestFocus() }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            DeviceDiscovery.stopScan()
-        }
-    }
-
-    LaunchedEffect(selectedDevice, phase) {
-        if (phase == IoPhase.CONNECTING && selectedDevice != null) {
-            statusMessage = "Menghubungkan ke ${selectedDevice!!.name}..."
-            val ok = RemoteControlClient.handshake(
-                selectedDevice!!.ip,
-                selectedDevice!!.port
-            )
-            if (ok) {
-                phase = IoPhase.CONNECTED
-                statusMessage = "Terhubung dengan ${selectedDevice!!.name}"
-            } else {
-                phase = IoPhase.ERROR
-                errorMessage = "Gagal terhubung ke ${selectedDevice!!.name}. Pastikan Remote Server aktif di perangkat lain."
-            }
-        }
-    }
-
-    LaunchedEffect(phase) {
-        if (phase == IoPhase.SENDING) {
-            val target = selectedDevice ?: return@LaunchedEffect
-            transferProgress = 0f
-            statusMessage = "Menyiapkan data..."
-            val result = RemoteControlClient.sendSettings(
-                targetIp = target.ip,
-                targetPort = target.port,
-                settings = currentSettings,
-                onProgress = { prog ->
-                    transferProgress = prog
-                    statusMessage = when {
-                        prog < 0.15f -> "Menyiapkan data..."
-                        prog < 0.30f -> "Menghubungi ${target.name}..."
-                        prog < 0.95f -> "Mengirim pengaturan..."
-                        else -> "Menunggu konfirmasi..."
-                    }
-                }
-            )
-            if (result.success) {
-                transferProgress = 1f
-                statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
-                delay(3000)
-                phase = IoPhase.DONE
-            } else {
-                phase = IoPhase.ERROR
-                errorMessage = result.message
-            }
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(IoBg, Color(0xFF041020))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoAmber.copy(alpha = 0.1f))
+                .border(1.dp, IoAmber.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    text = "💡 Tips troubleshooting:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IoAmber
                 )
-            )
-    ) {
-        IoTopBar(
-            title = "iO Control",
-            subtitle = when (phase) {
-                IoPhase.SCANNING -> "Mencari perangkat..."
-                IoPhase.CONNECTING -> "Menghubungkan..."
-                IoPhase.CONNECTED -> "Terhubung"
-                IoPhase.SENDING -> "Mengirim..."
-                IoPhase.RECEIVING -> "Menunggu pengirim..."
-                IoPhase.DONE -> "Selesai"
-                IoPhase.ERROR -> "Error"
-            },
-            onBack = onBack
-        )
-        when (phase) {
-            IoPhase.SCANNING, IoPhase.CONNECTING -> {
-                ScanningView(
-                    devices = devices,
-                    isScanning = isScanning,
-                    myRole = deviceRole,
-                    onDeviceClick = { device ->
-                        selectedDevice = device
-                        phase = IoPhase.CONNECTING
-                    },
-                    onRescan = {
-                        DeviceDiscovery.stopScan()
-                        scope.launch {
-                            delay(300)
-                            DeviceDiscovery.startScan(context, scope)
-                        }
-                    },
-                    scanButtonFocusRequester = scanButtonFocusRequester,
-                    firstDeviceFocusRequester = firstDeviceFocusRequester
-                )
-            }
-            IoPhase.CONNECTED -> {
-                ConnectedView(
-                    device = selectedDevice,
-                    onSend = { phase = IoPhase.SENDING },
-                    onReceive = { phase = IoPhase.RECEIVING },
-                    onDisconnect = {
-                        selectedDevice = null
-                        phase = IoPhase.SCANNING
-                        scope.launch {
-                            DeviceDiscovery.startScan(context, scope)
-                        }
-                    }
-                )
-            }
-            IoPhase.SENDING -> {
-                TransferProgressView(
-                    isSending = true,
-                    progress = transferProgress,
-                    targetName = selectedDevice?.name ?: "Perangkat",
-                    message = statusMessage
-                )
-            }
-            IoPhase.RECEIVING -> {
-                WaitingReceiveView(
-                    deviceName = selectedDevice?.name ?: "Pengirim",
-                    onCancel = { phase = IoPhase.CONNECTED }
-                )
-            }
-            IoPhase.DONE -> {
-                DoneView(message = statusMessage)
-            }
-            IoPhase.ERROR -> {
-                ErrorView(
-                    message = errorMessage,
-                    onRetry = {
-                        errorMessage = ""
-                        phase = IoPhase.CONNECTED
-                    },
-                    onBackToScan = {
-                        selectedDevice = null
-                        errorMessage = ""
-                        phase = IoPhase.SCANNING
-                        scope.launch {
-                            DeviceDiscovery.startScan(context, scope)
-                        }
-                    }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "• Cek Remote Server aktif di perangkat tujuan\n" +
+                            "• Pastikan WiFi sama & port server sama\n" +
+                            "• Force close aplikasi lain yang pakai port sama\n" +
+                            "• Buka tombol Panduan untuk info lengkap",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(IoBlue.copy(alpha = 0.15f))
+                    .border(1.5.dp, IoBlue, RoundedCornerShape(12.dp))
+                    .clickable { onRetry() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = "COBA LAGI",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IoBlueLight
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33FF5252))
+                    .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
+                    .clickable { onBackToScan() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = "SCAN ULANG",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF8A80)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
     }
 }
