@@ -79,9 +79,6 @@ fun RemoteSettingsPane(
         mutableStateOf(settings.remoteControlEnabled)
     }
 
-    // ============================================================
-    // AUTO-REFRESH IP & STATUS JARINGAN SETIAP 5 DETIK
-    // ============================================================
     var currentIp by remember { mutableStateOf(getLocalIpAddress(context)) }
     var currentNetworkOn by remember { mutableStateOf(isNetworkConnected(context)) }
 
@@ -93,20 +90,14 @@ fun RemoteSettingsPane(
         }
     }
 
-    // ============================================================
-    // ROOT COLUMN — focusGroup + verticalScroll
-    // (D-pad bisa navigasi antar tombol, Compose auto-scroll)
-    // ============================================================
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .focusGroup()
+            .focusGroup()   // ← TAMBAH INI — biar D-pad bisa navigasi antar elemen
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ============================================================
         // HEADER
-        // ============================================================
         Text(
             text = "iO CONTROL",
             fontSize = 24.sp,
@@ -122,9 +113,7 @@ fun RemoteSettingsPane(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ============================================================
         // TOMBOL BESAR — BUKA iO CONTROL (FOCUSABLE)
-        // ============================================================
         val ioInteraction = remember { MutableInteractionSource() }
         val ioFocused by ioInteraction.collectIsFocusedAsState()
         val ioPressed by ioInteraction.collectIsPressedAsState()
@@ -183,9 +172,7 @@ fun RemoteSettingsPane(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ============================================================
-        // STATUS SERVER (bukan tombol — tidak perlu focusable)
-        // ============================================================
+        // STATUS SERVER
         RemoteSectionCard(title = "STATUS SERVER") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -218,9 +205,7 @@ fun RemoteSettingsPane(
             }
         }
 
-        // ============================================================
         // AKTIFKAN REMOTE SERVER (toggle — TvToggle sudah focusable)
-        // ============================================================
         RemoteSectionCard(title = "AKTIFKAN REMOTE SERVER") {
             Column {
                 Text(
@@ -242,9 +227,7 @@ fun RemoteSettingsPane(
             }
         }
         
-        // ============================================================
         // AKSES DARI HP (kalau server ON)
-        // ============================================================
         if (isServerRunning) {
             val fullUrl = "http://$currentIp:${settings.remoteServerPort}/?token=${settings.remoteAuthToken}"
 
@@ -278,9 +261,7 @@ fun RemoteSettingsPane(
             }
         }
 
-        // ============================================================
-        // KONEKSI JARINGAN (info saja)
-        // ============================================================
+        // KONEKSI JARINGAN
         RemoteSectionCard(title = "KONEKSI JARINGAN") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -315,7 +296,7 @@ fun RemoteSettingsPane(
 }
 
 // ============================================================
-// COPY URL BOX — tombol SALIN URL FOCUSABLE
+// COPY URL BOX
 // ============================================================
 @Composable
 private fun CopyUrlBox(
@@ -328,7 +309,6 @@ private fun CopyUrlBox(
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
-    // InteractionSource untuk tombol SALIN URL
     val copyInteraction = remember { MutableInteractionSource() }
     val copyFocused by copyInteraction.collectIsFocusedAsState()
     val copyPressed by copyInteraction.collectIsPressedAsState()
@@ -342,7 +322,7 @@ private fun CopyUrlBox(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        // URL Display (bukan tombol — tidak perlu focusable)
+        // URL Display
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -423,7 +403,7 @@ private fun CopyUrlBox(
             InfoChip(label = "TOKEN", value = token)
         }
 
-        // Warning jika network off
+        // Warning kalau network off
         if (!networkOn) {
             Box(
                 modifier = Modifier
@@ -514,7 +494,6 @@ private fun RemoteSectionCard(
 // ============================================================
 // HELPERS
 // ============================================================
-
 private fun isNetworkConnected(context: Context): Boolean {
     return try {
         val cm = context.applicationContext
