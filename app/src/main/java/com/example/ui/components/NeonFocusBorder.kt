@@ -12,7 +12,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -24,10 +23,11 @@ import androidx.compose.ui.unit.dp
 /**
  * NeonFocusBorder — Border fokus dengan animasi rainbow NEON.
  *
- * V2 (FIX):
- *   - Border TETAP DI TEMPAT (bentuk tidak muter)
- *   - Warna rainbow yang MUTER mengelilingi border (via SweepGradient + Matrix)
- *   - Saat D-pad ditekan (OK) → warna emas berkedip cepat
+ * V3 (FIX LAYOUT):
+ *   - Pakai matchParentSize() — Canvas nempel ke konten, TIDAK memaksa Box jadi besar
+ *   - Border pas dengan ukuran konten
+ *   - Warna rainbow yang MUTER mengelilingi border (bentuk diam)
+ *   - Saat OK ditekan → warna emas berkedip cepat
  */
 @Composable
 fun NeonFocusBorder(
@@ -38,7 +38,6 @@ fun NeonFocusBorder(
     cornerRadius: Dp = 12.dp,
     content: @Composable () -> Unit
 ) {
-    // Animasi hanya jalan saat focused (hemat GPU)
     val infiniteTransition = rememberInfiniteTransition(label = "neon_border")
 
     val rotation by infiniteTransition.animateFloat(
@@ -62,12 +61,12 @@ fun NeonFocusBorder(
     )
 
     Box(modifier = modifier) {
-        // Konten utama
+        // Konten utama (menentukan ukuran Box)
         content()
 
-        // Border hanya digambar saat focused
+        // Border overlay — matchParentSize() ikut ukuran Box
         if (focused) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
+            Canvas(modifier = Modifier.matchParentSize()) {
                 val stroke = borderWidth.toPx()
                 val inset = stroke / 2f
                 val radiusPx = cornerRadius.toPx()
@@ -87,7 +86,6 @@ fun NeonFocusBorder(
                         paint.alpha = (flashAlpha * 255).toInt()
                     } else {
                         // ===== RAINBOW GRADIENT YANG BERPUTAR =====
-                        // Warna 8 titik (loop) — smooth transition antar warna
                         val rainbowColors = intArrayOf(
                             0xFFFF1744.toInt(), // Merah
                             0xFFFF6D00.toInt(), // Oranye
@@ -96,13 +94,11 @@ fun NeonFocusBorder(
                             0xFF00E5FF.toInt(), // Cyan
                             0xFF2979FF.toInt(), // Biru
                             0xFFD500F9.toInt(), // Pink
-                            0xFFFF1744.toInt()  // Merah (loop ke awal)
+                            0xFFFF1744.toInt()  // Merah (loop)
                         )
 
-                        // SweepGradient: warna menyebar 360° dari center
                         val shader = SweepGradient(cx, cy, rainbowColors, null)
 
-                        // Matrix rotate: putar gradient supaya warnanya "berjalan"
                         val matrix = Matrix()
                         matrix.setRotate(rotation, cx, cy)
                         shader.setLocalMatrix(matrix)
@@ -110,7 +106,7 @@ fun NeonFocusBorder(
                         paint.shader = shader
                     }
 
-                    // Gambar outline border (bentuk TETAP — hanya warna yang muter)
+                    // Border TETAP DI TEMPAT — hanya warna yang muter
                     val rect = RectF(
                         inset,
                         inset,
