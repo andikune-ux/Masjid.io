@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -164,7 +163,7 @@ fun CustomBackgroundPane(
                                     onUpdate(
                                         settings.copy(
                                             customBackgroundUri = null,
-                                            backgroundMode = BackgroundMode.NATURE
+                                            backgroundMode = BackgroundMode.MAKKAH_DYNAMIC
                                         )
                                     )
                                 }
@@ -185,14 +184,19 @@ fun CustomBackgroundPane(
 
         val presetList = listOf(
             Triple(
+                BackgroundMode.MAKKAH_DYNAMIC,
+                "🕋 Makkah Dinamis (Default — Baru)",
+                "Langit Makkah bergerak real-time: matahari melengkung dari timur ke barat, bulan bergeser dengan fase asli (sabit/purnama), awan bergerak, burung berterbangan, bintang berkelip saat malam. Cuaca otomatis mengikuti lokasi — hujan, petir, kabut, semua tampil live!"
+            ),
+            Triple(
                 BackgroundMode.NATURE,
                 "Langit Dinamis Real-Time (Cerdas)",
-                "Menyesuaikan waktu asli matahari: Siang hari (12:00-15:30) langit biru cerah alami, Ashar keemasan hangat, Maghrib senja syahdu, Malam gelap bertabur bintang."
+                "Warna langit berubah sesuai jam: pagi biru cerah, siang terang, sore keemasan, maghrib senja, malam gelap berbintang."
             ),
             Triple(
                 BackgroundMode.KABAH,
-                "Ka'bah Al-Mukarramah",
-                "Gradien malam Ka'bah dengan kilau ornamen Kiswah emas yang megah."
+                "Ka'bah Al-Mukarramah (Statis)",
+                "Gradien malam Ka'bah dengan kilau ornamen Kiswah emas yang megah (statis)."
             ),
             Triple(
                 BackgroundMode.EMERALD_GEOMETRIC,
