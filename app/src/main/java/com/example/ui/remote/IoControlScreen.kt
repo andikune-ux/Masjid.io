@@ -75,13 +75,14 @@ import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.util.MediaTransferHelper
 import com.example.util.RemoteControlClient
+import com.example.util.SettingsTransferHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 // ============================================================
-// WARNA TEMA iO CONTROL — BIRU TEKNOLOGI
+// WARNA TEMA iO CONTROL
 // ============================================================
 private val IoBlue = Color(0xFF2196F3)
 private val IoBlueLight = Color(0xFF64B5F6)
@@ -97,7 +98,14 @@ private val IoAmber = Color(0xFFFFA726)
 // STATE MACHINE
 // ============================================================
 enum class IoPhase {
-    SCANNING, CONNECTING, CONNECTED, SENDING, RECEIVING, DONE, ERROR
+    SCANNING,
+    CONNECTING,
+    CONNECTED,
+    SENDING_SETTINGS,
+    SENDING_MEDIA,
+    RECEIVING,
+    DONE,
+    ERROR
 }
 
 @Composable
@@ -122,6 +130,9 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
+    // Media transfer state (V1.30.4)
+    var mediaProgress by remember { mutableStateOf<MediaTransferHelper.TransferProgress?>(null) }
+
     var showHelp by remember { mutableStateOf(false) }
     var currentIp by remember { mutableStateOf("...") }
     var isWifiOn by remember { mutableStateOf(false) }
@@ -129,9 +140,7 @@ fun IoControlScreen(
     val scanButtonFocusRequester = remember { FocusRequester() }
     val firstDeviceFocusRequester = remember { FocusRequester() }
 
-    // ============================================================
-    // DETEKSI IP & WIFI
-    // ============================================================
+    // Deteksi IP & WiFi
     LaunchedEffect(Unit) {
         while (true) {
             currentIp = NetworkHelper.getWiFiIp(context) ?: "Tidak terdeteksi"
@@ -140,17 +149,15 @@ fun IoControlScreen(
         }
     }
 
-    // ============================================================
-    // MULAI SCAN SAAT DIBUKA — SUDAH DI-FIX (kirim deviceId)
-    // ============================================================
+    // Mulai scan saat dibuka
     LaunchedEffect(Unit) {
         val deviceUniqueId = try {
             android.provider.Settings.Secure.getString(
                 context.contentResolver,
                 android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "masjid-${UUID.randomUUID().toString().take(8)}"
+            ) ?: "masjid-${java.util.UUID.randomUUID().toString().take(8)}"
         } catch (e: Exception) {
-            "masjid-${UUID.randomUUID().toString().take(8)}"
+            "masjid-${java.util.UUID.randomUUID().toString().take(8)}"
         }
 
         DeviceDiscovery.configure(
@@ -165,9 +172,6 @@ fun IoControlScreen(
         runCatching { scanButtonFocusRequester.requestFocus() }
     }
 
-    // ============================================================
-    // AUTO-FOKUS KE DEVICE PERTAMA
-    // ============================================================
     LaunchedEffect(devices, phase) {
         if (phase == IoPhase.SCANNING && devices.isNotEmpty()) {
             delay(150)
@@ -175,16 +179,11 @@ fun IoControlScreen(
         }
     }
 
-    // ============================================================
-    // CLEANUP
-    // ============================================================
     DisposableEffect(Unit) {
         onDispose { DeviceDiscovery.stopScan() }
     }
 
-    // ============================================================
-    // AUTO-CONNECT
-    // ============================================================
+    // Auto-connect
     LaunchedEffect(selectedDevice, phase) {
         if (phase == IoPhase.CONNECTING && selectedDevice != null) {
             val target = selectedDevice!!
@@ -216,53 +215,78 @@ fun IoControlScreen(
         }
     }
 
-    // ============================================================
-    // REAL SEND
-    // ============================================================
+    // REAL SEND — Settings + Media (V1.30.4)
     LaunchedEffect(phase) {
-        if (phase == IoPhase.SENDING) {
-            val target = selectedDevice ?: return@LaunchedEffect
-            transferProgress = 0f
-            statusMessage = "Menyiapkan data..."
+        when (phase) {
+            IoPhase.SENDING_SETTINGS -> {
+                val target = selectedDevice ?: return@LaunchedEffect
+                transferProgress = 0f
+                statusMessage = "Mengirim pengaturan..."
 
-            val result = RemoteControlClient.sendSettings(
-                targetIp = target.ip,
-                targetPort = target.port,
-                settings = currentSettings,
-                onProgress = { prog ->
-                    transferProgress = prog
-                    statusMessage = when {
-                        prog < 0.15f -> "Menyiapkan data..."
-                        prog < 0.30f -> "Menghubungi ${target.name}..."
-                        prog < 0.95f -> "Mengirim pengaturan..."
-                        else -> "Menunggu konfirmasi..."
+                val result = RemoteControlClient.sendSettings(
+                    targetIp = target.ip,
+                    targetPort = target.port,
+                    settings = currentSettings,
+                    onProgress = { prog ->
+                        transferProgress = prog
+                        statusMessage = when {
+                            prog < 0.15f -> "Menyiapkan pengaturan..."
+                            prog < 0.30f -> "Menghubungi ${target.name}..."
+                            prog < 0.95f -> "Mengirim pengaturan..."
+                            else -> "Menunggu konfirmasi..."
+                        }
+                    }
+                )
+
+                if (result.success) {
+                    phase = IoPhase.SENDING_MEDIA
+                } else {
+                    phase = IoPhase.ERROR
+                    errorMessage = result.message
+                }
+            }
+
+            IoPhase.SENDING_MEDIA -> {
+                val target = selectedDevice ?: return@LaunchedEffect
+                statusMessage = "Mengirim media..."
+
+                val mediaResult = SettingsTransferHelper.uploadMediaFiles(
+                    context = context,
+                    targetIp = target.ip,
+                    targetPort = target.port,
+                    settings = currentSettings,
+                    onProgress = { progress ->
+                        mediaProgress = progress
+                        statusMessage = progress.message
+                    }
+                )
+
+                if (mediaResult.success) {
+                    transferProgress = 1f
+                    statusMessage = "Semua terkirim! ${target.name} akan restart."
+                    delay(3000)
+                    phase = IoPhase.DONE
+                } else {
+                    if (mediaResult.filesFailed > 0 && mediaResult.filesTransferred > 0) {
+                        statusMessage = "${mediaResult.filesTransferred} file sukses, ${mediaResult.filesFailed} gagal. ${target.name} akan restart."
+                        delay(4000)
+                        phase = IoPhase.DONE
+                    } else {
+                        phase = IoPhase.ERROR
+                        errorMessage = mediaResult.message
                     }
                 }
-            )
-
-            if (result.success) {
-                transferProgress = 1f
-                statusMessage = "Transfer selesai! Perangkat ${target.name} akan restart."
-                delay(3000)
-                phase = IoPhase.DONE
-            } else {
-                phase = IoPhase.ERROR
-                errorMessage = result.message
             }
+
+            else -> { /* no-op */ }
         }
     }
 
-    // ============================================================
-    // UI — JIKA PANDUAN DIBUKA
-    // ============================================================
     if (showHelp) {
         IoControlHelpSheet(onClose = { showHelp = false })
         return
     }
 
-    // ============================================================
-    // UI UTAMA
-    // ============================================================
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -274,7 +298,8 @@ fun IoControlScreen(
                 IoPhase.SCANNING -> "Mencari perangkat..."
                 IoPhase.CONNECTING -> "Menghubungkan..."
                 IoPhase.CONNECTED -> "Terhubung"
-                IoPhase.SENDING -> "Mengirim..."
+                IoPhase.SENDING_SETTINGS -> "Mengirim pengaturan..."
+                IoPhase.SENDING_MEDIA -> "Mengirim media..."
                 IoPhase.RECEIVING -> "Menunggu pengirim..."
                 IoPhase.DONE -> "Selesai"
                 IoPhase.ERROR -> "Error"
@@ -309,7 +334,7 @@ fun IoControlScreen(
             IoPhase.CONNECTED -> {
                 ConnectedView(
                     device = selectedDevice,
-                    onSend = { phase = IoPhase.SENDING },
+                    onSend = { phase = IoPhase.SENDING_SETTINGS },
                     onReceive = { phase = IoPhase.RECEIVING },
                     onDisconnect = {
                         selectedDevice = null
@@ -318,12 +343,18 @@ fun IoControlScreen(
                     }
                 )
             }
-            IoPhase.SENDING -> {
+            IoPhase.SENDING_SETTINGS -> {
                 TransferProgressView(
                     isSending = true,
                     progress = transferProgress,
                     targetName = selectedDevice?.name ?: "Perangkat",
                     message = statusMessage
+                )
+            }
+            IoPhase.SENDING_MEDIA -> {
+                MediaProgressView(
+                    progress = mediaProgress,
+                    targetName = selectedDevice?.name ?: "Perangkat"
                 )
             }
             IoPhase.RECEIVING -> {
@@ -388,17 +419,8 @@ private fun IoTopBar(
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(
-                    text = title,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoBlueLight
-                )
-                Text(
-                    text = subtitle,
-                    fontSize = 13.sp,
-                    color = TextSecondary
-                )
+                Text(text = title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
+                Text(text = subtitle, fontSize = 13.sp, color = TextSecondary)
             }
         }
 
@@ -418,12 +440,7 @@ private fun IoTopBar(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Panduan",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoBlueLight
-                )
+                Text(text = "Panduan", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
             }
         }
     }
@@ -433,11 +450,7 @@ private fun IoTopBar(
 // INFO BAR JARINGAN
 // ============================================================
 @Composable
-private fun NetworkInfoBar(
-    ip: String,
-    wifiOn: Boolean,
-    deviceName: String
-) {
+private fun NetworkInfoBar(ip: String, wifiOn: Boolean, deviceName: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -468,11 +481,7 @@ private fun NetworkInfoBar(
                 fontFamily = FontFamily.Monospace
             )
         }
-        Text(
-            text = deviceName,
-            fontSize = 11.sp,
-            color = TextSecondary.copy(alpha = 0.7f)
-        )
+        Text(text = deviceName, fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
     }
 }
 
@@ -490,12 +499,7 @@ private fun ScanningView(
     firstDeviceFocusRequester: FocusRequester
 ) {
     Row(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Box(
-            modifier = Modifier
-                .weight(0.5f)
-                .fillMaxHeight(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.weight(0.5f).fillMaxHeight(), contentAlignment = Alignment.Center) {
             RadarView(devices = devices, isScanning = isScanning)
         }
 
@@ -527,10 +531,7 @@ private fun ScanningView(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        CircularProgressIndicator(
-                            color = IoBlueLight,
-                            modifier = Modifier.size(48.dp)
-                        )
+                        CircularProgressIndicator(color = IoBlueLight, modifier = Modifier.size(48.dp))
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "Mencari perangkat Masjid.io lain...",
@@ -562,10 +563,7 @@ private fun ScanningView(
                 }
             }
 
-            ScanButton(
-                onClick = onRescan,
-                focusRequester = scanButtonFocusRequester
-            )
+            ScanButton(onClick = onRescan, focusRequester = scanButtonFocusRequester)
         }
     }
 }
@@ -574,10 +572,7 @@ private fun ScanningView(
 // SCAN BUTTON
 // ============================================================
 @Composable
-private fun ScanButton(
-    onClick: () -> Unit,
-    focusRequester: FocusRequester
-) {
+private fun ScanButton(onClick: () -> Unit, focusRequester: FocusRequester) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -596,19 +591,11 @@ private fun ScanButton(
                 .background(IoBlue.copy(alpha = 0.15f))
                 .focusRequester(focusRequester)
                 .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
+                .clickable(interactionSource = interactionSource, indication = null) { onClick() }
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "🔄 SCAN ULANG",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = IoBlueLight
-            )
+            Text(text = "🔄 SCAN ULANG", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
         }
     }
 }
@@ -617,70 +604,31 @@ private fun ScanButton(
 // RADAR VIEW
 // ============================================================
 @Composable
-private fun RadarView(
-    devices: List<DiscoveredDevice>,
-    isScanning: Boolean
-) {
+private fun RadarView(devices: List<DiscoveredDevice>, isScanning: Boolean) {
     val infiniteTransition = rememberInfiniteTransition(label = "radar")
 
     val sweepRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(animation = tween(2000, easing = LinearEasing), repeatMode = RepeatMode.Restart),
         label = "radar_sweep"
     )
-
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.8f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(1500, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
         label = "radar_pulse"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .aspectRatio(1f),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize().aspectRatio(1f), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize().scale(pulseScale)) {
             val center = Offset(size.width / 2, size.height / 2)
             val maxRadius = size.minDimension / 2 - 16.dp.toPx()
 
-            drawCircle(
-                color = IoBlue.copy(alpha = 0.4f),
-                radius = maxRadius,
-                center = center,
-                style = Stroke(width = 2.dp.toPx())
-            )
-
+            drawCircle(color = IoBlue.copy(alpha = 0.4f), radius = maxRadius, center = center, style = Stroke(width = 2.dp.toPx()))
             for (i in 1..3) {
-                drawCircle(
-                    color = IoBlue.copy(alpha = 0.15f),
-                    radius = maxRadius * (i / 3f),
-                    center = center,
-                    style = Stroke(width = 1.dp.toPx())
-                )
+                drawCircle(color = IoBlue.copy(alpha = 0.15f), radius = maxRadius * (i / 3f), center = center, style = Stroke(width = 1.dp.toPx()))
             }
-
-            drawLine(
-                color = IoBlue.copy(alpha = 0.15f),
-                start = Offset(center.x - maxRadius, center.y),
-                end = Offset(center.x + maxRadius, center.y),
-                strokeWidth = 1.dp.toPx()
-            )
-            drawLine(
-                color = IoBlue.copy(alpha = 0.15f),
-                start = Offset(center.x, center.y - maxRadius),
-                end = Offset(center.x, center.y + maxRadius),
-                strokeWidth = 1.dp.toPx()
-            )
+            drawLine(color = IoBlue.copy(alpha = 0.15f), start = Offset(center.x - maxRadius, center.y), end = Offset(center.x + maxRadius, center.y), strokeWidth = 1.dp.toPx())
+            drawLine(color = IoBlue.copy(alpha = 0.15f), start = Offset(center.x, center.y - maxRadius), end = Offset(center.x, center.y + maxRadius), strokeWidth = 1.dp.toPx())
 
             if (isScanning) {
                 rotate(sweepRotation, pivot = center) {
@@ -691,10 +639,7 @@ private fun RadarView(
                         drawLine(
                             color = IoBlueLight.copy(alpha = alpha),
                             start = center,
-                            end = Offset(
-                                center.x + maxRadius * kotlin.math.cos(angle),
-                                center.y + maxRadius * kotlin.math.sin(angle)
-                            ),
+                            end = Offset(center.x + maxRadius * kotlin.math.cos(angle), center.y + maxRadius * kotlin.math.sin(angle)),
                             strokeWidth = 3.dp.toPx()
                         )
                     }
@@ -707,30 +652,12 @@ private fun RadarView(
                 val rad = Math.toRadians(angle)
                 val dotX = center.x + maxRadius * radiusFactor * kotlin.math.cos(rad).toFloat()
                 val dotY = center.y + maxRadius * radiusFactor * kotlin.math.sin(rad).toFloat()
-
-                drawCircle(
-                    color = IoGreen,
-                    radius = 8.dp.toPx(),
-                    center = Offset(dotX, dotY)
-                )
-                drawCircle(
-                    color = IoGreenLight.copy(alpha = 0.4f),
-                    radius = 14.dp.toPx(),
-                    center = Offset(dotX, dotY)
-                )
+                drawCircle(color = IoGreen, radius = 8.dp.toPx(), center = Offset(dotX, dotY))
+                drawCircle(color = IoGreenLight.copy(alpha = 0.4f), radius = 14.dp.toPx(), center = Offset(dotX, dotY))
             }
 
-            drawCircle(
-                color = IslamicGold,
-                radius = 10.dp.toPx(),
-                center = center
-            )
-            drawCircle(
-                color = IslamicGoldLight.copy(alpha = 0.5f),
-                radius = 18.dp.toPx(),
-                center = center,
-                style = Stroke(width = 2.dp.toPx())
-            )
+            drawCircle(color = IslamicGold, radius = 10.dp.toPx(), center = center)
+            drawCircle(color = IslamicGoldLight.copy(alpha = 0.5f), radius = 18.dp.toPx(), center = center, style = Stroke(width = 2.dp.toPx()))
         }
 
         Text(
@@ -738,9 +665,7 @@ private fun RadarView(
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             color = IslamicGold,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(top = 44.dp)
+            modifier = Modifier.align(Alignment.Center).padding(top = 44.dp)
         )
     }
 }
@@ -758,35 +683,20 @@ private fun DeviceCard(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 12.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(IoCard)
-                .then(
-                    if (focusRequester != null) Modifier.focusRequester(focusRequester)
-                    else Modifier
-                )
+                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
+                .clickable(interactionSource = interactionSource, indication = null) { onClick() }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(IoBlue.copy(alpha = 0.2f)),
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(IoBlue.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -798,17 +708,8 @@ private fun DeviceCard(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = device.name,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "${device.role} • ${device.version}",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
+                Text(text = device.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(text = "${device.role} • ${device.version}", fontSize = 12.sp, color = TextSecondary)
                 Text(
                     text = "IP: ${device.ip}:${device.port}",
                     fontSize = 11.sp,
@@ -816,12 +717,7 @@ private fun DeviceCard(
                     fontFamily = FontFamily.Monospace
                 )
             }
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(IoGreen)
-            )
+            Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(IoGreen))
         }
     }
 }
@@ -845,33 +741,12 @@ private fun ConnectedView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "✓ TERHUBUNG",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoGreen
-        )
+        Text(text = "✓ TERHUBUNG", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IoGreen)
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = device?.name ?: "Perangkat",
-            fontSize = 16.sp,
-            color = TextPrimary
-        )
-        Text(
-            text = "${device?.role} • ${device?.ip}:${device?.port}",
-            fontSize = 13.sp,
-            color = TextSecondary
-        )
-
+        Text(text = device?.name ?: "Perangkat", fontSize = 16.sp, color = TextPrimary)
+        Text(text = "${device?.role} • ${device?.ip}:${device?.port}", fontSize = 13.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "Pilih aksi:",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
+        Text(text = "Pilih aksi:", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(modifier = Modifier.height(24.dp))
 
         Row(
@@ -881,7 +756,7 @@ private fun ConnectedView(
             BigActionButton(
                 icon = Icons.Default.Send,
                 title = "KIRIM",
-                subtitle = "Kirim pengaturan\ndari perangkat ini",
+                subtitle = "Kirim pengaturan +\nmedia dari HP ini",
                 color = IoBlue,
                 modifier = Modifier.weight(1f),
                 onClick = onSend
@@ -897,9 +772,7 @@ private fun ConnectedView(
         }
 
         Spacer(modifier = Modifier.height(48.dp))
-
         DisconnectButton(onClick = onDisconnect)
-
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -910,29 +783,16 @@ private fun DisconnectButton(onClick: () -> Unit) {
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 12.dp
-    ) {
+    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0x33FF5252))
                 .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
+                .clickable(interactionSource = interactionSource, indication = null) { onClick() }
                 .padding(horizontal = 32.dp, vertical = 14.dp)
         ) {
-            Text(
-                text = "PUTUSKAN KONEKSI",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF8A80)
-            )
+            Text(text = "PUTUSKAN KONEKSI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
         }
     }
 }
@@ -950,51 +810,27 @@ private fun BigActionButton(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 20.dp,
-        modifier = modifier
-    ) {
+    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 20.dp, modifier = modifier) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(color.copy(alpha = 0.15f))
                 .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
+                .clickable(interactionSource = interactionSource, indication = null) { onClick() }
                 .padding(vertical = 32.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(56.dp)
-            )
+            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(56.dp))
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
+            Text(text = title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = subtitle,
-                fontSize = 12.sp,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
-            )
+            Text(text = subtitle, fontSize = 12.sp, color = TextSecondary, textAlign = TextAlign.Center)
         }
     }
 }
 
 // ============================================================
-// TRANSFER PROGRESS VIEW
+// TRANSFER PROGRESS VIEW (Settings)
 // ============================================================
 @Composable
 private fun TransferProgressView(
@@ -1012,7 +848,6 @@ private fun TransferProgressView(
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-
         Text(
             text = if (isSending) "📤 MENGIRIM..." else "📥 MENERIMA...",
             fontSize = 24.sp,
@@ -1020,20 +855,11 @@ private fun TransferProgressView(
             color = if (isSending) IoBlue else IoGreen
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "ke $targetName",
-            fontSize = 14.sp,
-            color = TextSecondary
-        )
-
+        Text(text = "ke $targetName", fontSize = 14.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(48.dp))
 
         Box(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(16.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A2E44))
+            modifier = Modifier.fillMaxWidth(0.8f).height(16.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1A2E44))
         ) {
             Box(
                 modifier = Modifier
@@ -1052,7 +878,6 @@ private fun TransferProgressView(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = "${(progress * 100).toInt()}%",
             fontSize = 32.sp,
@@ -1060,15 +885,153 @@ private fun TransferProgressView(
             color = if (isSending) IoBlueLight else IoGreenLight,
             fontFamily = FontFamily.Monospace
         )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(text = message, fontSize = 13.sp, color = TextSecondary, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
 
+// ============================================================
+// MEDIA PROGRESS VIEW (BARU V1.30.4)
+// ============================================================
+@Composable
+private fun MediaProgressView(
+    progress: MediaTransferHelper.TransferProgress?,
+    targetName: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = message,
-            fontSize = 13.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center
+            text = "📤 MENGIRIM MEDIA...",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoBlue
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = "ke $targetName", fontSize = 14.sp, color = TextSecondary)
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        if (progress == null) {
+            CircularProgressIndicator(color = IoBlueLight)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Menyiapkan data media...", fontSize = 13.sp, color = TextSecondary)
+        } else {
+            Text(
+                text = "File ${progress.currentFileIndex} dari ${progress.totalFiles}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = IoBlueLight
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = progress.currentFileName,
+                fontSize = 13.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "File ini:",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF1A2E44))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress.currentFileProgress.coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Brush.horizontalGradient(listOf(IoBlue, IoBlueLight)))
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${(progress.currentFileProgress * 100).toInt()}%",
+                fontSize = 12.sp,
+                color = IoBlueLight,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Total keseluruhan:",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1A2E44))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress.overallProgress.coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Brush.horizontalGradient(listOf(IoGreen, IoGreenLight)))
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${(progress.overallProgress * 100).toInt()}%",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = IoGreenLight,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            val phaseColor = when (progress.phase) {
+                "error" -> IoRed
+                "done" -> IoGreen
+                "transferring" -> IoBlueLight
+                "compressing" -> IoAmber
+                else -> TextSecondary
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(phaseColor.copy(alpha = 0.12f))
+                    .border(1.dp, phaseColor.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = progress.message,
+                    fontSize = 13.sp,
+                    color = phaseColor,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -1078,31 +1041,20 @@ private fun TransferProgressView(
 // WAITING RECEIVE VIEW
 // ============================================================
 @Composable
-private fun WaitingReceiveView(
-    deviceName: String,
-    onCancel: () -> Unit
-) {
+private fun WaitingReceiveView(deviceName: String, onCancel: () -> Unit) {
     val infiniteTransition = rememberInfiniteTransition(label = "waiting")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.3f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
         label = "waiting_pulse"
     )
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(32.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -1111,22 +1063,10 @@ private fun WaitingReceiveView(
                 .border(3.dp, IoGreen.copy(alpha = pulseAlpha), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Download,
-                contentDescription = null,
-                tint = IoGreen,
-                modifier = Modifier.size(56.dp)
-            )
+            Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = IoGreen, modifier = Modifier.size(56.dp))
         }
-
         Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = "MENUNGGU PENGIRIM",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoGreen
-        )
+        Text(text = "MENUNGGU PENGIRIM", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IoGreen)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Minta $deviceName untuk menekan tombol KIRIM di perangkatnya.",
@@ -1134,20 +1074,15 @@ private fun WaitingReceiveView(
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(
-            text = "Perangkat ini siap menerima pengaturan.\n" +
-                    "Setelah data diterima, aplikasi akan otomatis restart.",
+            text = "Perangkat ini siap menerima pengaturan.\nSetelah data diterima, aplikasi akan otomatis restart.",
             fontSize = 12.sp,
             color = TextSecondary.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
             lineHeight = 18.sp
         )
-
         Spacer(modifier = Modifier.height(48.dp))
-
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
@@ -1156,14 +1091,8 @@ private fun WaitingReceiveView(
                 .clickable { onCancel() }
                 .padding(horizontal = 32.dp, vertical = 14.dp)
         ) {
-            Text(
-                text = "BATAL",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF8A80)
-            )
+            Text(text = "BATAL", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -1174,36 +1103,16 @@ private fun WaitingReceiveView(
 @Composable
 private fun DoneView(message: String) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(32.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "✓",
-            fontSize = 96.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoGreen
-        )
+        Text(text = "✓", fontSize = 96.sp, fontWeight = FontWeight.Bold, color = IoGreen)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "SELESAI",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoGreen
-        )
+        Text(text = "SELESAI", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = IoGreen)
         Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = message,
-            fontSize = 14.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center
-        )
-
+        Text(text = message, fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(48.dp))
     }
 }
@@ -1212,34 +1121,16 @@ private fun DoneView(message: String) {
 // ERROR VIEW
 // ============================================================
 @Composable
-private fun ErrorView(
-    message: String,
-    onRetry: () -> Unit,
-    onBackToScan: () -> Unit
-) {
+private fun ErrorView(message: String, onRetry: () -> Unit, onBackToScan: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(32.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "⚠️",
-            fontSize = 96.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoRed
-        )
+        Text(text = "⚠️", fontSize = 96.sp, fontWeight = FontWeight.Bold, color = IoRed)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "GAGAL",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoRed
-        )
+        Text(text = "GAGAL", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = IoRed)
         Spacer(modifier = Modifier.height(16.dp))
 
         Box(
@@ -1271,17 +1162,13 @@ private fun ErrorView(
                 .padding(16.dp)
         ) {
             Column {
-                Text(
-                    text = "💡 Tips troubleshooting:",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoAmber
-                )
+                Text(text = "💡 Tips troubleshooting:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IoAmber)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "• Cek Remote Server aktif di perangkat tujuan\n" +
                             "• Pastikan WiFi sama & port server sama\n" +
-                            "• Force close aplikasi lain yang pakai port sama\n" +
+                            "• File besar butuh waktu (10+ menit)\n" +
+                            "• Jangan tutup aplikasi saat transfer\n" +
                             "• Buka tombol Panduan untuk info lengkap",
                     fontSize = 12.sp,
                     color = TextSecondary,
@@ -1301,12 +1188,7 @@ private fun ErrorView(
                     .clickable { onRetry() }
                     .padding(horizontal = 32.dp, vertical = 14.dp)
             ) {
-                Text(
-                    text = "COBA LAGI",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IoBlueLight
-                )
+                Text(text = "COBA LAGI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
             }
             Box(
                 modifier = Modifier
@@ -1316,12 +1198,7 @@ private fun ErrorView(
                     .clickable { onBackToScan() }
                     .padding(horizontal = 32.dp, vertical = 14.dp)
             ) {
-                Text(
-                    text = "SCAN ULANG",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF8A80)
-                )
+                Text(text = "SCAN ULANG", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
             }
         }
 
