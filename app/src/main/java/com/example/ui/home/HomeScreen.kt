@@ -50,6 +50,7 @@ import com.example.data.model.PrayerSchedule
 import com.example.ui.cctv.CctvWidget
 import com.example.ui.components.ArabesquePattern
 import com.example.ui.components.ClockAndDate
+import com.example.ui.components.MakkahDynamicBackground
 import com.example.ui.components.MasjidVideoPlayer
 import com.example.ui.components.MosqueHeader
 import com.example.ui.components.OfficerCarousel
@@ -152,8 +153,18 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color(0xFF071219))
     ) {
+        // ============================================================
         // BACKGROUND LAYER
+        // ============================================================
         when (settings.backgroundMode) {
+            // ===== MAKKAH DINAMIS (BARU) =====
+            BackgroundMode.MAKKAH_DYNAMIC -> {
+                MakkahDynamicBackground(
+                    weatherCondition = weatherCondition,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            // ===== CUSTOM =====
             BackgroundMode.CUSTOM -> {
                 if (!settings.customBackgroundUri.isNullOrBlank()) {
                     AsyncImage(
@@ -167,6 +178,7 @@ fun HomeScreen(
                     Box(modifier = Modifier.fillMaxSize().background(realTimeSkyBrush))
                 }
             }
+            // ===== KABAH STATIS =====
             BackgroundMode.KABAH -> {
                 Image(
                     painter = painterResource(id = R.drawable.bg_kabah_1790267578617),
@@ -176,6 +188,7 @@ fun HomeScreen(
                     alpha = 0.35f
                 )
             }
+            // ===== EMERALD GEOMETRIC =====
             BackgroundMode.EMERALD_GEOMETRIC -> {
                 Box(
                     modifier = Modifier
@@ -187,25 +200,45 @@ fun HomeScreen(
                         )
                 )
             }
+            // ===== NATURE / DEFAULT =====
             else -> {
                 Box(modifier = Modifier.fillMaxSize().background(realTimeSkyBrush))
             }
         }
 
-        // Tint overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0x22000000), Color(0x66040B10), Color(0xAA02070A))
+        // Tint overlay (tidak untuk Makkah Dinamis supaya langit terlihat jelas)
+        if (settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0x22000000), Color(0x66040B10), Color(0xAA02070A))
+                        )
                     )
-                )
-        )
+            )
+        } else {
+            // Untuk Makkah Dinamis: overlay lebih lembut (hanya di bawah agar teks terbaca)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color(0x66000000),
+                                Color(0xAA000000)
+                            )
+                        )
+                    )
+            )
+        }
 
         ArabesquePattern(lineColor = Color(0x12FFD700))
 
-        if (settings.animationsEnabled) {
+        // Weather ambient overlay hanya untuk background non-Makkah
+        if (settings.animationsEnabled && settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
             WeatherAmbientOverlay(
                 weatherCondition = weatherCondition,
                 showBirds = settings.showBirdsAnimation
@@ -219,8 +252,10 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
-        
+
+        // ============================================================
         // SMART FULLSCREEN VIDEO MODE
+        // ============================================================
         if (isSmartVideoFullscreen) {
             Box(modifier = Modifier.fillMaxSize()) {
                 MasjidVideoPlayer(
@@ -256,7 +291,9 @@ fun HomeScreen(
                 }
             }
         } else {
+            // ============================================================
             // MAIN UI
+            // ============================================================
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
