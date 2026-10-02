@@ -45,6 +45,7 @@ enum class BackgroundMode {
     DEFAULT_NATURE,
     KABAH,
     EMERALD_GEOMETRIC,
+    MAKKAH_DYNAMIC,
     CUSTOM,
     CUSTOM_GALLERY
 }
@@ -120,12 +121,9 @@ data class LaporanKeuangan(
 }
 
 data class AppSettings(
-    // ===== Mosque Identity =====
     val mosqueName: String = "MASJID AL-IKHLAS",
     val mosqueAddress: String = "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat",
     val mosqueTakmir: String = "H. Muhammad Syarif, S.E.",
-
-    // ===== Location =====
     val isGpsEnabled: Boolean = false,
     val country: String = "Indonesia",
     val province: String = "DKI Jakarta",
@@ -134,23 +132,13 @@ data class AppSettings(
     val latitude: Double = -6.1754,
     val longitude: Double = 106.8272,
     val calculationMethod: String = "Kementerian Agama RI (Kemenag)",
-
-    // ===== Language =====
     val languageCode: String = "id",
-
-    // ===== Running Text =====
-    // Default: teks islami lengkap. Aktif otomatis (karena text tidak kosong).
-    // Speed: 1-10 (1 = paling lambat, 5 = normal, 10 = paling cepat)
     val runningText: String = "║ Selamat datang di Masjid Al-Ikhlas ║ Luruskan dan rapatkan shaf sholat ║ Harap nonaktifkan nada dering ponsel ║ Mari jaga kebersihan dan ketertiban masjid ║ Infaq & Shadaqah: Rek BSI 7123-4567-89 a.n Masjid Al-Ikhlas ║",
     val runningTextSpeed: Int = 5,
     val runningTextFontSize: Int = 18,
-
-    // ===== Officers =====
     val officers: OfficerSchedule = OfficerSchedule(),
     val weeklyOfficers: List<DailyOfficerItem> = createDefaultWeeklySchedule(),
     val officerPhotoUri: String? = null,
-
-    // ===== Audio & Adzan =====
     val audioMode: AudioMode = AudioMode.BEEP_ONLY,
     val beepVolume: Int = 100,
     val beepCount: Int = 5,
@@ -163,14 +151,10 @@ data class AppSettings(
     val qobliyahWaitMinutes: Int = 5,
     val prayerFocusDurationMinutes: Int = 30,
     val focusModeDurationMinutes: Int = 30,
-
-    // ===== Display & Background =====
-    val backgroundMode: BackgroundMode = BackgroundMode.NATURE,
+    val backgroundMode: BackgroundMode = BackgroundMode.MAKKAH_DYNAMIC,
     val customBackgroundUri: String? = null,
     val animationsEnabled: Boolean = true,
     val showBirdsAnimation: Boolean = true,
-
-    // ===== QRIS Donation =====
     val qrisPhotoUri: String? = null,
     val qrisImageUri: String = "",
     val qrisIntervalMinutes: Int = 15,
@@ -178,22 +162,14 @@ data class AppSettings(
     val bankName: String = "Bank Syariah Indonesia (BSI)",
     val bankAccountNumber: String = "7123-4567-890",
     val bankAccountHolder: String = "DKM MASJID AL-IKHLAS",
-
-    // ===== Wisdom cards =====
     val wisdomCardAnimation: String = "Fade",
     val wisdomCardIntervalSeconds: Int = 12,
-
-    // ===== Video Facility =====
     val videoEnabled: Boolean = false,
     val videoUri: String? = null,
     val videoSmartFullscreen: Boolean = true,
-
-    // ===== Photo Slideshow =====
     val photoSlideshowEnabled: Boolean = false,
     val photoSlideshowUris: List<String> = emptyList(),
     val photoSlideshowIntervalSeconds: Int = 10,
-
-    // ===== Slide Fullscreen =====
     val slideEnabled: Boolean = false,
     val slideIntervalSeconds: Int = 15,
     val qrisSlideEnabled: Boolean = true,
@@ -201,13 +177,9 @@ data class AppSettings(
     val kajianSlideEnabled: Boolean = true,
     val slideShowOnlyWhenIdle: Boolean = true,
     val laporanKeuangan: LaporanKeuangan = LaporanKeuangan(),
-
-    // ===== Prayer Card Photo =====
     val prayerCardPhotoEnabled: Boolean = false,
     val prayerCardPhotoUri: String? = null,
     val prayerCardPhotoAlpha: Float = 0.35f,
-
-    // ===== Mode Ramadhan =====
     val ramadhanModeEnabled: Boolean = false,
     val showImsakIftarCountdown: Boolean = true,
     val showTarawihSchedule: Boolean = true,
@@ -223,43 +195,29 @@ data class AppSettings(
     val kultumTime: String = "17:30",
     val menuSahurText: String = "",
     val menuIftarText: String = "",
-
-    // ===== Dzikir =====
     val dzikirEnabled: Boolean = true,
     val dzikirDurationSeconds: Int = 120,
     val dzikirAutoShowAfterPrayer: Boolean = true,
-
-    // ===== Konten Rotasi =====
     val contentRotationEnabled: Boolean = false,
     val contentRotationShowAyat: Boolean = true,
     val contentRotationShowHadits: Boolean = true,
     val contentRotationShowAsmaulHusna: Boolean = true,
     val contentRotationIntervalSeconds: Int = 20,
-
-    // ===== CCTV =====
     val cctvEnabled: Boolean = false,
     val cctvUrl: String = "",
     val cctvPosition: CctvPosition = CctvPosition.TOP_RIGHT,
     val cctvSizePercent: Int = 20,
-
-    // ===== iO Control / Remote =====
     val remoteControlEnabled: Boolean = false,
     val remoteServerPort: Int = 14039,
     val remoteAuthToken: String = "masjid-io",
-
-    // ===== Security & Kiosk =====
     val pinCode: String = "1234",
     val kioskModeEnabled: Boolean = true,
     val autoStartOnBoot: Boolean = true,
     val autoRestartIfCrash: Boolean = true,
     val disableBackButton: Boolean = true,
     val lockTaskMode: Boolean = true,
-
-    // ===== Manual Time & Date =====
     val isManualTimeEnabled: Boolean = false,
     val manualTimeOffsetSeconds: Long = 0L,
-
-    // ===== Power =====
     val keepScreenOn: Boolean = true,
     val autoOnOff: Boolean = false,
     val autoOnTime: String = "04:00",
@@ -268,8 +226,6 @@ data class AppSettings(
     val idleTimeoutMinutes: Int = 30,
     val autoBrightness: Boolean = true,
     val saveBatteryMode: Boolean = false,
-
-    // ===== WhatsApp Fonnte =====
     val fonnteToken: String = "",
     val fonnteGroupId: String = "",
     val whatsappReportEnabled: Boolean = true
