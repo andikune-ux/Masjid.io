@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.audio.SoundManager
 import com.example.data.model.AppSettings
+import com.example.ui.components.AutoFocusPane
 import com.example.ui.components.ChangePinDialog
 import com.example.ui.components.NeonFocusBorder
 import com.example.ui.theme.IslamicGold
@@ -139,6 +140,7 @@ fun SettingsScreen(
         SettingsNavState.lastCategory = selectedCategory
     }
 
+    // AUTO-SAVE debounce 500ms
     LaunchedEffect(draftSettings) {
         if (isInitialLoad) {
             isInitialLoad = false
@@ -233,7 +235,7 @@ fun SettingsScreen(
                 }
             }
 
-            // PANE KANAN
+            // PANE KANAN — dibungkus AutoFocusPane
             Box(
                 modifier = Modifier
                     .weight(0.68f)
@@ -251,8 +253,19 @@ fun SettingsScreen(
                         animationSpec = tween(durationMillis = 200),
                         label = "pane_fade"
                     )
-                    Box(modifier = Modifier.fillMaxSize().alpha(alpha)) {
 
+                    // ============================================================
+                    // AUTO-FOCUS WRAPPER — sekali pakai untuk 20 pane
+                    // Fokus otomatis ke elemen pertama saat pane baru dibuka
+                    // ============================================================
+                    AutoFocusPane(
+                        paneKey = previewCategory,
+                        focusDelayMs = 150L,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(alpha)
+                    ) {
+                        // CEK DEVELOPER BELUM UNLOCK
                         if (previewCategory == SettingsCategory.DEVELOPER &&
                             !SettingsNavState.isDeveloperUnlocked
                         ) {
@@ -377,6 +390,9 @@ fun SettingsScreen(
     }
 }
 
+// ============================================================
+// DEVELOPER LOCKED PANE — placeholder sebelum PIN benar
+// ============================================================
 @Composable
 private fun DeveloperLockedPane() {
     Box(
@@ -411,6 +427,9 @@ private fun DeveloperLockedPane() {
     }
 }
 
+// ============================================================
+// SIDEBAR ITEM
+// ============================================================
 @Composable
 private fun SidebarItem(
     category: SettingsCategory,
@@ -481,6 +500,11 @@ private fun SidebarItem(
     }
 }
 
+// ============================================================
+// TOP BAR ICON BUTTON — TOMBOL KEMBALI
+// PENTING: focusProperties { down = ... } supaya D-pad arrow DOWN
+// tidak default ke tombol kembali, tapi ke pane pertama
+// ============================================================
 @Composable
 private fun TopBarIconButton(
     onClick: () -> Unit,
@@ -491,7 +515,7 @@ private fun TopBarIconButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.1f else 1f,
+        targetValue = if (isFocused) 1.05f else 1f,
         animationSpec = tween(150),
         label = "icon_scale"
     )
@@ -520,6 +544,9 @@ private fun TopBarIconButton(
     }
 }
 
+// ============================================================
+// SAVE BUTTON
+// ============================================================
 @Composable
 private fun SaveButton(
     onClick: () -> Unit
