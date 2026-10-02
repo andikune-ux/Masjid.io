@@ -75,11 +75,18 @@ class SettingsRepository(context: Context) {
             prayerFocusDurationMinutes = prefs.getInt("prayerFocusDurationMinutes", 30),
             focusModeDurationMinutes = prefs.getInt("focusModeDurationMinutes", 30),
             backgroundMode = runCatching {
-                BackgroundMode.valueOf(prefs.getString("backgroundMode", "NATURE") ?: "NATURE")
-            }.getOrDefault(BackgroundMode.NATURE),
+                BackgroundMode.valueOf(prefs.getString("backgroundMode", "MAKKAH_DYNAMIC") ?: "MAKKAH_DYNAMIC")
+            }.getOrDefault(BackgroundMode.MAKKAH_DYNAMIC),
             customBackgroundUri = prefs.getString("customBackgroundUri", null),
             animationsEnabled = prefs.getBoolean("animationsEnabled", true),
             showBirdsAnimation = prefs.getBoolean("showBirdsAnimation", true),
+            // ============================================================
+            // RESPONSIVE LAYOUT (V1.30.3)
+            // ============================================================
+            tvAutoScaleEnabled = prefs.getBoolean("tvAutoScaleEnabled", true),
+            tvSafeAreaPercent = prefs.getFloat("tvSafeAreaPercent", 3f),
+            tvLayoutPreset = prefs.getString("tvLayoutPreset", "AUTO") ?: "AUTO",
+            // ============================================================
             qrisPhotoUri = prefs.getString("qrisPhotoUri", null),
             qrisImageUri = prefs.getString("qrisImageUri", "") ?: "",
             qrisIntervalMinutes = prefs.getInt("qrisIntervalMinutes", 15),
@@ -158,197 +165,207 @@ class SettingsRepository(context: Context) {
             whatsappReportEnabled = prefs.getBoolean("whatsappReportEnabled", true)
         )
     }
-    
-private fun saveSettings(s: AppSettings) {
-    prefs.edit().apply {
-        putString("mosqueName", s.mosqueName)
-        putString("mosqueAddress", s.mosqueAddress)
-        putString("mosqueTakmir", s.mosqueTakmir)
-        putBoolean("isGpsEnabled", s.isGpsEnabled)
-        putString("country", s.country)
-        putString("province", s.province)
-        putString("city", s.city)
-        putString("district", s.district)
-        putString("latitude", s.latitude.toString())
-        putString("longitude", s.longitude.toString())
-        putString("calculationMethod", s.calculationMethod)
-        putString("languageCode", s.languageCode)
-        putString("runningText", s.runningText)
-        putInt("runningTextSpeed", s.runningTextSpeed)
-        putInt("runningTextFontSize", s.runningTextFontSize)
-        saveOfficerSchedule(s.officers)
-        saveWeeklyOfficers(s.weeklyOfficers)
-        putString("officerPhotoUri", s.officerPhotoUri)
-        putString("audioMode", s.audioMode.name)
-        putInt("beepVolume", s.beepVolume)
-        putInt("beepCount", s.beepCount)
-        putInt("beepDurationMs", s.beepDurationMs)
-        putInt("beepIntervalMs", s.beepIntervalMs)
-        putString("adzanFile", s.adzanFile)
-        putInt("adzanVolume", s.adzanVolume)
-        putInt("adzanWaitMinutes", s.adzanWaitMinutes)
-        putInt("iqamahWaitMinutes", s.iqamahWaitMinutes)
-        putInt("qobliyahWaitMinutes", s.qobliyahWaitMinutes)
-        putInt("prayerFocusDurationMinutes", s.prayerFocusDurationMinutes)
-        putInt("focusModeDurationMinutes", s.focusModeDurationMinutes)
-        putString("backgroundMode", s.backgroundMode.name)
-        putString("customBackgroundUri", s.customBackgroundUri)
-        putBoolean("animationsEnabled", s.animationsEnabled)
-        putBoolean("showBirdsAnimation", s.showBirdsAnimation)
-        putString("qrisPhotoUri", s.qrisPhotoUri)
-        putString("qrisImageUri", s.qrisImageUri)
-        putInt("qrisIntervalMinutes", s.qrisIntervalMinutes)
-        putInt("qrisDisplayDurationSeconds", s.qrisDisplayDurationSeconds)
-        putString("bankName", s.bankName)
-        putString("bankAccountNumber", s.bankAccountNumber)
-        putString("bankAccountHolder", s.bankAccountHolder)
-        putString("wisdomCardAnimation", s.wisdomCardAnimation)
-        putInt("wisdomCardIntervalSeconds", s.wisdomCardIntervalSeconds)
-        putBoolean("videoEnabled", s.videoEnabled)
-        putString("videoUri", s.videoUri)
-        putBoolean("videoSmartFullscreen", s.videoSmartFullscreen)
-        putBoolean("photoSlideshowEnabled", s.photoSlideshowEnabled)
-        saveStringList("photoSlideshowUris", s.photoSlideshowUris)
-        putInt("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
-        putBoolean("slideEnabled", s.slideEnabled)
-        putInt("slideIntervalSeconds", s.slideIntervalSeconds)
-        putBoolean("qrisSlideEnabled", s.qrisSlideEnabled)
-        putBoolean("laporanSlideEnabled", s.laporanSlideEnabled)
-        putBoolean("kajianSlideEnabled", s.kajianSlideEnabled)
-        putBoolean("slideShowOnlyWhenIdle", s.slideShowOnlyWhenIdle)
-        saveLaporanKeuangan(s.laporanKeuangan)
-        putBoolean("prayerCardPhotoEnabled", s.prayerCardPhotoEnabled)
-        putString("prayerCardPhotoUri", s.prayerCardPhotoUri)
-        putFloat("prayerCardPhotoAlpha", s.prayerCardPhotoAlpha)
-        putBoolean("ramadhanModeEnabled", s.ramadhanModeEnabled)
-        putBoolean("showImsakIftarCountdown", s.showImsakIftarCountdown)
-        putBoolean("showTarawihSchedule", s.showTarawihSchedule)
-        putBoolean("showKultumSchedule", s.showKultumSchedule)
-        putBoolean("showMenuSahurIftar", s.showMenuSahurIftar)
-        putBoolean("showImsakBesar", s.showImsakBesar)
-        putBoolean("showIftarBesar", s.showIftarBesar)
-        putInt("ramadhanImsakOffsetMinutes", s.ramadhanImsakOffsetMinutes)
-        putString("tarawihTime", s.tarawihTime)
-        putString("tarawihImam", s.tarawihImam)
-        putString("kultumTitle", s.kultumTitle)
-        putString("kultumUstadz", s.kultumUstadz)
-        putString("kultumTime", s.kultumTime)
-        putString("menuSahurText", s.menuSahurText)
-        putString("menuIftarText", s.menuIftarText)
-        putBoolean("dzikirEnabled", s.dzikirEnabled)
-        putInt("dzikirDurationSeconds", s.dzikirDurationSeconds)
-        putBoolean("dzikirAutoShowAfterPrayer", s.dzikirAutoShowAfterPrayer)
-        putBoolean("contentRotationEnabled", s.contentRotationEnabled)
-        putBoolean("contentRotationShowAyat", s.contentRotationShowAyat)
-        putBoolean("contentRotationShowHadits", s.contentRotationShowHadits)
-        putBoolean("contentRotationShowAsmaulHusna", s.contentRotationShowAsmaulHusna)
-        putInt("contentRotationIntervalSeconds", s.contentRotationIntervalSeconds)
-        putBoolean("cctvEnabled", s.cctvEnabled)
-        putString("cctvUrl", s.cctvUrl)
-        putString("cctvPosition", s.cctvPosition.name)
-        putInt("cctvSizePercent", s.cctvSizePercent)
-        putBoolean("remoteControlEnabled", s.remoteControlEnabled)
-        putInt("remoteServerPort", s.remoteServerPort)
-        putString("remoteAuthToken", s.remoteAuthToken)
-        putString("pinCode", s.pinCode)
-        putBoolean("kioskModeEnabled", s.kioskModeEnabled)
-        putBoolean("autoStartOnBoot", s.autoStartOnBoot)
-        putBoolean("autoRestartIfCrash", s.autoRestartIfCrash)
-        putBoolean("disableBackButton", s.disableBackButton)
-        putBoolean("lockTaskMode", s.lockTaskMode)
-        putBoolean("isManualTimeEnabled", s.isManualTimeEnabled)
-        putLong("manualTimeOffsetSeconds", s.manualTimeOffsetSeconds)
-        putBoolean("keepScreenOn", s.keepScreenOn)
-        putBoolean("autoOnOff", s.autoOnOff)
-        putString("autoOnTime", s.autoOnTime)
-        putString("autoOffTime", s.autoOffTime)
-        putBoolean("idleScreenOff", s.idleScreenOff)
-        putInt("idleTimeoutMinutes", s.idleTimeoutMinutes)
-        putBoolean("autoBrightness", s.autoBrightness)
-        putBoolean("saveBatteryMode", s.saveBatteryMode)
-        putString("fonnteToken", s.fonnteToken)
-        putString("fonnteGroupId", s.fonnteGroupId)
-        putBoolean("whatsappReportEnabled", s.whatsappReportEnabled)
-    }.apply()
-}
 
-private fun loadStringList(key: String): List<String> {
-    val raw = prefs.getString(key, null) ?: return emptyList()
-    return runCatching {
-        val arr = JSONArray(raw)
-        List(arr.length()) { i -> arr.getString(i) }
-    }.getOrDefault(emptyList())
-}
-
-private fun saveStringList(key: String, list: List<String>) {
-    val arr = JSONArray()
-    list.forEach { arr.put(it) }
-    prefs.edit().putString(key, arr.toString()).apply()
-}
-
-private fun loadWeeklyOfficers(): List<DailyOfficerItem> {
-    val raw = prefs.getString("weeklyOfficers", null) ?: return AppSettings.createDefaultWeeklySchedule()
-    return runCatching {
-        val arr = JSONArray(raw)
-        List(arr.length()) { i ->
-            val o = arr.getJSONObject(i)
-            DailyOfficerItem(
-                dayName = o.optString("dayName", "Senin"),
-                imamSubuh = o.optString("imamSubuh", ""),
-                muadzinSubuh = o.optString("muadzinSubuh", ""),
-                fotoImamSubuh = o.optString("fotoImamSubuh", "").ifEmpty { null },
-                fotoMuadzinSubuh = o.optString("fotoMuadzinSubuh", "").ifEmpty { null },
-                imamDzuhur = o.optString("imamDzuhur", ""),
-                muadzinDzuhur = o.optString("muadzinDzuhur", ""),
-                fotoImamDzuhur = o.optString("fotoImamDzuhur", "").ifEmpty { null },
-                fotoMuadzinDzuhur = o.optString("fotoMuadzinDzuhur", "").ifEmpty { null },
-                imamAshar = o.optString("imamAshar", ""),
-                muadzinAshar = o.optString("muadzinAshar", ""),
-                fotoImamAshar = o.optString("fotoImamAshar", "").ifEmpty { null },
-                fotoMuadzinAshar = o.optString("fotoMuadzinAshar", "").ifEmpty { null },
-                imamMaghrib = o.optString("imamMaghrib", ""),
-                muadzinMaghrib = o.optString("muadzinMaghrib", ""),
-                fotoImamMaghrib = o.optString("fotoImamMaghrib", "").ifEmpty { null },
-                fotoMuadzinMaghrib = o.optString("fotoMuadzinMaghrib", "").ifEmpty { null },
-                imamIsya = o.optString("imamIsya", ""),
-                muadzinIsya = o.optString("muadzinIsya", ""),
-                fotoImamIsya = o.optString("fotoImamIsya", "").ifEmpty { null },
-                fotoMuadzinIsya = o.optString("fotoMuadzinIsya", "").ifEmpty { null },
-                khatibJumat = o.optString("khatibJumat", ""),
-                temaJumat = o.optString("temaJumat", ""),
-                fotoKhatibJumat = o.optString("fotoKhatibJumat", "").ifEmpty { null },
-                ustadzKajian = o.optString("ustadzKajian", ""),
-                temaKajian = o.optString("temaKajian", ""),
-                fotoUstadzKajian = o.optString("fotoUstadzKajian", "").ifEmpty { null }
-            )
-        }
-    }.getOrDefault(AppSettings.createDefaultWeeklySchedule())
-}
-
-private fun saveWeeklyOfficers(list: List<DailyOfficerItem>) {
-    val arr = JSONArray()
-    list.forEach { o ->
-        val obj = JSONObject().apply {
-            put("dayName", o.dayName)
-            put("imamSubuh", o.imamSubuh); put("muadzinSubuh", o.muadzinSubuh)
-            put("fotoImamSubuh", o.fotoImamSubuh ?: ""); put("fotoMuadzinSubuh", o.fotoMuadzinSubuh ?: "")
-            put("imamDzuhur", o.imamDzuhur); put("muadzinDzuhur", o.muadzinDzuhur)
-            put("fotoImamDzuhur", o.fotoImamDzuhur ?: ""); put("fotoMuadzinDzuhur", o.fotoMuadzinDzuhur ?: "")
-            put("imamAshar", o.imamAshar); put("muadzinAshar", o.muadzinAshar)
-            put("fotoImamAshar", o.fotoImamAshar ?: ""); put("fotoMuadzinAshar", o.fotoMuadzinAshar ?: "")
-            put("imamMaghrib", o.imamMaghrib); put("muadzinMaghrib", o.muadzinMaghrib)
-            put("fotoImamMaghrib", o.fotoImamMaghrib ?: ""); put("fotoMuadzinMaghrib", o.fotoMuadzinMaghrib ?: "")
-            put("imamIsya", o.imamIsya); put("muadzinIsya", o.muadzinIsya)
-            put("fotoImamIsya", o.fotoImamIsya ?: ""); put("fotoMuadzinIsya", o.fotoMuadzinIsya ?: "")
-            put("khatibJumat", o.khatibJumat); put("temaJumat", o.temaJumat)
-            put("fotoKhatibJumat", o.fotoKhatibJumat ?: "")
-            put("ustadzKajian", o.ustadzKajian); put("temaKajian", o.temaKajian)
-            put("fotoUstadzKajian", o.fotoUstadzKajian ?: "")
-        }
-        arr.put(obj)
+    // ============================================================
+    // SAVE SETTINGS
+    // ============================================================
+    private fun saveSettings(s: AppSettings) {
+        prefs.edit().apply {
+            putString("mosqueName", s.mosqueName)
+            putString("mosqueAddress", s.mosqueAddress)
+            putString("mosqueTakmir", s.mosqueTakmir)
+            putBoolean("isGpsEnabled", s.isGpsEnabled)
+            putString("country", s.country)
+            putString("province", s.province)
+            putString("city", s.city)
+            putString("district", s.district)
+            putString("latitude", s.latitude.toString())
+            putString("longitude", s.longitude.toString())
+            putString("calculationMethod", s.calculationMethod)
+            putString("languageCode", s.languageCode)
+            putString("runningText", s.runningText)
+            putInt("runningTextSpeed", s.runningTextSpeed)
+            putInt("runningTextFontSize", s.runningTextFontSize)
+            saveOfficerSchedule(s.officers)
+            saveWeeklyOfficers(s.weeklyOfficers)
+            putString("officerPhotoUri", s.officerPhotoUri)
+            putString("audioMode", s.audioMode.name)
+            putInt("beepVolume", s.beepVolume)
+            putInt("beepCount", s.beepCount)
+            putInt("beepDurationMs", s.beepDurationMs)
+            putInt("beepIntervalMs", s.beepIntervalMs)
+            putString("adzanFile", s.adzanFile)
+            putInt("adzanVolume", s.adzanVolume)
+            putInt("adzanWaitMinutes", s.adzanWaitMinutes)
+            putInt("iqamahWaitMinutes", s.iqamahWaitMinutes)
+            putInt("qobliyahWaitMinutes", s.qobliyahWaitMinutes)
+            putInt("prayerFocusDurationMinutes", s.prayerFocusDurationMinutes)
+            putInt("focusModeDurationMinutes", s.focusModeDurationMinutes)
+            putString("backgroundMode", s.backgroundMode.name)
+            putString("customBackgroundUri", s.customBackgroundUri)
+            putBoolean("animationsEnabled", s.animationsEnabled)
+            putBoolean("showBirdsAnimation", s.showBirdsAnimation)
+            // ============================================================
+            // RESPONSIVE LAYOUT (V1.30.3)
+            // ============================================================
+            putBoolean("tvAutoScaleEnabled", s.tvAutoScaleEnabled)
+            putFloat("tvSafeAreaPercent", s.tvSafeAreaPercent)
+            putString("tvLayoutPreset", s.tvLayoutPreset)
+            // ============================================================
+            putString("qrisPhotoUri", s.qrisPhotoUri)
+            putString("qrisImageUri", s.qrisImageUri)
+            putInt("qrisIntervalMinutes", s.qrisIntervalMinutes)
+            putInt("qrisDisplayDurationSeconds", s.qrisDisplayDurationSeconds)
+            putString("bankName", s.bankName)
+            putString("bankAccountNumber", s.bankAccountNumber)
+            putString("bankAccountHolder", s.bankAccountHolder)
+            putString("wisdomCardAnimation", s.wisdomCardAnimation)
+            putInt("wisdomCardIntervalSeconds", s.wisdomCardIntervalSeconds)
+            putBoolean("videoEnabled", s.videoEnabled)
+            putString("videoUri", s.videoUri)
+            putBoolean("videoSmartFullscreen", s.videoSmartFullscreen)
+            putBoolean("photoSlideshowEnabled", s.photoSlideshowEnabled)
+            saveStringList("photoSlideshowUris", s.photoSlideshowUris)
+            putInt("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
+            putBoolean("slideEnabled", s.slideEnabled)
+            putInt("slideIntervalSeconds", s.slideIntervalSeconds)
+            putBoolean("qrisSlideEnabled", s.qrisSlideEnabled)
+            putBoolean("laporanSlideEnabled", s.laporanSlideEnabled)
+            putBoolean("kajianSlideEnabled", s.kajianSlideEnabled)
+            putBoolean("slideShowOnlyWhenIdle", s.slideShowOnlyWhenIdle)
+            saveLaporanKeuangan(s.laporanKeuangan)
+            putBoolean("prayerCardPhotoEnabled", s.prayerCardPhotoEnabled)
+            putString("prayerCardPhotoUri", s.prayerCardPhotoUri)
+            putFloat("prayerCardPhotoAlpha", s.prayerCardPhotoAlpha)
+            putBoolean("ramadhanModeEnabled", s.ramadhanModeEnabled)
+            putBoolean("showImsakIftarCountdown", s.showImsakIftarCountdown)
+            putBoolean("showTarawihSchedule", s.showTarawihSchedule)
+            putBoolean("showKultumSchedule", s.showKultumSchedule)
+            putBoolean("showMenuSahurIftar", s.showMenuSahurIftar)
+            putBoolean("showImsakBesar", s.showImsakBesar)
+            putBoolean("showIftarBesar", s.showIftarBesar)
+            putInt("ramadhanImsakOffsetMinutes", s.ramadhanImsakOffsetMinutes)
+            putString("tarawihTime", s.tarawihTime)
+            putString("tarawihImam", s.tarawihImam)
+            putString("kultumTitle", s.kultumTitle)
+            putString("kultumUstadz", s.kultumUstadz)
+            putString("kultumTime", s.kultumTime)
+            putString("menuSahurText", s.menuSahurText)
+            putString("menuIftarText", s.menuIftarText)
+            putBoolean("dzikirEnabled", s.dzikirEnabled)
+            putInt("dzikirDurationSeconds", s.dzikirDurationSeconds)
+            putBoolean("dzikirAutoShowAfterPrayer", s.dzikirAutoShowAfterPrayer)
+            putBoolean("contentRotationEnabled", s.contentRotationEnabled)
+            putBoolean("contentRotationShowAyat", s.contentRotationShowAyat)
+            putBoolean("contentRotationShowHadits", s.contentRotationShowHadits)
+            putBoolean("contentRotationShowAsmaulHusna", s.contentRotationShowAsmaulHusna)
+            putInt("contentRotationIntervalSeconds", s.contentRotationIntervalSeconds)
+            putBoolean("cctvEnabled", s.cctvEnabled)
+            putString("cctvUrl", s.cctvUrl)
+            putString("cctvPosition", s.cctvPosition.name)
+            putInt("cctvSizePercent", s.cctvSizePercent)
+            putBoolean("remoteControlEnabled", s.remoteControlEnabled)
+            putInt("remoteServerPort", s.remoteServerPort)
+            putString("remoteAuthToken", s.remoteAuthToken)
+            putString("pinCode", s.pinCode)
+            putBoolean("kioskModeEnabled", s.kioskModeEnabled)
+            putBoolean("autoStartOnBoot", s.autoStartOnBoot)
+            putBoolean("autoRestartIfCrash", s.autoRestartIfCrash)
+            putBoolean("disableBackButton", s.disableBackButton)
+            putBoolean("lockTaskMode", s.lockTaskMode)
+            putBoolean("isManualTimeEnabled", s.isManualTimeEnabled)
+            putLong("manualTimeOffsetSeconds", s.manualTimeOffsetSeconds)
+            putBoolean("keepScreenOn", s.keepScreenOn)
+            putBoolean("autoOnOff", s.autoOnOff)
+            putString("autoOnTime", s.autoOnTime)
+            putString("autoOffTime", s.autoOffTime)
+            putBoolean("idleScreenOff", s.idleScreenOff)
+            putInt("idleTimeoutMinutes", s.idleTimeoutMinutes)
+            putBoolean("autoBrightness", s.autoBrightness)
+            putBoolean("saveBatteryMode", s.saveBatteryMode)
+            putString("fonnteToken", s.fonnteToken)
+            putString("fonnteGroupId", s.fonnteGroupId)
+            putBoolean("whatsappReportEnabled", s.whatsappReportEnabled)
+        }.apply()
     }
-    prefs.edit().putString("weeklyOfficers", arr.toString()).apply()
-}
+
+    private fun loadStringList(key: String): List<String> {
+        val raw = prefs.getString(key, null) ?: return emptyList()
+        return runCatching {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i -> arr.getString(i) }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun saveStringList(key: String, list: List<String>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(it) }
+        prefs.edit().putString(key, arr.toString()).apply()
+    }
+
+    private fun loadWeeklyOfficers(): List<DailyOfficerItem> {
+        val raw = prefs.getString("weeklyOfficers", null) ?: return AppSettings.createDefaultWeeklySchedule()
+        return runCatching {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i ->
+                val o = arr.getJSONObject(i)
+                DailyOfficerItem(
+                    dayName = o.optString("dayName", "Senin"),
+                    imamSubuh = o.optString("imamSubuh", ""),
+                    muadzinSubuh = o.optString("muadzinSubuh", ""),
+                    fotoImamSubuh = o.optString("fotoImamSubuh", "").ifEmpty { null },
+                    fotoMuadzinSubuh = o.optString("fotoMuadzinSubuh", "").ifEmpty { null },
+                    imamDzuhur = o.optString("imamDzuhur", ""),
+                    muadzinDzuhur = o.optString("muadzinDzuhur", ""),
+                    fotoImamDzuhur = o.optString("fotoImamDzuhur", "").ifEmpty { null },
+                    fotoMuadzinDzuhur = o.optString("fotoMuadzinDzuhur", "").ifEmpty { null },
+                    imamAshar = o.optString("imamAshar", ""),
+                    muadzinAshar = o.optString("muadzinAshar", ""),
+                    fotoImamAshar = o.optString("fotoImamAshar", "").ifEmpty { null },
+                    fotoMuadzinAshar = o.optString("fotoMuadzinAshar", "").ifEmpty { null },
+                    imamMaghrib = o.optString("imamMaghrib", ""),
+                    muadzinMaghrib = o.optString("muadzinMaghrib", ""),
+                    fotoImamMaghrib = o.optString("fotoImamMaghrib", "").ifEmpty { null },
+                    fotoMuadzinMaghrib = o.optString("fotoMuadzinMaghrib", "").ifEmpty { null },
+                    imamIsya = o.optString("imamIsya", ""),
+                    muadzinIsya = o.optString("muadzinIsya", ""),
+                    fotoImamIsya = o.optString("fotoImamIsya", "").ifEmpty { null },
+                    fotoMuadzinIsya = o.optString("fotoMuadzinIsya", "").ifEmpty { null },
+                    khatibJumat = o.optString("khatibJumat", ""),
+                    temaJumat = o.optString("temaJumat", ""),
+                    fotoKhatibJumat = o.optString("fotoKhatibJumat", "").ifEmpty { null },
+                    ustadzKajian = o.optString("ustadzKajian", ""),
+                    temaKajian = o.optString("temaKajian", ""),
+                    fotoUstadzKajian = o.optString("fotoUstadzKajian", "").ifEmpty { null }
+                )
+            }
+        }.getOrDefault(AppSettings.createDefaultWeeklySchedule())
+    }
+
+    private fun saveWeeklyOfficers(list: List<DailyOfficerItem>) {
+        val arr = JSONArray()
+        list.forEach { o ->
+            val obj = JSONObject().apply {
+                put("dayName", o.dayName)
+                put("imamSubuh", o.imamSubuh); put("muadzinSubuh", o.muadzinSubuh)
+                put("fotoImamSubuh", o.fotoImamSubuh ?: ""); put("fotoMuadzinSubuh", o.fotoMuadzinSubuh ?: "")
+                put("imamDzuhur", o.imamDzuhur); put("muadzinDzuhur", o.muadzinDzuhur)
+                put("fotoImamDzuhur", o.fotoImamDzuhur ?: ""); put("fotoMuadzinDzuhur", o.fotoMuadzinDzuhur ?: "")
+                put("imamAshar", o.imamAshar); put("muadzinAshar", o.muadzinAshar)
+                put("fotoImamAshar", o.fotoImamAshar ?: ""); put("fotoMuadzinAshar", o.fotoMuadzinAshar ?: "")
+                put("imamMaghrib", o.imamMaghrib); put("muadzinMaghrib", o.muadzinMaghrib)
+                put("fotoImamMaghrib", o.fotoImamMaghrib ?: ""); put("fotoMuadzinMaghrib", o.fotoMuadzinMaghrib ?: "")
+                put("imamIsya", o.imamIsya); put("muadzinIsya", o.muadzinIsya)
+                put("fotoImamIsya", o.fotoImamIsya ?: ""); put("fotoMuadzinIsya", o.fotoMuadzinIsya ?: "")
+                put("khatibJumat", o.khatibJumat); put("temaJumat", o.temaJumat)
+                put("fotoKhatibJumat", o.fotoKhatibJumat ?: "")
+                put("ustadzKajian", o.ustadzKajian); put("temaKajian", o.temaKajian)
+                put("fotoUstadzKajian", o.fotoUstadzKajian ?: "")
+            }
+            arr.put(obj)
+        }
+        prefs.edit().putString("weeklyOfficers", arr.toString()).apply()
+    }
 
     private fun loadOfficerSchedule(): OfficerSchedule {
         val raw = prefs.getString("officers", null) ?: return OfficerSchedule()
@@ -440,6 +457,9 @@ private fun saveWeeklyOfficers(list: List<DailyOfficerItem>) {
             appendLine("- Kiosk Mode      : ${s.kioskModeEnabled}")
             appendLine("- Animasi         : ${s.animationsEnabled}")
             appendLine("- Burung Terbang  : ${s.showBirdsAnimation}")
+            appendLine("- Auto Scale TV   : ${s.tvAutoScaleEnabled}")
+            appendLine("- Safe Area       : ${s.tvSafeAreaPercent}%")
+            appendLine("- Layout Preset   : ${s.tvLayoutPreset}")
             appendLine()
             appendLine("AUDIO")
             appendLine("- Mode Audio    : ${s.audioMode.name}")
