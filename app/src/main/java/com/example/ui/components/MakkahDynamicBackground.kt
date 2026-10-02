@@ -33,9 +33,6 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-// ============================================================
-// DATA CLASS
-// ============================================================
 private data class CloudPuff(
     val x: Float, val y: Float, val scale: Float,
     val speed: Float, val alpha: Float, val layer: Int
@@ -43,7 +40,7 @@ private data class CloudPuff(
 private data class Star(val x: Float, val y: Float, val size: Float, val twinklePhase: Float)
 private data class RainDrop(val x: Float, val y: Float, val speed: Float, val length: Float, val alpha: Float)
 private data class Bird(val y: Float, val size: Float, val speed: Float, val flapPhase: Float)
-private data class Pilgrim(val x: Float, val isWoman: Boolean, val size: Float)
+private data class Pilgrim(val x: Float, val isWoman: Boolean, val size: Float, val z: Float)
 
 @Composable
 fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifier = Modifier) {
@@ -61,7 +58,6 @@ fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifi
 
     val isRainy = weatherCondition.contains("Hujan", true) || weatherCondition.contains("Gerimis", true)
     val isStormy = weatherCondition.contains("Petir", true)
-    val isCloudy = weatherCondition.contains("Berawan", true) || weatherCondition.contains("Kabut", true)
 
     val t = rememberInfiniteTransition(label = "makkah")
     val cloudMove by t.animateFloat(0f, 1f,
@@ -74,6 +70,8 @@ fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifi
         infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Reverse), label = "tw")
     val rainFall by t.animateFloat(0f, 1f,
         infiniteRepeatable(tween(650, easing = LinearEasing), RepeatMode.Restart), label = "rf")
+    val lampGlow by t.animateFloat(0.7f, 1f,
+        infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Reverse), label = "lg")
 
     var lightning by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(isStormy) {
@@ -87,26 +85,25 @@ fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifi
         }
     }
 
-    // Partikel
     val clouds = remember {
-        List(8) { i ->
-            val layer = if (i < 4) 0 else 1
+        List(10) { i ->
+            val layer = if (i < 5) 0 else 1
             CloudPuff(
                 x = Random.nextFloat() * 1.3f,
-                y = if (layer == 0) 0.05f + Random.nextFloat() * 0.15f
-                    else 0.18f + Random.nextFloat() * 0.18f,
-                scale = if (layer == 0) 0.6f + Random.nextFloat() * 0.5f
-                        else 1.0f + Random.nextFloat() * 0.7f,
+                y = if (layer == 0) 0.04f + Random.nextFloat() * 0.14f
+                    else 0.16f + Random.nextFloat() * 0.18f,
+                scale = if (layer == 0) 0.55f + Random.nextFloat() * 0.45f
+                        else 0.95f + Random.nextFloat() * 0.65f,
                 speed = if (layer == 0) 0.4f + Random.nextFloat() * 0.2f
                         else 0.6f + Random.nextFloat() * 0.3f,
                 alpha = if (layer == 0) 0.55f + Random.nextFloat() * 0.2f
-                        else 0.75f + Random.nextFloat() * 0.2f,
+                        else 0.78f + Random.nextFloat() * 0.18f,
                 layer = layer
             )
         }
     }
     val stars = remember {
-        List(70) { Star(Random.nextFloat(), Random.nextFloat() * 0.5f,
+        List(80) { Star(Random.nextFloat(), Random.nextFloat() * 0.5f,
             0.6f + Random.nextFloat() * 2.2f, Random.nextFloat() * 6.28f) }
     }
     val rainDrops = remember {
@@ -123,26 +120,28 @@ fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifi
         }
     }
     val pilgrims = remember {
-        List(40) {
-            val x = Random.nextFloat()
-            // Hindari tengah (Ka'bah) — hanya di kiri & kanan
-            val safeX = if (x in 0.35f..0.65f) {
-                if (Random.nextBoolean()) 0.15f + Random.nextFloat() * 0.18f
-                else 0.67f + Random.nextFloat() * 0.18f
-            } else x
-            Pilgrim(x = safeX, isWoman = Random.nextFloat() < 0.4f,
-                size = 0.7f + Random.nextFloat() * 0.4f)
+        List(55) {
+            val baseX = Random.nextFloat()
+            val safeX = if (baseX in 0.34f..0.66f) {
+                if (Random.nextBoolean()) 0.10f + Random.nextFloat() * 0.22f
+                else 0.68f + Random.nextFloat() * 0.22f
+            } else baseX
+            Pilgrim(
+                x = safeX,
+                isWoman = Random.nextFloat() < 0.42f,
+                size = 0.65f + Random.nextFloat() * 0.55f,
+                z = Random.nextFloat()
+            )
         }
     }
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
+        val floorY = h * 0.86f
 
-        // 1. LANGIT
-        drawRect(brush = Brush.verticalGradient(skyColors, 0f, h * 0.68f), size = Size(w, h))
+        drawRect(brush = Brush.verticalGradient(skyColors, 0f, floorY), size = Size(w, h))
 
-        // 2. BINTANG (malam cerah)
         if (isNight && !isRainy && !isStormy) {
             stars.forEach { s ->
                 val tw = 0.3f + (sin(s.twinklePhase + twinkle * 3f) + 1f) * 0.35f
@@ -151,30 +150,25 @@ fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifi
             }
         }
 
-        // 3. BULAN
         if (moonPos.isVisible && isNight) {
             drawMoonRealistic(
-                Offset((moonPos.azimuth / 360f) * w, h * (0.62f - moonPos.elevation / 90f * 0.5f)),
-                moonPhase, 24f * density
+                Offset((moonPos.azimuth / 360f) * w, h * (0.55f - moonPos.elevation / 90f * 0.42f)),
+                moonPhase, 26f * density
             )
         }
 
-        // 4. MATAHARI
         if (sunPos.isVisible) {
             drawSunRealistic(
-                Offset((sunPos.azimuth / 360f) * w, h * (0.62f - sunPos.elevation / 90f * 0.5f)),
+                Offset((sunPos.azimuth / 360f) * w, h * (0.55f - sunPos.elevation / 90f * 0.42f)),
                 32f * density * sunPos.sizeScale, isGolden
             )
         }
 
-        // 5. AWAN REALISTIS (2 layer untuk depth)
-        // Layer belakang dulu
         clouds.filter { it.layer == 0 }.forEach { c ->
             val cx = ((c.x + cloudMove * c.speed) % 1.5f - 0.25f) * w
-            drawRealisticCloud(Offset(cx, c.y * h), c.scale * density, c.alpha * 0.8f)
+            drawRealisticCloud(Offset(cx, c.y * h), c.scale * density, c.alpha * 0.85f)
         }
 
-        // 6. BURUNG (siang, tidak hujan/badai)
         if (!isNight && !isRainy && !isStormy) {
             birds.forEachIndexed { idx, b ->
                 val bx = (birdMove * b.speed * w) + (idx * 50f * density)
@@ -183,50 +177,37 @@ fun MakkahDynamicBackground(weatherCondition: String = "Cerah", modifier: Modifi
             }
         }
 
-        // 7. KABUT SUBUH
         val hour = now.hour + now.minute / 60f
         if (hour in 4f..6f) drawFog(w, h, density)
 
-        // 8. BANGUNAN MASJIDIL HARAM — ARCADE + MENARA + KA'BAH
-        drawMasjidilHaram(w, h, isNight, isGolden)
+        drawMasjidilHaramRealistic(w, h, floorY, isNight, isGolden, lampGlow, density)
 
-        // 9. JAMAAH
-        drawPilgrims(w, h, pilgrims, density, isNight)
+        drawPilgrimsRealistic(w, h, floorY, pilgrims, density, isNight)
 
-        // 10. LANTAI MARMER + REFLEKSI
-        drawMarbleFloor(w, h, sunPos.azimuth, isNight, isGolden)
+        drawMarbleFloorRealistic(w, h, floorY, skyColors, isNight, isGolden, density)
 
-        // 11. AWAN DEPAN (lapisan atas)
         clouds.filter { it.layer == 1 }.forEach { c ->
             val cx = ((c.x + cloudMove * c.speed) % 1.5f - 0.25f) * w
             drawRealisticCloud(Offset(cx, c.y * h), c.scale * density, c.alpha)
         }
 
-        // 12. HUJAN
         if (isRainy) drawRain(rainDrops, rainFall, w, h)
 
-        // 13. PETIR
         if (isStormy && lightning > 0.05f) {
             drawRect(Color.White.copy(alpha = lightning * 0.55f), size = Size(w, h))
         }
 
-        // 14. OVERLAY MALAM
-        if (isNight) drawRect(Color(0xFF000018).copy(alpha = 0.18f), size = Size(w, h))
+        if (isNight) drawRect(Color(0xFF000018).copy(alpha = 0.20f), size = Size(w, h))
     }
 }
 
-// ============================================================
-// MATAHARI REALISTIS — inti + corona + sinar radial
-// ============================================================
 private fun DrawScope.drawSunRealistic(pos: Offset, r: Float, isGolden: Boolean) {
     val core = if (isGolden) Color(0xFFFFCC33) else Color(0xFFFFF59D)
     val glow = if (isGolden) Color(0xFFFFA726) else Color(0xFFFFF176)
-    // 4 lapis corona
     drawCircle(glow.copy(alpha = 0.05f), r * 5f, pos)
     drawCircle(glow.copy(alpha = 0.10f), r * 3.2f, pos)
     drawCircle(glow.copy(alpha = 0.20f), r * 2f, pos)
     drawCircle(glow.copy(alpha = 0.35f), r * 1.4f, pos)
-    // Sinar radial (12 sinar)
     for (i in 0 until 12) {
         val angle = (i * 30f + (System.currentTimeMillis() / 100) % 360).toDouble()
         val rad = Math.toRadians(angle)
@@ -236,19 +217,14 @@ private fun DrawScope.drawSunRealistic(pos: Offset, r: Float, isGolden: Boolean)
         val ey = pos.y + sin(rad).toFloat() * r * 2.5f
         drawLine(glow.copy(alpha = 0.15f), Offset(sx, sy), Offset(ex, ey), strokeWidth = 2f)
     }
-    // Inti + highlight
     drawCircle(core, r, pos)
     drawCircle(Color.White, r * 0.55f, pos)
 }
 
-// ============================================================
-// BULAN REALISTIS — kawah + fase
-// ============================================================
 private fun DrawScope.drawMoonRealistic(pos: Offset, phase: SunMoonCalculator.MoonPhase, r: Float) {
     drawCircle(Color(0xFFB0BEC5).copy(alpha = 0.12f), r * 2.5f, pos)
     drawCircle(Color(0xFFCFD8DC).copy(alpha = 0.18f), r * 1.6f, pos)
     drawCircle(Color(0xFFEEF2F4), r, pos)
-    // Kawah
     drawCircle(Color(0xFFB0BEC5).copy(alpha = 0.35f), r * 0.20f,
         Offset(pos.x - r * 0.30f, pos.y - r * 0.25f))
     drawCircle(Color(0xFFB0BEC5).copy(alpha = 0.28f), r * 0.14f,
@@ -257,7 +233,7 @@ private fun DrawScope.drawMoonRealistic(pos: Offset, phase: SunMoonCalculator.Mo
         Offset(pos.x - r * 0.10f, pos.y + r * 0.40f))
     drawCircle(Color(0xFFB0BEC5).copy(alpha = 0.18f), r * 0.10f,
         Offset(pos.x + r * 0.05f, pos.y - r * 0.45f))
-    // Fase
+
     val pa = phase.phaseAngle
     val waxing = pa in 0f..180f
     when {
@@ -274,383 +250,448 @@ private fun DrawScope.drawMoonRealistic(pos: Offset, phase: SunMoonCalculator.Mo
     }
 }
 
-// ============================================================
-// AWAN REALISTIS — banyak bulatan dengan shading top/bottom
-// ============================================================
 private fun DrawScope.drawRealisticCloud(center: Offset, scale: Float, alpha: Float) {
-    val r = 42f * scale
-    val topColor = Color.White.copy(alpha = alpha * 0.95f)
-    val midColor = Color(0xFFF5F5F5).copy(alpha = alpha * 0.85f)
-    val botColor = Color(0xFFB0BEC5).copy(alpha = alpha * 0.55f)
+    val r = 40f * scale
+    val topLight = Color.White.copy(alpha = alpha * 0.98f)
+    val topMid = Color(0xFFFAFAFA).copy(alpha = alpha * 0.92f)
+    val midGray = Color(0xFFE8E8E8).copy(alpha = alpha * 0.85f)
+    val botGray = Color(0xFFA8B0B8).copy(alpha = alpha * 0.60f)
 
-    // Bagian atas awan (5 bulatan terang)
-    drawCircle(topColor, r * 1.0f, Offset(center.x - r * 0.9f, center.y - r * 0.15f))
-    drawCircle(topColor, r * 1.3f, Offset(center.x - r * 0.15f, center.y - r * 0.35f))
-    drawCircle(topColor, r * 1.15f, Offset(center.x + r * 0.7f, center.y - r * 0.20f))
-    drawCircle(topColor, r * 0.85f, Offset(center.x - r * 1.6f, center.y))
-    drawCircle(topColor, r * 0.80f, Offset(center.x + r * 1.5f, center.y + r * 0.05f))
+    drawCircle(topLight, r * 0.95f, Offset(center.x - r * 1.6f, center.y + r * 0.10f))
+    drawCircle(topLight, r * 1.25f, Offset(center.x - r * 0.65f, center.y - r * 0.30f))
+    drawCircle(topLight, r * 1.45f, Offset(center.x + r * 0.25f, center.y - r * 0.42f))
+    drawCircle(topLight, r * 1.15f, Offset(center.x + r * 1.10f, center.y - r * 0.25f))
+    drawCircle(topLight, r * 0.85f, Offset(center.x + r * 1.85f, center.y + r * 0.05f))
 
-    // Bagian tengah (bulatan sedang)
-    drawCircle(midColor, r * 1.1f, Offset(center.x - r * 0.5f, center.y + r * 0.15f))
-    drawCircle(midColor, r * 1.0f, Offset(center.x + r * 0.4f, center.y + r * 0.20f))
+    drawCircle(topMid, r * 1.10f, Offset(center.x - r * 1.15f, center.y + r * 0.20f))
+    drawCircle(midGray, r * 1.30f, Offset(center.x - r * 0.20f, center.y + r * 0.20f))
+    drawCircle(topMid, r * 1.20f, Offset(center.x + r * 0.85f, center.y + r * 0.15f))
 
-    // Bagian bawah (bulatan gelap — shadow)
-    drawCircle(botColor, r * 0.9f, Offset(center.x - r * 0.7f, center.y + r * 0.55f))
-    drawCircle(botColor, r * 1.0f, Offset(center.x + r * 0.1f, center.y + r * 0.60f))
-    drawCircle(botColor, r * 0.85f, Offset(center.x + r * 0.9f, center.y + r * 0.55f))
-    drawCircle(botColor, r * 0.7f, Offset(center.x - r * 1.3f, center.y + r * 0.50f))
+    drawCircle(botGray, r * 0.95f, Offset(center.x - r * 1.40f, center.y + r * 0.65f))
+    drawCircle(botGray, r * 1.15f, Offset(center.x - r * 0.40f, center.y + r * 0.72f))
+    drawCircle(botGray, r * 1.05f, Offset(center.x + r * 0.65f, center.y + r * 0.68f))
+    drawCircle(botGray, r * 0.85f, Offset(center.x + r * 1.55f, center.y + r * 0.55f))
 }
 
-// ============================================================
-// BANGUNAN MASJIDIL HARAM — ARCADE + MENARA + KA'BAH
-// ============================================================
-private fun DrawScope.drawMasjidilHaram(w: Float, h: Float, isNight: Boolean, isGolden: Boolean) {
-    val horizonY = h * 0.68f
-    val floorY = h * 0.88f
+private fun DrawScope.drawMasjidilHaramRealistic(
+    w: Float, h: Float, floorY: Float,
+    isNight: Boolean, isGolden: Boolean, lampGlow: Float, density: Float
+) {
+    val arcadeBaseY = floorY
+    val arcadeHeight1 = h * 0.14f
+    val arcadeHeight2 = h * 0.10f
+    val arcadeTopY = arcadeBaseY - arcadeHeight1 - arcadeHeight2
 
-    // ===== WARNA =====
-    val arcadeLight = when {
+    val arcadeMain = when {
         isNight -> Color(0xFF2A2E38)
-        isGolden -> Color(0xFFD4B896)
-        else -> Color(0xFFEDE3D0)
+        isGolden -> Color(0xFFE8D4A8)
+        else -> Color(0xFFF5EDDC)
     }
     val arcadeShadow = when {
         isNight -> Color(0xFF1A1E28)
-        isGolden -> Color(0xFFA88A60)
-        else -> Color(0xFFC9BAA0)
+        isGolden -> Color(0xFFB89A70)
+        else -> Color(0xFFD5C8B0)
     }
+    val archDark = when {
+        isNight -> Color(0xFF050810)
+        isGolden -> Color(0xFF4A3820)
+        else -> Color(0xFF4A4038)
+    }
+
+    drawArcadeComplex(
+        xStart = 0f, xEnd = w * 0.32f,
+        topY = arcadeTopY, baseY = arcadeBaseY,
+        mainColor = arcadeMain, shadowColor = arcadeShadow, archDark = archDark,
+        isNight = isNight, lampGlow = lampGlow, density = density
+    )
+
+    drawArcadeComplex(
+        xStart = w * 0.68f, xEnd = w,
+        topY = arcadeTopY, baseY = arcadeBaseY,
+        mainColor = arcadeMain, shadowColor = arcadeShadow, archDark = archDark,
+        isNight = isNight, lampGlow = lampGlow, density = density
+    )
+
     val minaretColor = when {
         isNight -> Color(0xFF252830)
-        isGolden -> Color(0xFFD8C0A0)
+        isGolden -> Color(0xFFE0C8A0)
         else -> Color(0xFFF0E8D8)
     }
+    drawMinaretHD(w * 0.33f, h * 0.10f, arcadeTopY, minaretColor, isNight, lampGlow, density)
+    drawMinaretHD(w * 0.67f, h * 0.10f, arcadeTopY, minaretColor, isNight, lampGlow, density)
 
-    // ===== ARCADE KIRI (0% - 35%) =====
-    drawArcadeTier(0f, w * 0.35f, horizonY - h * 0.10f, horizonY + h * 0.02f,
-        arcadeLight, arcadeShadow, isNight)
-    drawArcadeTier(0f, w * 0.35f, horizonY - h * 0.18f, horizonY - h * 0.10f,
-        arcadeLight, arcadeShadow, isNight, isUpper = true)
-
-    // ===== ARCADE KANAN (65% - 100%) =====
-    drawArcadeTier(w * 0.65f, w, horizonY - h * 0.10f, horizonY + h * 0.02f,
-        arcadeLight, arcadeShadow, isNight)
-    drawArcadeTier(w * 0.65f, w, horizonY - h * 0.18f, horizonY - h * 0.10f,
-        arcadeLight, arcadeShadow, isNight, isUpper = true)
-
-    // ===== MENARA (2 buah di belakang Ka'bah) =====
-    drawMinaretRealistic(w * 0.32f, h * 0.20f, horizonY - h * 0.18f, minaretColor, isNight, density)
-    drawMinaretRealistic(w * 0.68f, h * 0.20f, horizonY - h * 0.18f, minaretColor, isNight, density)
-
-    // ===== KA'BAH (kubus hitam dengan pita emas) =====
-    drawKaabahRealistic(w, h, horizonY, floorY, isNight, isGolden)
+    drawKaabahHD(w, h, floorY, isNight, isGolden, density)
 }
 
-// ============================================================
-// ARCADE — 1 tier lengkungan
-// ============================================================
-private fun DrawScope.drawArcadeTier(
-    xStart: Float, xEnd: Float, yTop: Float, yBot: Float,
-    lightColor: Color, shadowColor: Color, isNight: Boolean, isUpper: Boolean = false
+private fun DrawScope.drawArcadeComplex(
+    xStart: Float, xEnd: Float, topY: Float, baseY: Float,
+    mainColor: Color, shadowColor: Color, archDark: Color,
+    isNight: Boolean, lampGlow: Float, density: Float
 ) {
     val width = xEnd - xStart
-    val height = yBot - yTop
+    val totalH = baseY - topY
+    val tier1H = totalH * 0.58f
+    val tier2H = totalH * 0.38f
+    val tier2Y = topY + totalH * 0.04f
 
-    // Base
-    drawRect(lightColor, Offset(xStart, yTop), Size(width, height))
+    val t1Y = topY + tier2H + totalH * 0.04f
+    drawRect(mainColor, Offset(xStart, t1Y), Size(width, tier1H))
 
-    // Bayangan bawah
-    drawRect(shadowColor.copy(alpha = 0.5f),
-        Offset(xStart, yBot - height * 0.15f), Size(width, height * 0.15f))
+    val archCount1 = 10
+    val archW1 = width / archCount1
+    val archGap1 = archW1 * 0.10f
+    val archInnerW1 = archW1 - archGap1 * 2f
+    val archH1 = tier1H * 0.78f
 
-    // Lengkungan berulang
-    val archCount = if (isUpper) 8 else 10
-    val archW = width / archCount
-    val archH = height * 0.72f
-    val archGap = archW * 0.15f
-    val archInnerW = archW - archGap * 2f
-
-    for (i in 0 until archCount) {
-        val ax = xStart + i * archW + archGap
-        val ay = yTop + height * 0.12f
-
-        // Lubang lengkungan (gelap)
-        val archDark = if (isNight) Color(0xFF050810) else Color(0xFF4A4038)
+    for (i in 0 until archCount1) {
+        val ax = xStart + i * archW1 + archGap1
+        val ay = t1Y + tier1H * 0.12f
         drawRoundRect(
             color = archDark,
             topLeft = Offset(ax, ay),
-            size = Size(archInnerW, archH),
-            cornerRadius = CornerRadius(archInnerW / 2f, archInnerW / 2f)
+            size = Size(archInnerW1, archH1),
+            cornerRadius = CornerRadius(archInnerW1 / 2f, archInnerW1 / 2f)
         )
-
-        // Lampu dalam lengkungan (malam)
-        if (isNight) {
-            drawCircle(Color(0xFFFFE082).copy(alpha = 0.75f),
-                archInnerW * 0.15f, Offset(ax + archInnerW / 2f, ay + archH * 0.55f))
-        }
-
-        // Aksen emas di bagian atas lengkungan
         drawRoundRect(
-            color = Color(0xFFD4AF37).copy(alpha = 0.55f),
+            color = Color(0xFFD4AF37).copy(alpha = 0.5f),
             topLeft = Offset(ax, ay),
-            size = Size(archInnerW, archH * 0.15f),
-            cornerRadius = CornerRadius(archInnerW / 2f, archInnerW / 2f),
-            style = Stroke(width = 2f)
+            size = Size(archInnerW1, archH1 * 0.18f),
+            cornerRadius = CornerRadius(archInnerW1 / 2f, archInnerW1 / 2f),
+            style = Stroke(width = 1.8f)
         )
+        if (isNight) {
+            val lampX = ax + archInnerW1 / 2f
+            val lampY = ay + archH1 * 0.60f
+            drawCircle(Color(0xFFFFE082).copy(alpha = 0.9f * lampGlow),
+                archInnerW1 * 0.14f, Offset(lampX, lampY))
+            drawCircle(Color(0xFFFFF9C4).copy(alpha = 0.5f * lampGlow),
+                archInnerW1 * 0.28f, Offset(lampX, lampY))
+        }
     }
 
-    // Garis atas arcade
-    drawLine(Color(0xFFD4AF37).copy(alpha = 0.4f),
-        Offset(xStart, yTop), Offset(xEnd, yTop), strokeWidth = 2f)
+    drawLine(Color(0xFFD4AF37).copy(alpha = 0.6f),
+        Offset(xStart, t1Y), Offset(xEnd, t1Y), strokeWidth = 2f)
+
+    drawRect(mainColor, Offset(xStart, tier2Y), Size(width, tier2H))
+
+    val archCount2 = 14
+    val archW2 = width / archCount2
+    val archGap2 = archW2 * 0.10f
+    val archInnerW2 = archW2 - archGap2 * 2f
+    val archH2 = tier2H * 0.70f
+
+    for (i in 0 until archCount2) {
+        val ax = xStart + i * archW2 + archGap2
+        val ay = tier2Y + tier2H * 0.15f
+        drawRoundRect(
+            color = archDark.copy(alpha = 0.85f),
+            topLeft = Offset(ax, ay),
+            size = Size(archInnerW2, archH2),
+            cornerRadius = CornerRadius(archInnerW2 / 2f, archInnerW2 / 2f)
+        )
+        if (isNight) {
+            drawCircle(Color(0xFFFFE082).copy(alpha = 0.7f * lampGlow),
+                archInnerW2 * 0.12f,
+                Offset(ax + archInnerW2 / 2f, ay + archH2 * 0.55f))
+        }
+    }
+
+    drawLine(Color(0xFFD4AF37).copy(alpha = 0.7f),
+        Offset(xStart, tier2Y), Offset(xEnd, tier2Y), strokeWidth = 2.5f)
+
+    drawRect(shadowColor.copy(alpha = 0.4f),
+        Offset(xStart, baseY - totalH * 0.06f),
+        Size(width, totalH * 0.06f))
 }
 
-// ============================================================
-// MENARA — tinggi + kubah + bulan sabit
-// ============================================================
-private fun DrawScope.drawMinaretRealistic(
+private fun DrawScope.drawMinaretHD(
     cx: Float, topY: Float, botY: Float,
-    color: Color, isNight: Boolean, density: Float
+    color: Color, isNight: Boolean, lampGlow: Float, density: Float
 ) {
-    val width = 22f * density
-    val halfW = width / 2f
+    val minaretW = 22f * density
+    val halfW = minaretW / 2f
 
-    // Base menara
-    drawRect(color, Offset(cx - halfW, topY + 40f * density),
-        Size(width, botY - topY - 40f * density))
+    drawRect(color, Offset(cx - halfW, topY + 42f * density),
+        Size(minaretW, botY - topY - 42f * density))
 
-    // Balkon (2x)
-    val balconyYs = listOf(topY + 80f * density, topY + 150f * density)
-    balconyYs.forEach { by ->
-        drawRect(color, Offset(cx - halfW * 1.6f, by), Size(width * 1.6f, 6f * density))
-    }
+    drawRect(color, Offset(cx - halfW * 1.7f, topY + 90f * density),
+        Size(minaretW * 1.7f, 6f * density))
+    drawRect(color, Offset(cx - halfW * 1.7f, topY + 160f * density),
+        Size(minaretW * 1.7f, 6f * density))
 
-    // Kubah atas (2 tier)
     drawRoundRect(
         color = color,
-        topLeft = Offset(cx - halfW * 1.2f, topY + 25f * density),
-        size = Size(width * 1.2f, 20f * density),
-        cornerRadius = CornerRadius(width * 0.6f, width * 0.6f)
+        topLeft = Offset(cx - halfW * 1.3f, topY + 20f * density),
+        size = Size(minaretW * 1.3f, 24f * density),
+        cornerRadius = CornerRadius(minaretW * 0.65f, minaretW * 0.65f)
     )
+    drawCircle(color, halfW * 0.85f, Offset(cx, topY + 16f * density))
 
-    // Puncak kubah (bulat)
-    drawCircle(color, halfW * 0.8f, Offset(cx, topY + 20f * density))
+    drawLine(color, Offset(cx, topY + 4f * density),
+        Offset(cx, topY + 16f * density), strokeWidth = 2f * density)
 
-    // Batang bulan sabit
-    drawLine(color, Offset(cx, topY + 8f * density),
-        Offset(cx, topY + 20f * density), strokeWidth = 2f * density)
-
-    // Bulan sabit kecil
     drawArc(
-        color = Color(0xFFD4AF37).copy(alpha = 0.95f),
+        color = Color(0xFFD4AF37),
         startAngle = 30f, sweepAngle = 300f, useCenter = false,
-        topLeft = Offset(cx - 5f * density, topY - 2f * density),
-        size = Size(10f * density, 10f * density),
-        style = Stroke(width = 2f * density)
+        topLeft = Offset(cx - 6f * density, topY - 4f * density),
+        size = Size(12f * density, 12f * density),
+        style = Stroke(width = 2.2f * density)
     )
 
-    // Lampu menara (malam)
     if (isNight) {
-        drawCircle(Color(0xFFFFE082).copy(alpha = 0.8f),
-            3f * density, Offset(cx, topY + 60f * density))
-        drawCircle(Color(0xFFFFE082).copy(alpha = 0.7f),
-            3f * density, Offset(cx, topY + 130f * density))
+        drawCircle(Color(0xFFFFE082).copy(alpha = 0.85f * lampGlow),
+            3.5f * density, Offset(cx, topY + 65f * density))
+        drawCircle(Color(0xFFFFE082).copy(alpha = 0.75f * lampGlow),
+            3.5f * density, Offset(cx, topY + 135f * density))
+        drawCircle(Color(0xFFFFE082).copy(alpha = 0.65f * lampGlow),
+            3.5f * density, Offset(cx, topY + 200f * density))
     }
 }
 
-// ============================================================
-// KA'BAH — kubus hitam + pita emas Hizam bermotif + highlight
-// ============================================================
-private fun DrawScope.drawKaabahRealistic(
-    w: Float, h: Float, horizonY: Float, floorY: Float,
-    isNight: Boolean, isGolden: Boolean
+private fun DrawScope.drawKaabahHD(
+    w: Float, h: Float, floorY: Float,
+    isNight: Boolean, isGolden: Boolean, density: Float
 ) {
-    // Posisi Ka'bah
-    val kaabahW = w * 0.28f
-    val kaabahH = h * 0.32f
+    val kaabahW = w * 0.26f
+    val kaabahH = h * 0.34f
     val kaabahX = (w - kaabahW) / 2f
     val kaabahY = floorY - kaabahH
 
-    // Base Ka'bah (gradient hitam)
     val baseColor = when {
         isNight -> Color(0xFF050505)
-        isGolden -> Color(0xFF1A1410)
+        isGolden -> Color(0xFF16100C)
         else -> Color(0xFF0A0A0A)
     }
-    val highlightColor = when {
-        isNight -> Color(0xFF1A1A1A)
-        isGolden -> Color(0xFF3A2A1A)
-        else -> Color(0xFF222222)
+    val highlightLeft = when {
+        isNight -> Color(0xFF141414)
+        isGolden -> Color(0xFF3A2610)
+        else -> Color(0xFF1E1E1E)
+    }
+    val highlightTop = when {
+        isNight -> Color(0xFF101010)
+        isGolden -> Color(0xFF2A1E0C)
+        else -> Color(0xFF161616)
     }
 
-    // Body Ka'bah
+    drawRect(Color(0x44000000).copy(alpha = 0.5f),
+        Offset(kaabahX - 6f, kaabahY - 4f),
+        Size(kaabahW + 12f, kaabahH + 6f))
+
     drawRect(baseColor, Offset(kaabahX, kaabahY), Size(kaabahW, kaabahH))
 
-    // Highlight kiri (kena matahari)
-    drawRect(highlightColor.copy(alpha = 0.5f),
-        Offset(kaabahX, kaabahY), Size(kaabahW * 0.15f, kaabahH))
+    drawRect(
+        Brush.horizontalGradient(
+            listOf(
+                highlightLeft.copy(alpha = 0.6f),
+                highlightLeft.copy(alpha = 0.0f)
+            ),
+            kaabahX, kaabahX + kaabahW * 0.28f
+        ),
+        Offset(kaabahX, kaabahY), Size(kaabahW * 0.28f, kaabahH)
+    )
 
-    // Highlight atas
-    drawRect(highlightColor.copy(alpha = 0.3f),
-        Offset(kaabahX, kaabahY), Size(kaabahW, kaabahH * 0.08f))
+    drawRect(
+        Brush.verticalGradient(
+            listOf(
+                highlightTop.copy(alpha = 0.5f),
+                highlightTop.copy(alpha = 0.0f)
+            ),
+            kaabahY, kaabahY + kaabahH * 0.22f
+        ),
+        Offset(kaabahX, kaabahY), Size(kaabahW, kaabahH * 0.22f)
+    )
 
-    // ===== PITA EMAS HIZAM (di 42% dari atas) =====
-    val hizamY = kaabahY + kaabahH * 0.42f
-    val hizamH = kaabahH * 0.06f
+    val hizamY = kaabahY + kaabahH * 0.44f
+    val hizamH = kaabahH * 0.075f
 
-    // Background pita emas
     drawRect(
         Brush.horizontalGradient(listOf(
-            Color(0xFFB8860B), Color(0xFFFFD700),
-            Color(0xFFFFF176), Color(0xFFFFD700), Color(0xFFB8860B)
+            Color(0xFF8B6914), Color(0xFFFFD700), Color(0xFFFFF176),
+            Color(0xFFFFD700), Color(0xFFB8860B), Color(0xFFFFD700),
+            Color(0xFFFFF176), Color(0xFFFFD700), Color(0xFF8B6914)
         )),
         Offset(kaabahX, hizamY), Size(kaabahW, hizamH)
     )
 
-    // Motif kaligrafi (bulatan kecil emas gelap berulang)
-    val motifCount = 22
+    val motifCount = 24
     val motifW = kaabahW / motifCount
     for (i in 0 until motifCount) {
         val mx = kaabahX + i * motifW + motifW / 2f
-        // Bulatan motif
-        drawCircle(Color(0xFF8B6914).copy(alpha = 0.7f),
-            hizamH * 0.22f, Offset(mx, hizamY + hizamH / 2f))
-        // Aksen
+        val my = hizamY + hizamH / 2f
+        drawCircle(Color(0xFF5A3D0A).copy(alpha = 0.75f),
+            hizamH * 0.24f, Offset(mx, my))
         drawCircle(Color(0xFFFFF176).copy(alpha = 0.9f),
-            hizamH * 0.08f, Offset(mx, hizamY + hizamH / 2f))
+            hizamH * 0.07f, Offset(mx, my))
+        drawLine(Color(0xFF6B4A0E).copy(alpha = 0.6f),
+            Offset(mx - hizamH * 0.10f, my - hizamH * 0.22f),
+            Offset(mx - hizamH * 0.10f, my + hizamH * 0.22f),
+            strokeWidth = 1.2f)
+        drawLine(Color(0xFF6B4A0E).copy(alpha = 0.6f),
+            Offset(mx + hizamH * 0.10f, my - hizamH * 0.22f),
+            Offset(mx + hizamH * 0.10f, my + hizamH * 0.22f),
+            strokeWidth = 1.2f)
     }
 
-    // Garis tepi pita emas (atas & bawah)
-    drawLine(Color(0xFFFFD700), Offset(kaabahX, hizamY),
-        Offset(kaabahX + kaabahW, hizamY), strokeWidth = 2f)
-    drawLine(Color(0xFFFFD700), Offset(kaabahX, hizamY + hizamH),
-        Offset(kaabahX + kaabahW, hizamY + hizamH), strokeWidth = 2f)
+    drawLine(Color(0xFFFFD700),
+        Offset(kaabahX, hizamY),
+        Offset(kaabahX + kaabahW, hizamY), strokeWidth = 2.5f)
+    drawLine(Color(0xFFFFD700),
+        Offset(kaabahX, hizamY + hizamH),
+        Offset(kaabahX + kaabahW, hizamY + hizamH), strokeWidth = 2.5f)
 
-    // ===== PINTU KA'BAH =====
-    val doorW = kaabahW * 0.10f
-    val doorH = kaabahH * 0.22f
-    val doorX = kaabahX + kaabahW * 0.45f
-    val doorY = kaabahY + kaabahH * 0.68f
-    drawRect(Color(0xFFB8860B), Offset(doorX, doorY), Size(doorW, doorH))
-    drawRect(Color(0xFFFFD700), Offset(doorX, doorY),
-        Size(doorW, doorH), style = Stroke(width = 1.5f))
+    val doorW = kaabahW * 0.12f
+    val doorH = kaabahH * 0.24f
+    val doorX = kaabahX + kaabahW * 0.44f
+    val doorY = kaabahY + kaabahH * 0.70f
 
-    // ===== KILAU EMAS SAAT SIANG =====
+    drawRect(Color(0xFFB8860B), Offset(doorX - 2f, doorY - 2f),
+        Size(doorW + 4f, doorH + 4f))
+    drawRect(Color(0xFFD4AF37), Offset(doorX, doorY), Size(doorW, doorH))
+    drawLine(Color(0xFF6B4A0E),
+        Offset(doorX + doorW / 2f, doorY),
+        Offset(doorX + doorW / 2f, doorY + doorH), strokeWidth = 1.5f)
+
     if (!isNight && isGolden) {
-        drawRect(Color(0xFFFFF176).copy(alpha = 0.20f),
-            Offset(kaabahX, hizamY - 2f), Size(kaabahW, hizamH + 4f))
+        drawRect(Color(0xFFFFF176).copy(alpha = 0.25f),
+            Offset(kaabahX, hizamY - 3f), Size(kaabahW, hizamH + 6f))
     }
 
-    // ===== BAYANGAN DI BAWAH KA'BAH =====
-    drawRect(Color(0x44000000),
-        Offset(kaabahX - 5f, floorY), Size(kaabahW + 10f, h * 0.02f))
+    drawRect(
+        Brush.verticalGradient(
+            listOf(
+                Color(0x88000000),
+                Color(0x44000000),
+                Color(0x00000000)
+            ),
+            floorY, floorY + h * 0.05f
+        ),
+        Offset(kaabahX, floorY), Size(kaabahW, h * 0.05f)
+    )
 }
 
-// ============================================================
-// JAMAAH — siluet kecil
-// ============================================================
-private fun DrawScope.drawPilgrims(
-    w: Float, h: Float, pilgrims: List<Pilgrim>, density: Float, isNight: Boolean
+private fun DrawScope.drawPilgrimsRealistic(
+    w: Float, h: Float, floorY: Float,
+    pilgrims: List<Pilgrim>, density: Float, isNight: Boolean
 ) {
-    val floorY = h * 0.88f
-
-    pilgrims.forEach { p ->
+    pilgrims.sortedByDescending { it.z }.forEach { p ->
         val px = p.x * w
-        val py = floorY + (p.size - 0.7f) * 20f * density
-        val bodyH = 12f * density * p.size
-        val bodyW = 5f * density * p.size
+        val depthOffset = (1f - p.z) * h * 0.03f
+        val py = floorY + depthOffset - h * 0.005f
+
+        val sizeFactor = 0.7f + (1f - p.z) * 0.5f
+        val bodyH = 14f * density * p.size * sizeFactor
+        val bodyW = 5.5f * density * p.size * sizeFactor
 
         val color = when {
-            isNight -> if (p.isWoman) Color(0xFF1A1A1A) else Color(0xFF404040)
-            else -> if (p.isWoman) Color(0xFF0A0A0A) else Color(0xFFEEEEEE)
+            isNight -> if (p.isWoman) Color(0xFF0A0A0A) else Color(0xFF2A2A2A)
+            else -> if (p.isWoman) Color(0xFF0A0A0A) else Color(0xFFEDEDED)
+        }
+        val headColor = when {
+            isNight -> if (p.isWoman) Color(0xFF0A0A0A) else Color(0xFF2A2A2A)
+            else -> if (p.isWoman) Color(0xFF0A0A0A) else Color(0xFFF0E0C0)
         }
 
-        // Kepala
-        drawCircle(color, bodyW * 0.6f, Offset(px, py - bodyH))
-        // Badan
+        drawOval(
+            color = Color(0x55000000),
+            topLeft = Offset(px - bodyW * 0.9f, py - 2f),
+            size = Size(bodyW * 1.8f, bodyW * 0.7f)
+        )
+
+        drawCircle(headColor, bodyW * 0.55f, Offset(px, py - bodyH + bodyW * 0.3f))
         drawRoundRect(
             color = color,
-            topLeft = Offset(px - bodyW / 2f, py - bodyH + bodyW * 0.5f),
-            size = Size(bodyW, bodyH - bodyW * 0.4f),
-            cornerRadius = CornerRadius(bodyW / 2f, bodyW / 4f)
+            topLeft = Offset(px - bodyW / 2f, py - bodyH + bodyW * 0.6f),
+            size = Size(bodyW, bodyH - bodyW * 0.5f),
+            cornerRadius = CornerRadius(bodyW / 2f, bodyW * 0.3f)
         )
     }
 }
 
-// ============================================================
-// LANTAI MARMER + REFLEKSI
-// ============================================================
-private fun DrawScope.drawMarbleFloor(
-    w: Float, h: Float, sunAzimuth: Float, isNight: Boolean, isGolden: Boolean
+private fun DrawScope.drawMarbleFloorRealistic(
+    w: Float, h: Float, floorY: Float,
+    skyColors: List<Color>, isNight: Boolean, isGolden: Boolean, density: Float
 ) {
-    val floorY = h * 0.88f
-
-    // Warna lantai
-    val floorColors = when {
-        isNight -> listOf(Color(0xFF1A1A22), Color(0xFF0A0A12))
-        isGolden -> listOf(Color(0xFFE8D4B0), Color(0xFFC9B08A))
-        else -> listOf(Color(0xFFF5EFE0), Color(0xFFE0D6C0))
+    val marbleLight = when {
+        isNight -> Color(0xFF2A2A38)
+        isGolden -> Color(0xFFF0D8B0)
+        else -> Color(0xFFF8F4E8)
+    }
+    val marbleDark = when {
+        isNight -> Color(0xFF15151F)
+        isGolden -> Color(0xFFC9A878)
+        else -> Color(0xFFE0D8C8)
     }
 
-    drawRect(Brush.verticalGradient(floorColors, floorY, h),
-        Offset(0f, floorY), Size(w, h - floorY))
+    drawRect(
+        Brush.verticalGradient(listOf(marbleLight, marbleDark), floorY, h),
+        Offset(0f, floorY), Size(w, h - floorY)
+    )
 
-    // Refleksi matahari (kalau siang)
-    if (!isNight) {
-        val sunX = (sunAzimuth / 360f) * w
-        val reflWidth = w * 0.15f
-        val reflAlpha = if (isGolden) 0.35f else 0.20f
-
+    if (skyColors.isNotEmpty()) {
         drawRect(
             Brush.verticalGradient(
                 listOf(
-                    Color(0xFFFFE082).copy(alpha = 0f),
-                    Color(0xFFFFE082).copy(alpha = reflAlpha * 0.6f),
-                    Color(0xFFFFE082).copy(alpha = reflAlpha)
-                ),
-                floorY, h
-            ),
-            Offset(sunX - reflWidth / 2f, floorY), Size(reflWidth, h - floorY)
-        )
-
-        // Refleksi Ka'bah (bayangan gelap)
-        val kaabahReflW = w * 0.28f
-        drawRect(
-            Brush.verticalGradient(
-                listOf(
-                    Color(0x66000000),
-                    Color(0x22000000),
+                    skyColors.last().copy(alpha = if (isNight) 0.06f else 0.10f),
                     Color.Transparent
                 ),
                 floorY, h
             ),
-            Offset((w - kaabahReflW) / 2f, floorY), Size(kaabahReflW, (h - floorY) * 0.6f)
+            Offset(0f, floorY), Size(w, (h - floorY) * 0.7f)
         )
     }
 
-    // Garis keramik lantai (horizontal tipis)
-    val lineCount = 4
-    for (i in 1..lineCount) {
-        val ly = floorY + (h - floorY) * i / (lineCount + 1)
+    val hLineCount = 5
+    for (i in 1..hLineCount) {
+        val ly = floorY + (h - floorY) * i / (hLineCount + 1)
+        val fade = 1f - i.toFloat() / hLineCount * 0.6f
         drawLine(
-            Color(0x22000000), Offset(0f, ly), Offset(w, ly),
-            strokeWidth = 1f
+            Color(0xFF808080).copy(alpha = 0.15f * fade),
+            Offset(0f, ly), Offset(w, ly), strokeWidth = 0.8f
         )
     }
 
-    // Garis keramik vertikal (perspektif)
-    val vLineCount = 12
+    val vanishX = w / 2f
+    val vLineCount = 14
     for (i in 0..vLineCount) {
-        val lx = w * i / vLineCount
+        val startX = w * i / vLineCount
+        val endX = startX + (vanishX - startX) * 0.35f
         drawLine(
-            Color(0x15000000),
-            Offset(lx, floorY), Offset(lx + (lx - w / 2f) * 0.3f, h),
-            strokeWidth = 1f
+            Color(0xFF808080).copy(alpha = 0.12f),
+            Offset(startX, floorY), Offset(endX, h),
+            strokeWidth = 0.8f
         )
     }
+
+    if (!isNight) {
+        val sunGlowX = w / 2f
+        drawRect(
+            Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFFFF176).copy(alpha = if (isGolden) 0.28f else 0.15f),
+                    Color.Transparent
+                ),
+                center = Offset(sunGlowX, floorY + (h - floorY) * 0.3f),
+                radius = w * 0.35f
+            ),
+            Offset(0f, floorY), Size(w, h - floorY)
+        )
+    }
+
+    val kaabahShadowW = w * 0.26f
+    drawRect(
+        Brush.verticalGradient(
+            listOf(
+                Color(0x66000000),
+                Color(0x33000000),
+                Color(0x00000000)
+            ),
+            floorY, floorY + h * 0.08f
+        ),
+        Offset((w - kaabahShadowW) / 2f, floorY),
+        Size(kaabahShadowW, h * 0.08f)
+    )
 }
 
-// ============================================================
-// BURUNG
-// ============================================================
 private fun DrawScope.drawBird(pos: Offset, size: Float, flap: Float, alpha: Float) {
     val span = 14f * size
     val off = flap * 6f * size
@@ -662,28 +703,23 @@ private fun DrawScope.drawBird(pos: Offset, size: Float, flap: Float, alpha: Flo
     drawPath(path, Color(0xFF1A1A1A).copy(alpha = alpha), style = Stroke(width = 2.2f * size))
 }
 
-// ============================================================
-// KABUT SUBUH
-// ============================================================
 private fun DrawScope.drawFog(w: Float, h: Float, density: Float) {
-    val fogY = h * 0.68f
+    val fogY = h * 0.60f
     drawRect(
         Brush.verticalGradient(
             listOf(
                 Color.White.copy(alpha = 0f),
-                Color.White.copy(alpha = 0.10f),
-                Color.White.copy(alpha = 0.22f),
-                Color.White.copy(alpha = 0.32f)
+                Color.White.copy(alpha = 0.08f),
+                Color.White.copy(alpha = 0.18f),
+                Color.White.copy(alpha = 0.30f)
             ),
             fogY - 80f * density, h
         ),
-        Offset(0f, fogY - 80f * density), Size(w, h - fogY + 80f * density)
+        Offset(0f, fogY - 80f * density),
+        Size(w, h - fogY + 80f * density)
     )
 }
 
-// ============================================================
-// HUJAN
-// ============================================================
 private fun DrawScope.drawRain(drops: List<RainDrop>, progress: Float, w: Float, h: Float) {
     drops.forEach { d ->
         val cy = ((d.y + progress * d.speed) % 1.2f) * h
