@@ -21,7 +21,7 @@ app/src/main/java/com/example/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
 │   ├── model/
-│   │   └── AppSettings.kt             -> Model pengaturan (100+ field)
+│   │   └── AppSettings.kt             -> Model pengaturan (110+ field)
 │   ├── local/
 │   │   ├── SettingsRepository.kt      -> Simpan/load setting + exportSummary
 │   │   ├── PrayerTimesCalculator.kt   -> Hitung jadwal sholat
@@ -49,8 +49,9 @@ app/src/main/java/com/example/
 │   ├── CrashReporter.kt               -> Log crash + WA Fonnte
 │   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
-│   ├── SettingsTransferHelper.kt      -> Serialize AppSettings (iO Control)
-│   ├── RemoteControlClient.kt         -> HTTP client iO Control
+│   ├── SettingsTransferHelper.kt      -> Serialize + upload media (V1.30.4)
+│   ├── RemoteControlClient.kt         -> HTTP client iO Control (V1.30.4)
+│   ├── MediaTransferHelper.kt         -> Chunk + kompres media (V1.30.4)
 │   ├── FonnteHelper.kt                -> Token & Group ID Fonnte
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
@@ -69,11 +70,11 @@ app/src/main/java/com/example/
     ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
     ├── cctv/CctvWidget.kt             -> Widget CCTV (RTSP/HTTP)
     ├── remote/
-    │   ├── RemoteServer.kt            -> HTTP server (Remote + iO Control)
+    │   ├── RemoteServer.kt            -> HTTP server (Remote + iO Control + media)
     │   ├── RemoteDashboard.kt         -> Info akses remote
     │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
     │   ├── NetworkHelper.kt           -> Helper deteksi IP WiFi
-    │   ├── IoControlScreen.kt         -> UI radar iO Control
+    │   ├── IoControlScreen.kt         -> UI radar iO Control + media progress
     │   └── IoControlHelpSheet.kt      -> Panduan iO Control
     ├── settings/
     │   ├── SettingsScreen.kt          -> Menu utama (20 kategori)
@@ -139,7 +140,7 @@ app/src/main/java/com/example/
    - Kartu 6 waktu sejajar horizontal
    - Panel Imam & Muadzin auto-slide
    - Running text + Video/Foto Slideshow
-   - Auto-scale untuk semua ukuran TV (V1.30.3)
+   - Auto-scale untuk semua ukuran TV
 
 3. TEMA MAKKAH DINAMIS (V1.30.2)
    - Langit bergerak real-time 24 jam
@@ -148,13 +149,11 @@ app/src/main/java/com/example/
    - Siluet Masjidil Haram + Ka'bah
    - Default theme
 
-4. RESPONSIVE AUTO-SCALE (BARU V1.30.3)
-   - Deteksi otomatis resolusi TV (px, dp, aspect ratio)
-   - Deteksi tipe layar: Ultrawide 21:9, Standar 16:9, Klasik 4:3
-   - Base design 1920x1080 — auto-scale 0.6× s/d 2.5×
-   - Safe Area Padding (0-10%) untuk hindari overscan bezel TV
-   - Preset layout: AUTO / STANDAR / ULTRAWIDE / 4:3
-   - Tombol Test Safe Area untuk kalibrasi visual
+4. RESPONSIVE AUTO-SCALE (V1.30.3)
+   - Deteksi otomatis resolusi TV
+   - Deteksi tipe: Ultrawide, Standar, 4:3
+   - Safe Area Padding untuk hindari overscan
+   - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
    - Menu baru: Tampilan TV (kategori ke-20)
 
 5. MODE FOKUS SHOLAT (4 Fase)
@@ -169,11 +168,16 @@ app/src/main/java/com/example/
 8. CCTV MASJID
    - Widget PiP (RTSP + HTTP)
 
-9. iO CONTROL
+9. iO CONTROL (V1.30.4 + V1.30.3)
    - HP sebagai remote TV via WiFi
    - Auto-discovery UDP + UI radar
    - Transfer semua pengaturan antar device
-   - Endpoint /api/io/receive public (fix 401)
+   - TRANSFER MEDIA (foto + video) via chunk upload — V1.30.4
+   - Kompres foto otomatis (1920px, 85%)
+   - Kompres video otomatis (MediaMuxer)
+   - Progress bar per-file + total
+   - Retry otomatis 3x per chunk
+   - Auto-restart penerima setelah transfer selesai
 
 10. REMOTE CONTROL WEB
     - HTTP server + dashboard browser HP
@@ -198,7 +202,6 @@ app/src/main/java/com/example/
     - Notifikasi crash otomatis ke grup admin
 
 17. FOTO SLIDESHOW + 18. KONTEN ROTASI
-    - Galeri foto + Ayat/Hadits/Asmaul Husna
 
 19. DZIKIR SETELAH SHOLAT (8 dzikir)
 
@@ -206,26 +209,37 @@ app/src/main/java/com/example/
 
 21. FULL SOURCE CODE EXPORT
 
-22. FIX CRASH NESTED SCROLL + FADE ANIMASI MANUAL
+22. FIX CRASH NESTED SCROLL + FADE ANIMASI
 
 23. SALIN URL OTOMATIS
 
 24. APK INSTALL DARI FILE TERSIMPAN
 
 25. TAMPILAN TV RESPONSIF (V1.30.3)
-    - Auto-scale untuk TV 720p / FHD / 4K / Ultrawide / 4:3
-    - Safe Area padding untuk overscan
-    - 4 preset + Test Safe Area
-    """.trimIndent()
 
+26. TRANSFER MEDIA iO CONTROL (V1.30.4) — BARU
+    - Foto & video ikut terkirim via chunk
+    - Progress per-file + total
+    - Retry otomatis
+    - Notifikasi status (sukses/gagal/berjalan)
+    """.trimIndent()
+    
     val UPDATE_HISTORY = """
+V1.30.4 (02 Oktober 2026)
+- Transfer media iO Control — foto & video antar device
+- Chunk upload 1 MB per request (support video besar)
+- Kompres foto + video otomatis
+- Progress bar per-file + total keseluruhan
+- Retry otomatis 3x per chunk
+- Alur: kirim settings → auto lanjut kirim media
+- File baru: MediaTransferHelper.kt
+
 V1.30.3 (02 Oktober 2026)
 - Responsive Auto-Scale — tampilan otomatis semua ukuran TV
 - Deteksi resolusi TV (px, dp, aspect ratio, density)
 - Safe Area padding 0-10% hindari overscan bezel
 - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
 - Menu baru: Tampilan TV (kategori ke-20)
-- File baru: ResponsiveLayoutHelper.kt + TvDisplaySettingsPane.kt
 
 V1.30.2 (02 Oktober 2026)
 - Tema Makkah Dinamis — langit real-time + cuaca otomatis
@@ -239,7 +253,6 @@ V1.30.1 (30 September 2026)
 - iO Control: HP sebagai remote TV via WiFi
 - Auto-discovery device (UDP broadcast)
 - UI radar biru + 2 tombol KIRIM/TERIMA
-- Transfer semua pengaturan antar device
 
 V1.29.3 (29 September 2026)
 - Fix crash nested scroll di SettingsScreen
@@ -289,7 +302,9 @@ V1.28.0 (27 September 2026)
 18. iO Control error 401 → /api/io/receive public route
 19. APK tidak bisa di-tap install → kiri=install kanan=hapus
 20. DeviceDiscovery butuh deviceId → kirim dari IoControlScreen
-21. TV beda ukuran kepotong → ResponsiveLayoutHelper (V1.30.3)
+21. TV beda ukuran kepotong → ResponsiveLayoutHelper
+22. Extension .dp() bentrok dengan Compose → rename .scaledDp()
+23. Foto & video tidak ikut transfer iO Control → chunk upload (V1.30.4)
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -306,10 +321,15 @@ Solusi: [cara memperbaiki]
 
 === RIWAYAT ===
 
+[02-10-2026] - V1.30.4
+Error: Foto & video tidak ikut terkirim via iO Control (hanya path)
+File: app/src/main/java/com/example/util/SettingsTransferHelper.kt
+Solusi: Kirim file fisik via chunk upload + Base64 encode
+
 [02-10-2026] - V1.30.3
-Error: Tidak ada error build untuk V1.30.3 (fitur baru saja)
-File: -
-Solusi: -
+Error: Extension ScreenInfo.dp() bentrok dengan androidx.compose.ui.unit.dp
+File: app/src/main/java/com/example/ui/components/ResponsiveLayoutHelper.kt
+Solusi: Rename .dp() → .scaledDp() dan .sp() → .scaledSp()
 
 [02-10-2026] - V1.30.2
 Error: iO Control transfer antar device gagal — "Server tolak (kode 401)"
@@ -346,7 +366,7 @@ Error: IllegalStateException Vertically scrollable infinity
 File: SettingsScreen.kt
 Solusi: Ganti Crossfade ke Box + key() + alpha fade
     """.trimIndent()
-    
+
     val WORKFLOW_INSTRUCTION = """
 PRINSIP UTAMA:
 - KERJAKAN PER BATCH
@@ -377,7 +397,7 @@ LARANGAN:
 - Jangan asumsi tanpa baca kode
 - Jangan buka file sama 2x
 - Jangan nebak kalau tidak tahu
-- JANGAN nolak buka link GitHub publik (bisa dibuka)
+- JANGAN nolak buka link GitHub publik
 - JANGAN gabung link 1 file dengan lainnya
     """.trimIndent()
 
@@ -396,7 +416,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.30.3
+- Versi saat ini : V1.30.4
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -437,8 +457,8 @@ STRUKTUR MENU SETTINGS (20 Kategori):
 5.  Jadwal Petugas & Foto
 6.  Donasi QRIS & Rekening
 7.  Video Kegiatan Masjid
-8.  Tampilan & Background (termasuk Tema Makkah Dinamis)
-9.  Tampilan TV (responsive auto-scale — V1.30.3)
+8.  Tampilan & Background
+9.  Tampilan TV (responsive — V1.30.3)
 10. Kartu Nasihat & Mutiara
 11. Running Text
 12. Audio & Adzan
@@ -474,9 +494,9 @@ PENANGANAN BUILD ERROR:
 5. Commit ulang
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.30.3)
+- Tidak ada (semua fitur selesai per V1.30.4)
     """.trimIndent()
-
+    
     val MEMORY_KNOWLEDGE = """
 ============================================================
 MEMORY KNOWLEDGE & INSTRUCTION — MASJID.IO
@@ -489,45 +509,37 @@ Untuk AI baru yang membaca backup ini
 2. Path lengkap file
 3. Nama file (agar mudah di-copy)
 4. URL cepat (bisa di-tap)
-5. 2 opsi akses file:
-   - OPSI A: Buka pakai link
-   - OPSI B: Navigasi folder step-by-step
+5. 2 opsi akses file (OPSI A: link, OPSI B: navigasi)
 6. Kode timpa full (bukan edit manual)
 7. Pesan commit (text persis untuk kolom commit message)
 8. Bahasa Indonesia: simple, tidak teknis rumit, ramah, sopan
 
-=== BAGIAN 1B — ATURAN ANTI-TRUNCATION (WAJIB) ===
+=== BAGIAN 1B — ATURAN ANTI-TRUNCATION ===
 
 Jika kode terlalu panjang melebihi batas aman 1 bubble chat,
-AI WAJIB otomatis memecah menjadi BEBERAPA BAGIAN,
-TETAP dalam 1 bubble chat, dengan aturan:
+AI WAJIB otomatis memecah menjadi BEBERAPA BAGIAN:
 
-1. Beri judul jelas: "BAGIAN 1 DARI N", "BAGIAN 2 DARI N", dst.
-2. Di akhir setiap bagian (kecuali terakhir), tulis:
-   "(lanjut di BAGIAN berikutnya - sambung di bawah)"
-3. Di awal setiap bagian (kecuali pertama), tulis:
-   "(sambungan dari BAGIAN sebelumnya)"
-4. User cukup copy-paste SEMUA BAGIAN berurutan ke SATU file
-5. JANGAN pernah memotong kode di tengah fungsi/blok
-6. JANGAN pernah bilang "kode dilanjut di chat berikutnya"
-7. Semua BAGIAN wajib ada di 1 bubble chat yang sama
-
-Tujuan: user tinggal sambung tempel, tidak ada kode hilang.
+1. Beri judul: "BAGIAN 1 DARI N", "BAGIAN 2 DARI N"
+2. Akhir tiap bagian: "(lanjut di BAGIAN berikutnya)"
+3. Awal tiap bagian: "(sambungan dari BAGIAN sebelumnya)"
+4. User cukup copy-paste semua BAGIAN berurutan
+5. JANGAN potong kode di tengah fungsi/blok
+6. JANGAN bilang "kode dilanjut di chat berikutnya"
+7. BAGIAN wajib seimbang (rata)
 
 === BAGIAN 1C — ATURAN LINK GITHUB ===
 
-1. JANGAN tolak buka link GitHub publik — bisa dibuka via fitur web
-2. JANGAN gabung link 1 file dengan link file lain
-   (tiap file punya section-nya sendiri dengan link-nya sendiri)
-3. Kecuali link butuh login akun → baru boleh tolak dengan alasan logis
-4. Repo Masjid.io PUBLIC → bebas diakses kapan saja
+1. JANGAN tolak buka link GitHub publik
+2. JANGAN gabung link 1 file dengan link lain
+3. Kecuali butuh login akun → baru boleh tolak
+4. Repo Masjid.io PUBLIC → bebas diakses
 
 === BAGIAN 1D — ATURAN SIMPLIFIKASI ===
 
-1. Elemen 5 (2 Opsi Akses) TIDAK perlu ditampilkan lagi — user sudah paham
-2. Elemen 8 (Bahasa Indonesia) TIDAK perlu ditampilkan lagi — cukup dipahami
-3. Fokus tampilkan: folder, path, nama file, URL, kode, pesan commit
-4. Kalau kode bisa 1 bubble → kirim 1 bubble
+1. Elemen 5 (2 Opsi Akses) TIDAK perlu ditampilkan lagi
+2. Elemen 8 (Bahasa Indonesia) TIDAK perlu ditampilkan lagi
+3. Fokus: folder, path, nama file, URL, kode, pesan commit
+4. Kalau kode muat 1 bubble → kirim 1 bubble
 5. Kalau tidak muat → bilang "jangan commit dulu, masih ada sambungan"
 
 === BAGIAN 2 — ATURAN KERJA ===
@@ -548,32 +560,28 @@ USER:
   Nama  : Andi
   Email : andikune@gmail.com
 
-DEVICE:
-  HP Android (bukan PC/laptop)
-  Aplikasi kerja: GitHub Mobile
-
-REPO:
-  https://github.com/andikune-ux/Masjid.io (PUBLIC)
+DEVICE: HP Android (bukan PC/laptop)
+REPO: https://github.com/andikune-ux/Masjid.io (PUBLIC)
 
 APLIKASI:
   Nama           : Masjid.io
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.30.3
+  Versi saat ini : V1.30.4
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
 
-1.  Lokasi & Waktu Sholat
-2.  Pengaturan Waktu
-3.  Durasi & Hitungan Mundur
-4.  Identitas Masjid
-5.  Jadwal Petugas & Foto
-6.  Donasi QRIS & Rekening
-7.  Video Kegiatan Masjid
-8.  Tampilan & Background
-9.  Tampilan TV
+1. Lokasi & Waktu Sholat
+2. Pengaturan Waktu
+3. Durasi & Hitungan Mundur
+4. Identitas Masjid
+5. Jadwal Petugas & Foto
+6. Donasi QRIS & Rekening
+7. Video Kegiatan Masjid
+8. Tampilan & Background
+9. Tampilan TV
 10. Kartu Nasihat & Mutiara
 11. Running Text
 12. Audio & Adzan
@@ -643,17 +651,10 @@ FILE YANG HARUS DI-EXPORT:
 - Semua file .kt, .java, .xml, .gradle, .kts
 - Semua file .toml, .yml, .yaml, .properties, .pro
 
-CARA C (folder lokal + fallback GitHub API):
-1. Cek /sdcard/masjid.io/source/ dulu
-2. Kalau tidak ada -> fetch dari GitHub API (repo public)
-3. Kalau dua-duanya gagal -> kasih pesan di TXT
-
 FORMAT EXPORT:
 ---BEGIN--- path/file.kt
 [ISI KODE LENGKAP]
 ---END--- path/file.kt
-
-TUJUAN: AI baru langsung paham tanpa tanya user.
 
 === BAGIAN 13 — FITUR AUTO-SHOW CRASH LOG ===
 
@@ -665,60 +666,58 @@ TUJUAN: AI baru langsung paham tanpa tanya user.
 === BAGIAN 14 — ATURAN KERJA SAMA DENGAN AI BARU ===
 
 Jika user ganti AI, AI baru WAJIB:
-1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-19).
+1. Baca BACKUP AMAN terlebih dahulu.
 2. Pahami struktur aplikasi + isi kode.
 3. Ikuti aturan 8 elemen format.
-4. Ikuti aturan anti-truncation (BAGIAN 1B).
-5. Ikuti aturan link GitHub (BAGIAN 1C).
+4. Ikuti aturan anti-truncation.
+5. Ikuti aturan link GitHub.
 6. Konfirmasi dulu sebelum eksekusi.
 7. Jangan menebak - tanya user kalau tidak tahu.
 
-=== BAGIAN 15 — LINK GITHUB SOURCE CODE (UNTUK AI BARU) ===
+=== BAGIAN 15 — LINK GITHUB SOURCE CODE ===
 
 AI baru DAPAT membuka sendiri kode lengkap dari GitHub.
 Repo PUBLIC, tidak butuh login atau token.
 
 LINK UTAMA:
-  Repo Utama       : https://github.com/andikune-ux/Masjid.io
+  Repo Utama: https://github.com/andikune-ux/Masjid.io
   Daftar Semua File: https://api.github.com/repos/andikune-ux/Masjid.io/git/trees/main?recursive=1
 
-LINK RAW (untuk baca file langsung):
-  Base Raw         : https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
+LINK RAW (baca file langsung):
+  Base Raw: https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
 
-LINK BLOB (untuk lihat di browser):
-  Base Blob        : https://github.com/andikune-ux/Masjid.io/blob/main/
+LINK BLOB (lihat di browser):
+  Base Blob: https://github.com/andikune-ux/Masjid.io/blob/main/
 
-FOLDER KUNCI YANG SERING DIBACA:
-- app/src/main/java/com/example/MainActivity.kt
-- app/src/main/java/com/example/util/BackupManager.kt
-- app/src/main/java/com/example/util/CrashReporter.kt
-- app/src/main/java/com/example/util/GithubSourceFetcher.kt
-- app/src/main/java/com/example/util/SettingsTransferHelper.kt
-- app/src/main/java/com/example/util/RemoteControlClient.kt
-- app/src/main/java/com/example/util/ApkDownloader.kt
-- app/src/main/java/com/example/data/AppKnowledge.kt
-- app/src/main/java/com/example/data/UpdateHistory.kt
-- app/src/main/java/com/example/data/local/SettingsRepository.kt
-- app/src/main/java/com/example/data/local/SunMoonCalculator.kt (V1.30.2)
-- app/src/main/java/com/example/data/model/AppSettings.kt
-- app/src/main/java/com/example/ui/settings/SettingsScreen.kt
-- app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
-- app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
-- app/src/main/java/com/example/ui/settings/TvDisplaySettingsPane.kt (V1.30.3)
-- app/src/main/java/com/example/ui/remote/RemoteServer.kt
-- app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
-- app/src/main/java/com/example/ui/remote/IoControlScreen.kt
-- app/src/main/java/com/example/ui/components/MakkahDynamicBackground.kt (V1.30.2)
-- app/src/main/java/com/example/ui/components/ResponsiveLayoutHelper.kt (V1.30.3)
-- app/src/main/java/com/example/ui/home/HomeScreen.kt
+FOLDER KUNCI:
+- MainActivity.kt
+- util/BackupManager.kt
+- util/CrashReporter.kt
+- util/GithubSourceFetcher.kt
+- util/SettingsTransferHelper.kt
+- util/RemoteControlClient.kt
+- util/MediaTransferHelper.kt (V1.30.4)
+- data/AppKnowledge.kt
+- data/UpdateHistory.kt
+- data/local/SettingsRepository.kt
+- data/local/SunMoonCalculator.kt
+- data/model/AppSettings.kt
+- ui/settings/SettingsScreen.kt
+- ui/settings/AboutSettingsPane.kt
+- ui/settings/CustomBackgroundPane.kt
+- ui/settings/TvDisplaySettingsPane.kt
+- ui/remote/RemoteServer.kt
+- ui/remote/DeviceDiscovery.kt
+- ui/remote/IoControlScreen.kt
+- ui/components/MakkahDynamicBackground.kt
+- ui/components/ResponsiveLayoutHelper.kt
+- ui/home/HomeScreen.kt
 - app/build.gradle.kts
 - gradle/libs.versions.toml
 - .github/workflows/build.yml
 
-CATATAN UNTUK AI BARU:
+CATATAN:
 - Repo PUBLIC -> bebas diakses kapan saja
-- Kalau butuh SEMUA file sekaligus: buka tree API di atas
-- Kalau butuh 1 file: pakai raw URL + path
 - JANGAN minta user copy-paste manual kalau bisa buka sendiri
 
 === BAGIAN 16 — FITUR iO CONTROL ===
@@ -727,103 +726,86 @@ FITUR:
 - HP sebagai remote tampilan TV via WiFi/Hotspot sama
 - Auto-discovery via UDP broadcast (port 45678)
 - UI radar biru (sweep 360° + pulse)
-- Pilih device -> connect -> 2 tombol KIRIM/TERIMA
 - Transfer semua pengaturan antar device
-- Progress bar 0-100% -> penerima auto-restart
+- Endpoint /api/io/receive PUBLIC (fix 401)
 
-FILE TERKAIT:
-- ui/remote/DeviceDiscovery.kt      -> UDP broadcast & listen
-- ui/remote/IoControlScreen.kt      -> UI radar + progress
-- ui/remote/RemoteServer.kt         -> HTTP endpoint /api/io/*
-- ui/remote/NetworkHelper.kt        -> Deteksi IP WiFi
-- util/SettingsTransferHelper.kt    -> Serialize JSON settings
-- util/RemoteControlClient.kt       -> HTTP client kirim settings
-- ui/settings/RemoteSettingsPane.kt -> Tombol BUKA iO CONTROL
-- MainActivity.kt                   -> Integrasi screen + callback
+FILE: DeviceDiscovery.kt, IoControlScreen.kt, RemoteServer.kt,
+      NetworkHelper.kt, SettingsTransferHelper.kt, RemoteControlClient.kt
 
-CATATAN PENTING:
-- Transfer via JSON (aman lintas versi)
-- Field tidak dikenal di penerima -> otomatis di-skip
-- Remote Control setting (port, token) TIDAK ditransfer
-- PIN IKUT ditransfer (sesuai keputusan user)
-- Endpoint /api/io/receive PUBLIC (fix 401 V1.30.2)
+=== BAGIAN 17 — FITUR TEMA MAKKAH DINAMIS ===
 
-=== BAGIAN 17 — FITUR TEMA MAKKAH DINAMIS (V1.30.2) ===
+FITUR:
+- Langit Makkah bergerak real-time 24 jam
+- Matahari melengkung, bulan fase asli via algoritma lunar
+- Awan 12 bulatan 3-layer, burung V-formation, bintang berkelip
+- Hujan + petir real-time (Open-Meteo)
+- Siluet Masjidil Haram + Ka'bah HD + pita emas Hizam
+- Lampu arcade + menara NYALA saat malam
+- Tema DEFAULT
 
-FITUR BARU:
-- Langit Makkah bergerak real-time (24 jam siklus)
-- Matahari melengkung timur ke barat berdasarkan jam lokal
-- Bulan bergeser + fase asli (sabit/purnama) via algoritma lunar
-- 7 gradasi warna langit otomatis
-- Awan bergerak + burung terbang + bintang berkelip
-- Hujan + petir real-time dari WeatherService (Open-Meteo)
-- Kabut subuh jam 04:00-06:00
-- Siluet Masjidil Haram + Ka'bah + pita emas Hizam
-- Refleksi marmer di lantai Mataf
-- Tema ini jadi DEFAULT (menggantikan NATURE)
+FILE: SunMoonCalculator.kt, MakkahDynamicBackground.kt,
+      AppSettings.kt, HomeScreen.kt, CustomBackgroundPane.kt
 
-FILE TERKAIT:
-- data/local/SunMoonCalculator.kt          -> Hitung posisi matahari/bulan/fase
-- ui/components/MakkahDynamicBackground.kt -> Render canvas dinamis
-- data/model/AppSettings.kt                -> Enum MAKKAH_DYNAMIC + default
-- ui/home/HomeScreen.kt                    -> Integrasi background
-- ui/settings/CustomBackgroundPane.kt      -> Opsi di Settings
-
-CATATAN PENTING:
-- Cuaca otomatis via WeatherService (Open-Meteo, gratis)
-- Lat/Lon Makkah hardcoded (-21.42, 39.83) untuk sudut matahari
-- Bintang muncul saat malam + cuaca cerah
-- Burung tidak muncul saat hujan/badai
-- Petir muncul acak 10-15 detik sekali
-
-=== BAGIAN 18 — FITUR APK INSTALL DARI FILE (V1.30.2) ===
+=== BAGIAN 18 — FITUR APK INSTALL DARI FILE ===
 
 FITUR:
 - Tap file APK tersimpan -> INSTALL
 - Tombol merah terpisah -> HAPUS
-- Visual feedback: border hijau + "TAP UNTUK INSTALL"
-- File APK di /sdcard/masjid.io/pembaharuan aplikasi/
+- Visual: border hijau + "TAP UNTUK INSTALL"
+- Folder: /sdcard/masjid.io/pembaharuan aplikasi/
 
-FILE TERKAIT:
-- ui/settings/AboutSettingsPane.kt -> ApkFileItem
-- util/ApkDownloader.kt            -> Install, hapus, list APK
+FILE: AboutSettingsPane.kt, ApkDownloader.kt
+
+=== BAGIAN 19 — FITUR RESPONSIVE AUTO-SCALE TV ===
+
+FITUR:
+- Deteksi otomatis resolusi TV (px, dp, aspect, density)
+- Base 1920x1080 — auto-scale 0.6× s/d 2.5×
+- Safe Area Padding 0-10% untuk overscan bezel
+- Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
+- Menu baru: Tampilan TV (kategori ke-20)
+
+FILE: ResponsiveLayoutHelper.kt, TvDisplaySettingsPane.kt,
+      HomeScreen.kt, SettingsScreen.kt, AppSettings.kt
+
+FIELD: tvAutoScaleEnabled, tvSafeAreaPercent, tvLayoutPreset
 
 CATATAN:
-- Area kiri (ikon + nama file) = INSTALL
-- Area kanan (tombol merah) = HAPUS
-- Tidak tabrakan niat install vs hapus
+- Extension .scaledDp() dan .scaledSp() — JANGAN pakai .dp()/.sp()
+- ScreenInfo via CompositionLocal (ResponsiveRoot)
 
-=== BAGIAN 19 — FITUR RESPONSIVE AUTO-SCALE TV (V1.30.3) ===
+=== BAGIAN 20 — FITUR TRANSFER MEDIA iO CONTROL (V1.30.4) ===
 
 FITUR BARU:
-- Deteksi otomatis resolusi TV (px, dp, aspect ratio, density)
-- Deteksi tipe layar: ULTRAWIDE, STANDARD_WIDE, STANDARD, CLASSIC_4_3
-- Base design 1920x1080 — auto-scale 0.6× s/d 2.5×
-- Safe Area Padding dinamis (0-10%) untuk overscan bezel TV
-- Preset layout: AUTO / STANDAR / ULTRAWIDE / 4:3
-- TV Ultrawide: konten di-center (max 88% lebar)
-- TV 4:3 lama: spacing & font disesuaikan
-- Menu baru: Tampilan TV (kategori ke-20)
-- Tombol Test Safe Area untuk kalibrasi visual
+- Foto & video IKUT terkirim via iO Control (fix bug lama)
+- Chunk upload 1 MB per request (support video besar)
+- Base64 encoding untuk transfer via HTTP POST
+- Kompres foto otomatis (1920px, quality 85%)
+- Kompres video otomatis (MediaMuxer remux tanpa re-encode)
+- Progress bar per-file + total keseluruhan
+- Retry otomatis 3x per chunk
+- Alur: kirim settings → auto lanjut kirim media
+- File disimpan di filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}
+- Endpoint media PUBLIC (tidak perlu login)
 
 FILE TERKAIT:
-- ui/components/ResponsiveLayoutHelper.kt -> Deteksi & scale helper
-- ui/settings/TvDisplaySettingsPane.kt    -> UI panel pengaturan
-- ui/home/HomeScreen.kt                   -> ResponsiveRoot wrapper
-- ui/settings/SettingsScreen.kt           -> Tambah kategori TV_DISPLAY
-- data/model/AppSettings.kt               -> 3 field responsive
-- data/local/SettingsRepository.kt        -> load/save 3 field
+- util/MediaTransferHelper.kt          -> Chunk + kompres (BARU)
+- util/RemoteControlClient.kt          -> sendMediaFilesChunked()
+- util/SettingsTransferHelper.kt       -> uploadMediaFiles()
+- ui/remote/RemoteServer.kt            -> 4 endpoint media baru
+- ui/remote/IoControlScreen.kt         -> MediaProgressView + enum baru
 
-FIELD BARU:
-- tvAutoScaleEnabled: Boolean = true
-- tvSafeAreaPercent: Float = 3f
-- tvLayoutPreset: String = "AUTO"
+ENDPOINT BARU:
+- POST /api/io/receive-media-start     -> mulai transfer
+- POST /api/io/receive-media-chunk     -> kirim chunk (base64)
+- POST /api/io/receive-media-finish    -> selesaikan + simpan
+- GET  /api/io/media-status            -> cek status aktif
 
-CATATAN:
-- ScreenInfo dihitung di ResponsiveRoot (CompositionLocal)
-- Extensi: screenInfo.sp(base), screenInfo.dp(base), screenInfo.safePadding()
-- Safe area default 3% (aman untuk 95% TV)
-- Kalau konten terpotong → naikkan safe area 5% s/d 8%
+CATATAN PENTING:
+- File besar (500 MB) butuh 10+ menit
+- Jangan tutup aplikasi saat transfer
+- Kompres video pakai MediaMuxer (stream copy, tidak re-encode)
+- Progress 2 tingkat: per-file + total keseluruhan
 
 ============================================================
 END OF MEMORY KNOWLEDGE
