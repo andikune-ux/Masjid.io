@@ -16,25 +16,13 @@ import androidx.compose.ui.unit.sp
 /**
  * RESPONSIVE LAYOUT HELPER
  *
- * Solusi TV dengan berbagai ukuran & aspect ratio:
- *   16:9 standar (1920x1080), 21:9 ultrawide, 4:3 lama, 4K, 720p, dll.
- *
- * Cara kerja:
- *   1. Deteksi ukuran layar real-time
- *   2. Hitung scaleFactor (base = 1920x1080)
- *   3. Auto-scale semua ukuran font/padding/icon
- *   4. Tambah safe padding untuk hindari overscan bezel TV
+ * CATATAN: Extension dinamai scaledDp() dan scaledSp()
+ * JANGAN pakai dp()/sp() karena bentrok dengan Compose.
  */
 
-// ============================================================
-// BASE DESIGN (patokan = FHD 1920x1080)
-// ============================================================
 private const val BASE_WIDTH = 1920f
 private const val BASE_HEIGHT = 1080f
 
-// ============================================================
-// DATA CLASS
-// ============================================================
 data class ScreenInfo(
     val widthPx: Int,
     val heightPx: Int,
@@ -49,23 +37,17 @@ data class ScreenInfo(
 )
 
 enum class AspectType {
-    ULTRAWIDE,      // > 2.0 (misal 21:9 = 2.33)
-    STANDARD_WIDE,  // 1.7 - 2.0 (16:9 = 1.78)
-    STANDARD,       // 1.3 - 1.7 (16:10 = 1.6)
-    CLASSIC_4_3,    // < 1.3 (4:3 = 1.33)
+    ULTRAWIDE,
+    STANDARD_WIDE,
+    STANDARD,
+    CLASSIC_4_3,
     UNKNOWN
 }
 
-// ============================================================
-// COMPOSITION LOCAL
-// ============================================================
 val LocalScreenInfo = compositionLocalOf<ScreenInfo> {
     error("ScreenInfo belum dihitung. Pakai rememberScreenInfo() atau ResponsiveRoot { } dulu.")
 }
 
-// ============================================================
-// FUNGSI HITUNG SCREEN INFO
-// ============================================================
 @Composable
 fun rememberScreenInfo(
     autoScaleEnabled: Boolean = true,
@@ -90,7 +72,6 @@ fun rememberScreenInfo(
         else -> AspectType.UNKNOWN
     }
 
-    // Scale factor: min(lebar/1920, tinggi/1080) — pilih yang paling kecil biar tidak overflow
     val rawScale = if (autoScaleEnabled) {
         minOf(
             widthDpF / (BASE_WIDTH / densityF),
@@ -98,10 +79,8 @@ fun rememberScreenInfo(
         )
     } else 1f
 
-    // Clamp 0.6 - 2.5 biar tidak ekstrem
     val scaleFactor = rawScale.coerceIn(0.6f, 2.5f)
 
-    // Safe area (default 3% dari sisi terpendek)
     val safePercent = safeAreaPercent.coerceIn(0f, 10f) / 100f
     val shortestSidePx = minOf(widthPx, heightPx)
     val safePaddingPx = (shortestSidePx * safePercent).toInt()
@@ -121,9 +100,6 @@ fun rememberScreenInfo(
     )
 }
 
-// ============================================================
-// WRAPPER ROOT — Pasang sekali di atas, semua anak bisa akses
-// ============================================================
 @Composable
 fun ResponsiveRoot(
     autoScaleEnabled: Boolean = true,
@@ -140,26 +116,17 @@ fun ResponsiveRoot(
     }
 }
 
-// ============================================================
-// EXTENSION — Auto-scale font size
-// ============================================================
-fun ScreenInfo.sp(base: Float): androidx.compose.ui.unit.TextUnit {
+fun ScreenInfo.scaledSp(base: Float): androidx.compose.ui.unit.TextUnit {
     return (base * scaleFactor).sp
 }
 
-fun ScreenInfo.sp(base: Int): androidx.compose.ui.unit.TextUnit {
+fun ScreenInfo.scaledSp(base: Int): androidx.compose.ui.unit.TextUnit {
     return (base * scaleFactor).sp
 }
 
-// ============================================================
-// EXTENSION — Auto-scale dp
-// ============================================================
-fun ScreenInfo.dp(base: Float): Dp = (base * scaleFactor).dp
-fun ScreenInfo.dp(base: Int): Dp = (base * scaleFactor).dp
+fun ScreenInfo.scaledDp(base: Float): Dp = (base * scaleFactor).dp
+fun ScreenInfo.scaledDp(base: Int): Dp = (base * scaleFactor).dp
 
-// ============================================================
-// EXTENSION — Safe Area Padding
-// ============================================================
 fun ScreenInfo.safePadding(): PaddingValues {
     return PaddingValues(
         start = safePaddingDp,
@@ -169,9 +136,6 @@ fun ScreenInfo.safePadding(): PaddingValues {
     )
 }
 
-// ============================================================
-// MODIFIER — Auto-scale padding
-// ============================================================
 fun Modifier.responsivePadding(info: ScreenInfo, base: Dp): Modifier = composed {
     this.then(Modifier.padding(base * info.scaleFactor))
 }
