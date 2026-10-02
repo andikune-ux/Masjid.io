@@ -217,9 +217,6 @@ class RemoteServer(
 
             val isLoggedIn = isValidSession(sessionId)
 
-            // ============================================================
-            // V1.30.5: /api/io/finalize ditambah ke PUBLIC ROUTE
-            // ============================================================
             val isPublicRoute = pathOnly == "/login" ||
                     pathOnly == "/api/login" ||
                     pathOnly == "/api/io/handshake" ||
@@ -353,8 +350,7 @@ class RemoteServer(
             }
 
             // ============================================================
-            // V1.30.5 — RECEIVE SETTINGS (TIDAK auto-restart lagi)
-            // Settings disimpan dulu, tunggu /api/io/finalize untuk restart
+            // RECEIVE SETTINGS (TIDAK auto-restart)
             // ============================================================
             method == "POST" && pathOnly == "/api/io/receive" -> {
                 try {
@@ -519,9 +515,7 @@ class RemoteServer(
             }
 
             // ============================================================
-            // V1.30.5 BARU — FINALIZE
-            // Dipanggil HP setelah SEMUA settings + media terkirim sukses
-            // Trigger countdown 5 detik → restart (recreate / killProcess)
+            // FINALIZE — dipanggil HP setelah semua terkirim
             // ============================================================
             method == "POST" && pathOnly == "/api/io/finalize" -> {
                 Log.d(TAG, "🎬 Menerima sinyal FINALIZE dari pengirim")
@@ -529,7 +523,6 @@ class RemoteServer(
                     """{"success":true,"message":"Finalize diterima, mulai countdown restart"}""")
                 writer.flush(); client.close()
 
-                // Trigger callback di MainActivity → tampilkan overlay countdown
                 Handler(Looper.getMainLooper()).postDelayed({
                     try {
                         if (onFinalize != null) {
@@ -558,8 +551,8 @@ class RemoteServer(
         Log.e(TAG, "Handle error: ${e.message}")
         try { client.close() } catch (_: Exception) {}
     }
-}
-
+    }
+    
 // ============================================================
 // SEND RESPONSE HELPERS
 // ============================================================
@@ -691,162 +684,222 @@ private fun applySettingsUpdate(json: JSONObject): com.example.data.model.AppSet
                 "cctvSizePercent" -> s = s.copy(cctvSizePercent = json.getInt(key))
                 "cctvPosition" -> {
                     val pos = runCatching { CctvPosition.valueOf(json.getString(key)) }.getOrNull()
-                    
-    // ============================================================
-    // SAVE UPLOADED FILE (endpoint /api/upload lama)
-    // ============================================================
-    private fun saveUploadedFile(type: String, fileName: String, base64Data: String): String? {
-        return try {
-            val bytes = Base64.decode(base64Data, Base64.NO_WRAP)
-            val dirName = when (type) {
-                "qris" -> "qris"; "logo" -> "logo"
-                "officer" -> "officer"; "background" -> "background"
-                else -> "upload"
+                    if (pos != null) s = s.copy(cctvPosition = pos)
+                }
+                "ramadhanModeEnabled" -> s = s.copy(ramadhanModeEnabled = json.getBoolean(key))
+                "showImsakIftarCountdown" -> s = s.copy(showImsakIftarCountdown = json.getBoolean(key))
+                "showTarawihSchedule" -> s = s.copy(showTarawihSchedule = json.getBoolean(key))
+                "showKultumSchedule" -> s = s.copy(showKultumSchedule = json.getBoolean(key))
+                "ramadhanImsakOffsetMinutes" -> s = s.copy(ramadhanImsakOffsetMinutes = json.getInt(key))
+                "tarawihTime" -> s = s.copy(tarawihTime = json.getString(key))
+                "tarawihImam" -> s = s.copy(tarawihImam = json.getString(key))
+                "kultumTitle" -> s = s.copy(kultumTitle = json.getString(key))
+                "kultumUstadz" -> s = s.copy(kultumUstadz = json.getString(key))
+                "kultumTime" -> s = s.copy(kultumTime = json.getString(key))
+                "menuSahurText" -> s = s.copy(menuSahurText = json.getString(key))
+                "menuIftarText" -> s = s.copy(menuIftarText = json.getString(key))
+                "qrisPhotoUri" -> s = s.copy(qrisPhotoUri = json.getString(key))
+                "officerPhotoUri" -> s = s.copy(officerPhotoUri = json.getString(key))
+                "customBackgroundUri" -> s = s.copy(customBackgroundUri = json.getString(key))
+                "laporanSaldoSebelumnya" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(saldoSebelumnya = json.getLong(key)))
+                "laporanPemasukanJumat" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(pemasukanJumat = json.getLong(key)))
+                "laporanPemasukanUmum" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(pemasukanUmum = json.getLong(key)))
+                "laporanPengeluaranDakwah" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(pengeluaranDakwah = json.getLong(key)))
+                "laporanPengeluaranSosial" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(pengeluaranSosial = json.getLong(key)))
+                "laporanPengeluaranOperasional" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(pengeluaranOperasional = json.getLong(key)))
+                "laporanPeriodeMulai" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(periodeMulai = json.getString(key)))
+                "laporanPeriodeSelesai" -> s = s.copy(laporanKeuangan = s.laporanKeuangan.copy(periodeSelesai = json.getString(key)))
+                "weeklyOfficers" -> {
+                    val arr = json.optJSONArray(key)
+                    if (arr != null) s = s.copy(weeklyOfficers = parseWeeklyOfficers(arr))
+                }
+                "kioskModeEnabled" -> s = s.copy(kioskModeEnabled = json.getBoolean(key))
+                "autoStartOnBoot" -> s = s.copy(autoStartOnBoot = json.getBoolean(key))
+                "whatsappReportEnabled" -> s = s.copy(whatsappReportEnabled = json.getBoolean(key))
+                "fonnteToken" -> s = s.copy(fonnteToken = json.getString(key))
+                "fonnteGroupId" -> s = s.copy(fonnteGroupId = json.getString(key))
             }
-            val dir = File(context.filesDir, "masjid_io/$dirName")
-            if (!dir.exists()) dir.mkdirs()
-            val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            val file = File(dir, "upload_${System.currentTimeMillis()}_$safeName")
-            FileOutputStream(file).use { it.write(bytes) }
-            file.absolutePath
         } catch (e: Exception) {
-            Log.e(TAG, "Save file error: ${e.message}")
-            null
+            Log.w(TAG, "Field $key error: ${e.message}")
         }
     }
+    return s
+}
 
-    // ============================================================
-    // SAVE MEDIA FILE (hasil chunk dari HP)
-    // ============================================================
-    private fun saveMediaFile(
-        context: Context,
-        folder: String,
-        fileName: String,
-        bytes: ByteArray
-    ): String? {
-        return try {
-            val dir = File(context.filesDir, "masjid_io/$folder")
-            if (!dir.exists()) dir.mkdirs()
-            val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            val file = File(dir, "${System.currentTimeMillis()}_$safeName")
-            FileOutputStream(file).use { it.write(bytes) }
-            Log.d(TAG, "saveMediaFile OK: ${file.absolutePath} (${bytes.size} bytes)")
-            file.absolutePath
-        } catch (e: Exception) {
-            Log.e(TAG, "saveMediaFile error: ${e.message}")
-            null
+private fun parseWeeklyOfficers(arr: JSONArray): List<DailyOfficerItem> {
+    val result = mutableListOf<DailyOfficerItem>()
+    for (i in 0 until arr.length()) {
+        val o = arr.optJSONObject(i) ?: continue
+        result.add(DailyOfficerItem(
+            dayName = o.optString("dayName", "Senin"),
+            imamSubuh = o.optString("imamSubuh", ""),
+            muadzinSubuh = o.optString("muadzinSubuh", ""),
+            imamDzuhur = o.optString("imamDzuhur", ""),
+            muadzinDzuhur = o.optString("muadzinDzuhur", ""),
+            imamAshar = o.optString("imamAshar", ""),
+            muadzinAshar = o.optString("muadzinAshar", ""),
+            imamMaghrib = o.optString("imamMaghrib", ""),
+            muadzinMaghrib = o.optString("muadzinMaghrib", ""),
+            imamIsya = o.optString("imamIsya", ""),
+            muadzinIsya = o.optString("muadzinIsya", ""),
+            khatibJumat = o.optString("khatibJumat", ""),
+            temaJumat = o.optString("temaJumat", ""),
+            ustadzKajian = o.optString("ustadzKajian", ""),
+            temaKajian = o.optString("temaKajian", "")
+        ))
+    }
+    return result.ifEmpty { settingsRepository.settingsFlow.value.weeklyOfficers }
+}
+
+// ============================================================
+// SAVE FILES
+// ============================================================
+private fun saveUploadedFile(type: String, fileName: String, base64Data: String): String? {
+    return try {
+        val bytes = Base64.decode(base64Data, Base64.NO_WRAP)
+        val dirName = when (type) {
+            "qris" -> "qris"; "logo" -> "logo"
+            "officer" -> "officer"; "background" -> "background"
+            else -> "upload"
         }
+        val dir = File(context.filesDir, "masjid_io/$dirName")
+        if (!dir.exists()) dir.mkdirs()
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val file = File(dir, "upload_${System.currentTimeMillis()}_$safeName")
+        FileOutputStream(file).use { it.write(bytes) }
+        file.absolutePath
+    } catch (e: Exception) {
+        Log.e(TAG, "Save file error: ${e.message}")
+        null
     }
+}
 
-    // ============================================================
-    // STATUS JSON (endpoint /api/status)
-    // ============================================================
-    private fun getStatusJson(): String {
-        val s = settingsRepository.settingsFlow.value
-        return JSONObject().apply {
-            put("app", "MASJID.IO")
-            put("mosque", s.mosqueName)
-            put("city", s.city)
-            put("kioskMode", s.kioskModeEnabled)
-            put("waReport", s.whatsappReportEnabled)
-            put("port", actualPort)
-            put("running", isRunning)
-            put("lastError", lastError ?: "")
-            put("activeMediaTransfers", mediaTransfers.size)
-        }.toString()
+private fun saveMediaFile(
+    context: Context,
+    folder: String,
+    fileName: String,
+    bytes: ByteArray
+): String? {
+    return try {
+        val dir = File(context.filesDir, "masjid_io/$folder")
+        if (!dir.exists()) dir.mkdirs()
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val file = File(dir, "${System.currentTimeMillis()}_$safeName")
+        FileOutputStream(file).use { it.write(bytes) }
+        Log.d(TAG, "saveMediaFile OK: ${file.absolutePath} (${bytes.size} bytes)")
+        file.absolutePath
+    } catch (e: Exception) {
+        Log.e(TAG, "saveMediaFile error: ${e.message}")
+        null
     }
+}
 
-    // ============================================================
-    // FULL SETTINGS JSON (endpoint /api/settings GET)
-    // ============================================================
-    private fun getFullSettingsJson(): String {
-        val s = settingsRepository.settingsFlow.value
-        return JSONObject().apply {
-            put("mosqueName", s.mosqueName)
-            put("mosqueAddress", s.mosqueAddress)
-            put("mosqueTakmir", s.mosqueTakmir)
-            put("runningText", s.runningText)
-            put("runningTextSpeed", s.runningTextSpeed)
-            put("runningTextFontSize", s.runningTextFontSize)
-            put("animationsEnabled", s.animationsEnabled)
-            put("showBirdsAnimation", s.showBirdsAnimation)
-            put("keepScreenOn", s.keepScreenOn)
-            put("tvAutoScaleEnabled", s.tvAutoScaleEnabled)
-            put("tvSafeAreaPercent", s.tvSafeAreaPercent)
-            put("tvLayoutPreset", s.tvLayoutPreset)
-            put("backgroundMode", s.backgroundMode.name)
-            put("audioMode", s.audioMode.name)
-            put("beepVolume", s.beepVolume)
-            put("beepCount", s.beepCount)
-            put("beepDurationMs", s.beepDurationMs)
-            put("beepIntervalMs", s.beepIntervalMs)
-            put("adzanFile", s.adzanFile)
-            put("adzanVolume", s.adzanVolume)
-            put("photoSlideshowEnabled", s.photoSlideshowEnabled)
-            put("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
-            put("imamSubuh", s.officers.imamSubuh)
-            put("muadzinSubuh", s.officers.muadzinSubuh)
-            put("imamDzuhur", s.officers.imamDzuhur)
-            put("muadzinDzuhur", s.officers.muadzinDzuhur)
-            put("imamAshar", s.officers.imamAshar)
-            put("muadzinAshar", s.officers.muadzinAshar)
-            put("imamMaghrib", s.officers.imamMaghrib)
-            put("muadzinMaghrib", s.officers.muadzinMaghrib)
-            put("imamIsya", s.officers.imamIsya)
-            put("muadzinIsya", s.officers.muadzinIsya)
-            put("khatibJumat", s.officers.khatibJumat)
-            put("temaJumat", s.officers.temaJumat)
-            put("ustadzKajian", s.officers.ustadzKajian)
-            put("jadwalKajian", s.officers.jadwalKajian)
-            put("temaKajian", s.officers.temaKajian)
-            put("iqamahWaitMinutes", s.iqamahWaitMinutes)
-            put("qobliyahWaitMinutes", s.qobliyahWaitMinutes)
-            put("adzanWaitMinutes", s.adzanWaitMinutes)
-            put("prayerFocusDurationMinutes", s.prayerFocusDurationMinutes)
-            put("focusModeDurationMinutes", s.focusModeDurationMinutes)
-            put("bankName", s.bankName)
-            put("bankAccountNumber", s.bankAccountNumber)
-            put("bankAccountHolder", s.bankAccountHolder)
-            put("qrisIntervalMinutes", s.qrisIntervalMinutes)
-            put("qrisDisplayDurationSeconds", s.qrisDisplayDurationSeconds)
-            put("qrisPhotoUri", s.qrisPhotoUri ?: "")
-            put("slideEnabled", s.slideEnabled)
-            put("slideIntervalSeconds", s.slideIntervalSeconds)
-            put("qrisSlideEnabled", s.qrisSlideEnabled)
-            put("laporanSlideEnabled", s.laporanSlideEnabled)
-            put("kajianSlideEnabled", s.kajianSlideEnabled)
-            put("contentRotationEnabled", s.contentRotationEnabled)
-            put("contentRotationShowAyat", s.contentRotationShowAyat)
-            put("contentRotationShowHadits", s.contentRotationShowHadits)
-            put("contentRotationShowAsmaulHusna", s.contentRotationShowAsmaulHusna)
-            put("contentRotationIntervalSeconds", s.contentRotationIntervalSeconds)
-            put("cctvEnabled", s.cctvEnabled)
-            put("cctvUrl", s.cctvUrl)
-            put("cctvSizePercent", s.cctvSizePercent)
-            put("cctvPosition", s.cctvPosition.name)
-            put("ramadhanModeEnabled", s.ramadhanModeEnabled)
-            put("showImsakIftarCountdown", s.showImsakIftarCountdown)
-            put("showTarawihSchedule", s.showTarawihSchedule)
-            put("showKultumSchedule", s.showKultumSchedule)
-            put("ramadhanImsakOffsetMinutes", s.ramadhanImsakOffsetMinutes)
-            put("tarawihTime", s.tarawihTime)
-            put("tarawihImam", s.tarawihImam)
-            put("kultumTitle", s.kultumTitle)
-            put("kultumUstadz", s.kultumUstadz)
-            put("kultumTime", s.kultumTime)
-            put("menuSahurText", s.menuSahurText)
-            put("menuIftarText", s.menuIftarText)
-            put("laporanSaldoSebelumnya", s.laporanKeuangan.saldoSebelumnya)
-            put("laporanPemasukanJumat", s.laporanKeuangan.pemasukanJumat)
-            put("laporanPemasukanUmum", s.laporanKeuangan.pemasukanUmum)
-            put("laporanPengeluaranDakwah", s.laporanKeuangan.pengeluaranDakwah)
-            put("laporanPengeluaranSosial", s.laporanKeuangan.pengeluaranSosial)
-            put("laporanPengeluaranOperasional", s.laporanKeuangan.pengeluaranOperasional)
-            put("laporanPeriodeMulai", s.laporanKeuangan.periodeMulai)
-            put("laporanPeriodeSelesai", s.laporanKeuangan.periodeSelesai)
-            put("kioskModeEnabled", s.kioskModeEnabled)
-            put("autoStartOnBoot", s.autoStartOnBoot)
-            put("whatsappReportEnabled", s.whatsappReportEnabled)
+// ============================================================
+// JSON STATUS
+// ============================================================
+private fun getStatusJson(): String {
+    val s = settingsRepository.settingsFlow.value
+    return JSONObject().apply {
+        put("app", "MASJID.IO")
+        put("mosque", s.mosqueName)
+        put("city", s.city)
+        put("kioskMode", s.kioskModeEnabled)
+        put("waReport", s.whatsappReportEnabled)
+        put("port", actualPort)
+        put("running", isRunning)
+        put("lastError", lastError ?: "")
+        put("activeMediaTransfers", mediaTransfers.size)
+    }.toString()
+}
+
+private fun getFullSettingsJson(): String {
+    val s = settingsRepository.settingsFlow.value
+    return JSONObject().apply {
+        put("mosqueName", s.mosqueName)
+        put("mosqueAddress", s.mosqueAddress)
+        put("mosqueTakmir", s.mosqueTakmir)
+        put("runningText", s.runningText)
+        put("runningTextSpeed", s.runningTextSpeed)
+        put("runningTextFontSize", s.runningTextFontSize)
+        put("animationsEnabled", s.animationsEnabled)
+        put("showBirdsAnimation", s.showBirdsAnimation)
+        put("keepScreenOn", s.keepScreenOn)
+        put("tvAutoScaleEnabled", s.tvAutoScaleEnabled)
+        put("tvSafeAreaPercent", s.tvSafeAreaPercent)
+        put("tvLayoutPreset", s.tvLayoutPreset)
+        put("backgroundMode", s.backgroundMode.name)
+        put("audioMode", s.audioMode.name)
+        put("beepVolume", s.beepVolume)
+        put("beepCount", s.beepCount)
+        put("beepDurationMs", s.beepDurationMs)
+        put("beepIntervalMs", s.beepIntervalMs)
+        put("adzanFile", s.adzanFile)
+        put("adzanVolume", s.adzanVolume)
+        put("photoSlideshowEnabled", s.photoSlideshowEnabled)
+        put("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
+        put("imamSubuh", s.officers.imamSubuh)
+        put("muadzinSubuh", s.officers.muadzinSubuh)
+        put("imamDzuhur", s.officers.imamDzuhur)
+        put("muadzinDzuhur", s.officers.muadzinDzuhur)
+        put("imamAshar", s.officers.imamAshar)
+        put("muadzinAshar", s.officers.muadzinAshar)
+        put("imamMaghrib", s.officers.imamMaghrib)
+        put("muadzinMaghrib", s.officers.muadzinMaghrib)
+        put("imamIsya", s.officers.imamIsya)
+        put("muadzinIsya", s.officers.muadzinIsya)
+        put("khatibJumat", s.officers.khatibJumat)
+        put("temaJumat", s.officers.temaJumat)
+        put("ustadzKajian", s.officers.ustadzKajian)
+        put("jadwalKajian", s.officers.jadwalKajian)
+        put("temaKajian", s.officers.temaKajian)
+        put("iqamahWaitMinutes", s.iqamahWaitMinutes)
+        put("qobliyahWaitMinutes", s.qobliyahWaitMinutes)
+        put("adzanWaitMinutes", s.adzanWaitMinutes)
+        put("prayerFocusDurationMinutes", s.prayerFocusDurationMinutes)
+        put("focusModeDurationMinutes", s.focusModeDurationMinutes)
+        put("bankName", s.bankName)
+        put("bankAccountNumber", s.bankAccountNumber)
+        put("bankAccountHolder", s.bankAccountHolder)
+        put("qrisIntervalMinutes", s.qrisIntervalMinutes)
+        put("qrisDisplayDurationSeconds", s.qrisDisplayDurationSeconds)
+        put("qrisPhotoUri", s.qrisPhotoUri ?: "")
+        put("slideEnabled", s.slideEnabled)
+        put("slideIntervalSeconds", s.slideIntervalSeconds)
+        put("qrisSlideEnabled", s.qrisSlideEnabled)
+        put("laporanSlideEnabled", s.laporanSlideEnabled)
+        put("kajianSlideEnabled", s.kajianSlideEnabled)
+        put("contentRotationEnabled", s.contentRotationEnabled)
+        put("contentRotationShowAyat", s.contentRotationShowAyat)
+        put("contentRotationShowHadits", s.contentRotationShowHadits)
+        put("contentRotationShowAsmaulHusna", s.contentRotationShowAsmaulHusna)
+        put("contentRotationIntervalSeconds", s.contentRotationIntervalSeconds)
+        put("cctvEnabled", s.cctvEnabled)
+        put("cctvUrl", s.cctvUrl)
+        put("cctvSizePercent", s.cctvSizePercent)
+        put("cctvPosition", s.cctvPosition.name)
+        put("ramadhanModeEnabled", s.ramadhanModeEnabled)
+        put("showImsakIftarCountdown", s.showImsakIftarCountdown)
+        put("showTarawihSchedule", s.showTarawihSchedule)
+        put("showKultumSchedule", s.showKultumSchedule)
+        put("ramadhanImsakOffsetMinutes", s.ramadhanImsakOffsetMinutes)
+        put("tarawihTime", s.tarawihTime)
+        put("tarawihImam", s.tarawihImam)
+        put("kultumTitle", s.kultumTitle)
+        put("kultumUstadz", s.kultumUstadz)
+        put("kultumTime", s.kultumTime)
+        put("menuSahurText", s.menuSahurText)
+        put("menuIftarText", s.menuIftarText)
+        put("laporanSaldoSebelumnya", s.laporanKeuangan.saldoSebelumnya)
+        put("laporanPemasukanJumat", s.laporanKeuangan.pemasukanJumat)
+        put("laporanPemasukanUmum", s.laporanKeuangan.pemasukanUmum)
+        put("laporanPengeluaranDakwah", s.laporanKeuangan.pengeluaranDakwah)
+        put("laporanPengeluaranSosial", s.laporanKeuangan.pengeluaranSosial)
+        put("laporanPengeluaranOperasional", s.laporanKeuangan.pengeluaranOperasional)
+        put("laporanPeriodeMulai", s.laporanKeuangan.periodeMulai)
+        put("laporanPeriodeSelesai", s.laporanKeuangan.periodeSelesai)
+        put("kioskModeEnabled", s.kioskModeEnabled)
+        put("autoStartOnBoot", s.autoStartOnBoot)
+        put("whatsappReportEnabled", s.whatsappReportEnabled)
             put("fonnteToken", s.fonnteToken)
             put("fonnteGroupId", s.fonnteGroupId)
             val arr = JSONArray()
@@ -864,7 +917,7 @@ private fun applySettingsUpdate(json: JSONObject): com.example.data.model.AppSet
             }
             put("weeklyOfficers", arr)
         }.toString()
-    }
+}
 
     // ============================================================
     // LOGIN HTML
@@ -878,13 +931,20 @@ private fun applySettingsUpdate(json: JSONObject): com.example.data.model.AppSet
 <title>Login — MASJID.IO</title>
 <style>
 * { box-sizing: border-box; }
-body { font-family: Arial, sans-serif; background: #0A1929; color: #fff; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.card { background: #132F4C; padding: 32px; border-radius: 16px; width: 100%; max-width: 400px; border: 2px solid #FFD700; text-align: center; }
+body { font-family: Arial, sans-serif; background: #0A1929; color: #fff;
+margin: 0; min-height: 100vh; display: flex; align-items: center;
+justify-content: center; padding: 20px; }
+.card { background: #132F4C; padding: 32px; border-radius: 16px;
+width: 100%; max-width: 400px; border: 2px solid #FFD700; text-align: center; }
 h1 { color: #FFD700; margin: 0 0 8px; }
 p { color: #90A4AE; margin: 0 0 24px; font-size: 14px; }
-input { width: 100%; padding: 14px; border: 2px solid #2196F3; border-radius: 10px; background: #0F2636; color: #fff; font-size: 18px; text-align: center; letter-spacing: 8px; }
+input { width: 100%; padding: 14px; border: 2px solid #2196F3;
+border-radius: 10px; background: #0F2636; color: #fff;
+font-size: 18px; text-align: center; letter-spacing: 8px; }
 input:focus { outline: none; border-color: #FFD700; }
-button { width: 100%; margin-top: 16px; padding: 14px; background: #FFD700; color: #09141D; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; }
+button { width: 100%; margin-top: 16px; padding: 14px;
+background: #FFD700; color: #09141D; border: none;
+border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; }
 button:hover { background: #FFC107; }
 .err { color: #FF5252; font-size: 13px; margin-top: 12px; min-height: 20px; }
 </style>
@@ -905,18 +965,36 @@ const pin = document.getElementById('pin').value;
 if (!pin) { err.textContent = 'PIN tidak boleh kosong'; return; }
 btn.disabled = true; btn.textContent = 'MEMPROSES...'; err.textContent = '';
 try {
-const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'password=' + encodeURIComponent(pin), credentials: 'same-origin' });
+const res = await fetch('/api/login', {
+method: 'POST',
+headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+body: 'password=' + encodeURIComponent(pin),
+credentials: 'same-origin'
+});
 const data = await res.json();
-if (data.success) { window.location.href = '/'; }
-else { err.textContent = data.error || 'PIN salah'; btn.disabled = false; btn.textContent = 'MASUK'; document.getElementById('pin').value = ''; document.getElementById('pin').focus(); }
-} catch (e) { err.textContent = 'Error: ' + e.message; btn.disabled = false; btn.textContent = 'MASUK'; }
+if (data.success) {
+window.location.href = '/';
+} else {
+err.textContent = data.error || 'PIN salah';
+btn.disabled = false;
+btn.textContent = 'MASUK';
+document.getElementById('pin').value = '';
+document.getElementById('pin').focus();
 }
-document.getElementById('pin').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+} catch (e) {
+err.textContent = 'Error: ' + e.message;
+btn.disabled = false;
+btn.textContent = 'MASUK';
+}
+}
+document.getElementById('pin').addEventListener('keypress', e => {
+if (e.key === 'Enter') doLogin();
+});
 </script>
 </body>
 </html>
     """.trimIndent()
-    
+
     // ============================================================
     // DASHBOARD HTML
     // ============================================================
@@ -1235,10 +1313,10 @@ async function uploadFile(input, type) {
             const data = await res.json();
             if (data.success) showToast('✅ Berhasil upload');
             else showToast('❌ ' + (data.error || 'Gagal'), true);
-        } catch (e) {
-            showToast('❌ ' + e.message, true);
-        }
-    };
+            } catch (e) {
+        showToast('❌ ' + e.message, true);
+    }
+};
     reader.readAsDataURL(file);
 }
 
@@ -1304,7 +1382,4 @@ loadSettings();
 </body>
 </html>
     """.trimIndent()
-                }
-                
-
-              
+}
