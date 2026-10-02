@@ -16,12 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
@@ -38,7 +38,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
-import com.example.data.model.LaporanKeuangan
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
@@ -48,11 +47,6 @@ import com.example.ui.theme.UrgentRed
 
 /**
  * Slide Laporan Keuangan Masjid
- * Menampilkan:
- * - Saldo sebelumnya, pemasukan, pengeluaran, saldo akhir
- * - Detail penerimaan (infaq Jumat, infaq umum)
- * - Detail pengeluaran (dakwah, sosial, operasional)
- * - Periode laporan
  */
 @Composable
 fun LaporanSlide(
@@ -127,9 +121,9 @@ fun LaporanSlide(
                     modifier = Modifier.weight(0.32f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Saldo Sebelumnya
+                    // Saldo Sebelumnya — icon DOMPET (bukan celengan babi)
                     SaldoBox(
-                        icon = Icons.Default.Savings,
+                        icon = Icons.Default.AccountBalanceWallet,
                         label = "Saldo Sebelumnya",
                         value = formatRupiah(laporan.saldoSebelumnya),
                         color = IslamicGold,
@@ -240,7 +234,6 @@ fun LaporanSlide(
 // ============================================================
 // KOMPONEN: SALDO BOX
 // ============================================================
-
 @Composable
 private fun SaldoBox(
     icon: ImageVector,
@@ -291,7 +284,6 @@ private fun SaldoBox(
 // ============================================================
 // KOMPONEN: DETAIL CARD
 // ============================================================
-
 @Composable
 private fun DetailCard(
     title: String,
@@ -362,7 +354,6 @@ private fun DetailCard(
 // ============================================================
 // HELPER: FORMAT RUPIAH
 // ============================================================
-
 private fun formatRupiah(amount: Long): String {
     return when {
         amount >= 1_000_000 -> {
