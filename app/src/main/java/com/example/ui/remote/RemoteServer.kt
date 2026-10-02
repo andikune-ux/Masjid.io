@@ -238,136 +238,132 @@ class RemoteServer(
                 client.close()
                 return
             }
+            
+when {
+    method == "GET" && pathOnly == "/login" -> {
+        sendResponse(writer, 200, "text/html", getLoginHtml())
+    }
+    method == "POST" && pathOnly == "/api/login" -> {
+        val params = parseFormData(body)
+        val password = params["password"] ?: ""
+        val correctPin = settingsRepository.settingsFlow.value.pinCode
+        if (password == correctPin) {
+            val newSession = createSession()
+            sendResponseWithCookie(
+                writer, 200, "application/json",
+                """{"success":true,"message":"Login berhasil"}""",
+                "session=$newSession; Path=/; Max-Age=86400; SameSite=Strict"
+            )
+        } else {
+            sendResponse(writer, 401, "application/json",
+                """{"success":false,"error":"PIN salah"}""")
+        }
+    }
+    method == "POST" && pathOnly == "/api/logout" -> {
+        sessionId?.let { sessions.remove(it) }
+        sendResponseWithCookie(writer, 200, "application/json",
+            """{"success":true}""",
+            "session=; Path=/; Max-Age=0")
+    }
+    method == "GET" && (pathOnly == "/" || pathOnly.isEmpty()) -> {
+        sendResponse(writer, 200, "text/html", getDashboardHtml())
+    }
+    method == "GET" && pathOnly == "/api/settings" -> {
+        sendResponse(writer, 200, "application/json", getFullSettingsJson())
+    }
+    method == "POST" && pathOnly == "/api/settings" -> {
+        try {
+            val json = JSONObject(body)
+            val updated = applySettingsUpdate(json)
+            settingsRepository.updateSettings(updated)
+            sendResponse(writer, 200, "application/json", """{"success":true}""")
+        } catch (e: Exception) {
+            Log.e(TAG, "Update settings error: ${e.message}")
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+        }
+    }
+    method == "POST" && pathOnly == "/api/upload" -> {
+        try {
+            val params = parseFormData(body)
+            val type = params["type"] ?: "unknown"
+            val base64Data = params["data"] ?: ""
+            val fileName = params["name"] ?: "file_${System.currentTimeMillis()}"
 
-            when {
-                method == "GET" && pathOnly == "/login" -> {
-                    sendResponse(writer, 200, "text/html", getLoginHtml())
-                }
-                method == "POST" && pathOnly == "/api/login" -> {
-                    val params = parseFormData(body)
-                    val password = params["password"] ?: ""
-                    val correctPin = settingsRepository.settingsFlow.value.pinCode
-                    if (password == correctPin) {
-                        val newSession = createSession()
-                        sendResponseWithCookie(
-                            writer, 200, "application/json",
-                            """{"success":true,"message":"Login berhasil"}""",
-                            "session=$newSession; Path=/; Max-Age=86400; SameSite=Strict"
-                        )
-                    } else {
-                        sendResponse(writer, 401, "application/json",
-                            """{"success":false,"error":"PIN salah"}""")
-                    }
-                }
-                method == "POST" && pathOnly == "/api/logout" -> {
-                    sessionId?.let { sessions.remove(it) }
-                    sendResponseWithCookie(writer, 200, "application/json",
-                        """{"success":true}""",
-                        "session=; Path=/; Max-Age=0")
-                }
-                method == "GET" && (pathOnly == "/" || pathOnly.isEmpty()) -> {
-                    sendResponse(writer, 200, "text/html", getDashboardHtml())
-                }
-                method == "GET" && pathOnly == "/api/settings" -> {
-                    sendResponse(writer, 200, "application/json", getFullSettingsJson())
-                }
-                method == "POST" && pathOnly == "/api/settings" -> {
-                    try {
-                        val json = JSONObject(body)
-                        val updated = applySettingsUpdate(json)
-                        settingsRepository.updateSettings(updated)
-                        sendResponse(writer, 200, "application/json", """{"success":true}""")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Update settings error: ${e.message}")
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                    }
-                }
-                method == "POST" && pathOnly == "/api/upload" -> {
-                    try {
-                        val params = parseFormData(body)
-                        val type = params["type"] ?: "unknown"
-                        val base64Data = params["data"] ?: ""
-                        val fileName = params["name"] ?: "file_${System.currentTimeMillis()}"
-
-                        if (base64Data.isBlank()) {
-                            sendResponse(writer, 400, "application/json",
-                                """{"success":false,"error":"Data kosong"}""")
-                        } else {
-                            val savedPath = saveUploadedFile(type, fileName, base64Data)
-                            if (savedPath != null) {
-                                sendResponse(writer, 200, "application/json",
-                                    """{"success":true,"path":"$savedPath"}""")
-                            } else {
-                                sendResponse(writer, 500, "application/json",
-                                    """{"success":false,"error":"Gagal simpan file"}""")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        sendResponse(writer, 500, "application/json",
-                            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                    }
-                }
-                method == "POST" && pathOnly == "/api/running-text" -> {
-                    val params = parseFormData(body)
-                    val text = params["text"] ?: ""
-                    val current = settingsRepository.settingsFlow.value
-                    settingsRepository.updateSettings(current.copy(runningText = text))
-                    sendResponse(writer, 200, "application/json", """{"success":true}""")
-                }
-                method == "POST" && pathOnly == "/api/pin" -> {
-                    val params = parseFormData(body)
-                    val newPin = params["pin"] ?: ""
-                    if (newPin.length == 4 && newPin.all { it.isDigit() }) {
-                        val current = settingsRepository.settingsFlow.value
-                        settingsRepository.updateSettings(current.copy(pinCode = newPin))
-                        sendResponse(writer, 200, "application/json", """{"success":true}""")
-                    } else {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"PIN harus 4 digit"}""")
-                    }
-                }
-                method == "GET" && pathOnly == "/api/status" -> {
-                    sendResponse(writer, 200, "application/json", getStatusJson())
-                }
-                method == "POST" && pathOnly == "/api/restart" -> {
+            if (base64Data.isBlank()) {
+                sendResponse(writer, 400, "application/json",
+                    """{"success":false,"error":"Data kosong"}""")
+            } else {
+                val savedPath = saveUploadedFile(type, fileName, base64Data)
+                if (savedPath != null) {
                     sendResponse(writer, 200, "application/json",
-                        """{"success":true,"message":"Restart dijadwalkan"}""")
-                    writer.flush(); client.close()
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        if (onRestart != null) onRestart.invoke()
-                        else android.os.Process.killProcess(android.os.Process.myPid())
-                    }, 1000)
-                    return
-                }
-                
-            // ============================================================
-            // ENDPOINT iO CONTROL
-            // ============================================================
-            method == "POST" && pathOnly == "/api/io/handshake" -> {
-                sendResponse(writer, 200, "application/json",
-                    """{"success":true,"app":"MASJID.IO","port":$actualPort}""")
-            }
-
-            // ============================================================
-            // RECEIVE SETTINGS (TIDAK auto-restart)
-            // ============================================================
-            method == "POST" && pathOnly == "/api/io/receive" -> {
-                try {
-                    Log.d(TAG, "📥 Menerima settings dari pengirim")
-                    if (onSettingsReceived != null) {
-                        onSettingsReceived.invoke(body)
-                    }
-                    sendResponse(writer, 200, "application/json",
-                        """{"success":true,"message":"Settings diterima, menunggu media..."}""")
-                    Log.d(TAG, "✅ Settings di-apply. Menunggu media + finalize.")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Gagal apply settings: ${e.message}")
+                        """{"success":true,"path":"$savedPath"}""")
+                } else {
                     sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+                        """{"success":false,"error":"Gagal simpan file"}""")
                 }
             }
+        } catch (e: Exception) {
+            sendResponse(writer, 500, "application/json",
+                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+        }
+    }
+    method == "POST" && pathOnly == "/api/running-text" -> {
+        val params = parseFormData(body)
+        val text = params["text"] ?: ""
+        val current = settingsRepository.settingsFlow.value
+        settingsRepository.updateSettings(current.copy(runningText = text))
+        sendResponse(writer, 200, "application/json", """{"success":true}""")
+    }
+    method == "POST" && pathOnly == "/api/pin" -> {
+        val params = parseFormData(body)
+        val newPin = params["pin"] ?: ""
+        if (newPin.length == 4 && newPin.all { it.isDigit() }) {
+            val current = settingsRepository.settingsFlow.value
+            settingsRepository.updateSettings(current.copy(pinCode = newPin))
+            sendResponse(writer, 200, "application/json", """{"success":true}""")
+        } else {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"PIN harus 4 digit"}""")
+        }
+    }
+    method == "GET" && pathOnly == "/api/status" -> {
+        sendResponse(writer, 200, "application/json", getStatusJson())
+    }
+    method == "POST" && pathOnly == "/api/restart" -> {
+        sendResponse(writer, 200, "application/json",
+            """{"success":true,"message":"Restart dijadwalkan"}""")
+        writer.flush(); client.close()
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (onRestart != null) onRestart.invoke()
+            else android.os.Process.killProcess(android.os.Process.myPid())
+        }, 1000)
+        return
+    }
 
+    // ============================================================
+    // ENDPOINT iO CONTROL
+    // ============================================================
+    method == "POST" && pathOnly == "/api/io/handshake" -> {
+        sendResponse(writer, 200, "application/json",
+            """{"success":true,"app":"MASJID.IO","port":$actualPort}""")
+    }
+    method == "POST" && pathOnly == "/api/io/receive" -> {
+        try {
+            Log.d(TAG, "📥 Menerima settings dari pengirim")
+            if (onSettingsReceived != null) {
+                onSettingsReceived.invoke(body)
+            }
+            sendResponse(writer, 200, "application/json",
+                """{"success":true,"message":"Settings diterima, menunggu media..."}""")
+            Log.d(TAG, "✅ Settings di-apply. Menunggu media + finalize.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal apply settings: ${e.message}")
+            sendResponse(writer, 500, "application/json",
+                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+        }
+    }
+    
             // ============================================================
             // MEDIA TRANSFER ENDPOINTS
             // ============================================================
@@ -402,6 +398,7 @@ class RemoteServer(
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
+
             method == "POST" && pathOnly == "/api/io/receive-media-chunk" -> {
                 try {
                     val fileId = headers["x-file-id"] ?: ""
@@ -438,6 +435,7 @@ class RemoteServer(
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
+
             method == "POST" && pathOnly == "/api/io/receive-media-finish" -> {
                 try {
                     val json = JSONObject(body)
@@ -499,6 +497,7 @@ class RemoteServer(
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
+
             method == "GET" && pathOnly == "/api/io/media-status" -> {
                 val arr = JSONArray()
                 mediaTransfers.values.forEach { st ->
@@ -551,8 +550,8 @@ class RemoteServer(
         Log.e(TAG, "Handle error: ${e.message}")
         try { client.close() } catch (_: Exception) {}
     }
-    }
-    
+}
+
 // ============================================================
 // SEND RESPONSE HELPERS
 // ============================================================
@@ -594,6 +593,9 @@ private fun sendRedirect(writer: OutputStreamWriter, location: String) {
     writer.write("Connection: close\r\n\r\n")
 }
 
+// ============================================================
+// PARSE FORM DATA
+// ============================================================
 private fun parseFormData(body: String): Map<String, String> {
     val result = mutableMapOf<String, String>()
     body.split("&").forEach { pair ->
@@ -726,6 +728,9 @@ private fun applySettingsUpdate(json: JSONObject): com.example.data.model.AppSet
     return s
 }
 
+// ============================================================
+// PARSE WEEKLY OFFICERS
+// ============================================================
 private fun parseWeeklyOfficers(arr: JSONArray): List<DailyOfficerItem> {
     val result = mutableListOf<DailyOfficerItem>()
     for (i in 0 until arr.length()) {
@@ -900,23 +905,23 @@ private fun getFullSettingsJson(): String {
         put("kioskModeEnabled", s.kioskModeEnabled)
         put("autoStartOnBoot", s.autoStartOnBoot)
         put("whatsappReportEnabled", s.whatsappReportEnabled)
-            put("fonnteToken", s.fonnteToken)
-            put("fonnteGroupId", s.fonnteGroupId)
-            val arr = JSONArray()
-            s.weeklyOfficers.forEach { o ->
-                arr.put(JSONObject().apply {
-                    put("dayName", o.dayName)
-                    put("imamSubuh", o.imamSubuh); put("muadzinSubuh", o.muadzinSubuh)
-                    put("imamDzuhur", o.imamDzuhur); put("muadzinDzuhur", o.muadzinDzuhur)
-                    put("imamAshar", o.imamAshar); put("muadzinAshar", o.muadzinAshar)
-                    put("imamMaghrib", o.imamMaghrib); put("muadzinMaghrib", o.muadzinMaghrib)
-                    put("imamIsya", o.imamIsya); put("muadzinIsya", o.muadzinIsya)
-                    put("khatibJumat", o.khatibJumat); put("temaJumat", o.temaJumat)
-                    put("ustadzKajian", o.ustadzKajian); put("temaKajian", o.temaKajian)
-                })
-            }
-            put("weeklyOfficers", arr)
-        }.toString()
+        put("fonnteToken", s.fonnteToken)
+        put("fonnteGroupId", s.fonnteGroupId)
+        val arr = JSONArray()
+        s.weeklyOfficers.forEach { o ->
+            arr.put(JSONObject().apply {
+                put("dayName", o.dayName)
+                put("imamSubuh", o.imamSubuh); put("muadzinSubuh", o.muadzinSubuh)
+                put("imamDzuhur", o.imamDzuhur); put("muadzinDzuhur", o.muadzinDzuhur)
+                put("imamAshar", o.imamAshar); put("muadzinAshar", o.muadzinAshar)
+                put("imamMaghrib", o.imamMaghrib); put("muadzinMaghrib", o.muadzinMaghrib)
+                put("imamIsya", o.imamIsya); put("muadzinIsya", o.muadzinIsya)
+                put("khatibJumat", o.khatibJumat); put("temaJumat", o.temaJumat)
+                put("ustadzKajian", o.ustadzKajian); put("temaKajian", o.temaKajian)
+            })
+        }
+        put("weeklyOfficers", arr)
+    }.toString()
 }
 
     // ============================================================
@@ -994,7 +999,7 @@ if (e.key === 'Enter') doLogin();
 </body>
 </html>
     """.trimIndent()
-
+    
     // ============================================================
     // DASHBOARD HTML
     // ============================================================
@@ -1313,10 +1318,10 @@ async function uploadFile(input, type) {
             const data = await res.json();
             if (data.success) showToast('✅ Berhasil upload');
             else showToast('❌ ' + (data.error || 'Gagal'), true);
-            } catch (e) {
-        showToast('❌ ' + e.message, true);
-    }
-};
+        } catch (e) {
+            showToast('❌ ' + e.message, true);
+        }
+    };
     reader.readAsDataURL(file);
 }
 
