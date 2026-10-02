@@ -239,131 +239,131 @@ class RemoteServer(
                 return
             }
             
-when {
-    method == "GET" && pathOnly == "/login" -> {
-        sendResponse(writer, 200, "text/html", getLoginHtml())
-    }
-    method == "POST" && pathOnly == "/api/login" -> {
-        val params = parseFormData(body)
-        val password = params["password"] ?: ""
-        val correctPin = settingsRepository.settingsFlow.value.pinCode
-        if (password == correctPin) {
-            val newSession = createSession()
-            sendResponseWithCookie(
-                writer, 200, "application/json",
-                """{"success":true,"message":"Login berhasil"}""",
-                "session=$newSession; Path=/; Max-Age=86400; SameSite=Strict"
-            )
-        } else {
-            sendResponse(writer, 401, "application/json",
-                """{"success":false,"error":"PIN salah"}""")
-        }
-    }
-    method == "POST" && pathOnly == "/api/logout" -> {
-        sessionId?.let { sessions.remove(it) }
-        sendResponseWithCookie(writer, 200, "application/json",
-            """{"success":true}""",
-            "session=; Path=/; Max-Age=0")
-    }
-    method == "GET" && (pathOnly == "/" || pathOnly.isEmpty()) -> {
-        sendResponse(writer, 200, "text/html", getDashboardHtml())
-    }
-    method == "GET" && pathOnly == "/api/settings" -> {
-        sendResponse(writer, 200, "application/json", getFullSettingsJson())
-    }
-    method == "POST" && pathOnly == "/api/settings" -> {
-        try {
-            val json = JSONObject(body)
-            val updated = applySettingsUpdate(json)
-            settingsRepository.updateSettings(updated)
-            sendResponse(writer, 200, "application/json", """{"success":true}""")
-        } catch (e: Exception) {
-            Log.e(TAG, "Update settings error: ${e.message}")
-            sendResponse(writer, 400, "application/json",
-                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-        }
-    }
-    method == "POST" && pathOnly == "/api/upload" -> {
-        try {
-            val params = parseFormData(body)
-            val type = params["type"] ?: "unknown"
-            val base64Data = params["data"] ?: ""
-            val fileName = params["name"] ?: "file_${System.currentTimeMillis()}"
-
-            if (base64Data.isBlank()) {
-                sendResponse(writer, 400, "application/json",
-                    """{"success":false,"error":"Data kosong"}""")
-            } else {
-                val savedPath = saveUploadedFile(type, fileName, base64Data)
-                if (savedPath != null) {
-                    sendResponse(writer, 200, "application/json",
-                        """{"success":true,"path":"$savedPath"}""")
+        when {
+            method == "GET" && pathOnly == "/login" -> {
+                sendResponse(writer, 200, "text/html", getLoginHtml())
+            }
+            method == "POST" && pathOnly == "/api/login" -> {
+                val params = parseFormData(body)
+                val password = params["password"] ?: ""
+                val correctPin = settingsRepository.settingsFlow.value.pinCode
+                if (password == correctPin) {
+                    val newSession = createSession()
+                    sendResponseWithCookie(
+                        writer, 200, "application/json",
+                        """{"success":true,"message":"Login berhasil"}""",
+                        "session=$newSession; Path=/; Max-Age=86400; SameSite=Strict"
+                    )
                 } else {
-                    sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"Gagal simpan file"}""")
+                    sendResponse(writer, 401, "application/json",
+                        """{"success":false,"error":"PIN salah"}""")
                 }
             }
-        } catch (e: Exception) {
-            sendResponse(writer, 500, "application/json",
-                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-        }
-    }
-    method == "POST" && pathOnly == "/api/running-text" -> {
-        val params = parseFormData(body)
-        val text = params["text"] ?: ""
-        val current = settingsRepository.settingsFlow.value
-        settingsRepository.updateSettings(current.copy(runningText = text))
-        sendResponse(writer, 200, "application/json", """{"success":true}""")
-    }
-    method == "POST" && pathOnly == "/api/pin" -> {
-        val params = parseFormData(body)
-        val newPin = params["pin"] ?: ""
-        if (newPin.length == 4 && newPin.all { it.isDigit() }) {
-            val current = settingsRepository.settingsFlow.value
-            settingsRepository.updateSettings(current.copy(pinCode = newPin))
-            sendResponse(writer, 200, "application/json", """{"success":true}""")
-        } else {
-            sendResponse(writer, 400, "application/json",
-                """{"success":false,"error":"PIN harus 4 digit"}""")
-        }
-    }
-    method == "GET" && pathOnly == "/api/status" -> {
-        sendResponse(writer, 200, "application/json", getStatusJson())
-    }
-    method == "POST" && pathOnly == "/api/restart" -> {
-        sendResponse(writer, 200, "application/json",
-            """{"success":true,"message":"Restart dijadwalkan"}""")
-        writer.flush(); client.close()
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (onRestart != null) onRestart.invoke()
-            else android.os.Process.killProcess(android.os.Process.myPid())
-        }, 1000)
-        return
-    }
-
-    // ============================================================
-    // ENDPOINT iO CONTROL
-    // ============================================================
-    method == "POST" && pathOnly == "/api/io/handshake" -> {
-        sendResponse(writer, 200, "application/json",
-            """{"success":true,"app":"MASJID.IO","port":$actualPort}""")
-    }
-    method == "POST" && pathOnly == "/api/io/receive" -> {
-        try {
-            Log.d(TAG, "📥 Menerima settings dari pengirim")
-            if (onSettingsReceived != null) {
-                onSettingsReceived.invoke(body)
+            method == "POST" && pathOnly == "/api/logout" -> {
+                sessionId?.let { sessions.remove(it) }
+                sendResponseWithCookie(writer, 200, "application/json",
+                    """{"success":true}""",
+                    "session=; Path=/; Max-Age=0")
             }
-            sendResponse(writer, 200, "application/json",
-                """{"success":true,"message":"Settings diterima, menunggu media..."}""")
-            Log.d(TAG, "✅ Settings di-apply. Menunggu media + finalize.")
-        } catch (e: Exception) {
-            Log.e(TAG, "Gagal apply settings: ${e.message}")
-            sendResponse(writer, 500, "application/json",
-                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-        }
-    }
-    
+            method == "GET" && (pathOnly == "/" || pathOnly.isEmpty()) -> {
+                sendResponse(writer, 200, "text/html", getDashboardHtml())
+            }
+            method == "GET" && pathOnly == "/api/settings" -> {
+                sendResponse(writer, 200, "application/json", getFullSettingsJson())
+            }
+            method == "POST" && pathOnly == "/api/settings" -> {
+                try {
+                    val json = JSONObject(body)
+                    val updated = applySettingsUpdate(json)
+                    settingsRepository.updateSettings(updated)
+                    sendResponse(writer, 200, "application/json", """{"success":true}""")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Update settings error: ${e.message}")
+                    sendResponse(writer, 400, "application/json",
+                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+                }
+            }
+            method == "POST" && pathOnly == "/api/upload" -> {
+                try {
+                    val params = parseFormData(body)
+                    val type = params["type"] ?: "unknown"
+                    val base64Data = params["data"] ?: ""
+                    val fileName = params["name"] ?: "file_${System.currentTimeMillis()}"
+
+                    if (base64Data.isBlank()) {
+                        sendResponse(writer, 400, "application/json",
+                            """{"success":false,"error":"Data kosong"}""")
+                    } else {
+                        val savedPath = saveUploadedFile(type, fileName, base64Data)
+                        if (savedPath != null) {
+                            sendResponse(writer, 200, "application/json",
+                                """{"success":true,"path":"$savedPath"}""")
+                        } else {
+                            sendResponse(writer, 500, "application/json",
+                                """{"success":false,"error":"Gagal simpan file"}""")
+                        }
+                    }
+                } catch (e: Exception) {
+                    sendResponse(writer, 500, "application/json",
+                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+                }
+            }
+            method == "POST" && pathOnly == "/api/running-text" -> {
+                val params = parseFormData(body)
+                val text = params["text"] ?: ""
+                val current = settingsRepository.settingsFlow.value
+                settingsRepository.updateSettings(current.copy(runningText = text))
+                sendResponse(writer, 200, "application/json", """{"success":true}""")
+            }
+            method == "POST" && pathOnly == "/api/pin" -> {
+                val params = parseFormData(body)
+                val newPin = params["pin"] ?: ""
+                if (newPin.length == 4 && newPin.all { it.isDigit() }) {
+                    val current = settingsRepository.settingsFlow.value
+                    settingsRepository.updateSettings(current.copy(pinCode = newPin))
+                    sendResponse(writer, 200, "application/json", """{"success":true}""")
+                } else {
+                    sendResponse(writer, 400, "application/json",
+                        """{"success":false,"error":"PIN harus 4 digit"}""")
+                }
+            }
+            method == "GET" && pathOnly == "/api/status" -> {
+                sendResponse(writer, 200, "application/json", getStatusJson())
+            }
+            method == "POST" && pathOnly == "/api/restart" -> {
+                sendResponse(writer, 200, "application/json",
+                    """{"success":true,"message":"Restart dijadwalkan"}""")
+                writer.flush(); client.close()
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (onRestart != null) onRestart.invoke()
+                    else android.os.Process.killProcess(android.os.Process.myPid())
+                }, 1000)
+                return
+            }
+
+            // ============================================================
+            // ENDPOINT iO CONTROL
+            // ============================================================
+            method == "POST" && pathOnly == "/api/io/handshake" -> {
+                sendResponse(writer, 200, "application/json",
+                    """{"success":true,"app":"MASJID.IO","port":$actualPort}""")
+            }
+            method == "POST" && pathOnly == "/api/io/receive" -> {
+                try {
+                    Log.d(TAG, "📥 Menerima settings dari pengirim")
+                    if (onSettingsReceived != null) {
+                        onSettingsReceived.invoke(body)
+                    }
+                    sendResponse(writer, 200, "application/json",
+                        """{"success":true,"message":"Settings diterima, menunggu media..."}""")
+                    Log.d(TAG, "✅ Settings di-apply. Menunggu media + finalize.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Gagal apply settings: ${e.message}")
+                    sendResponse(writer, 500, "application/json",
+                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+                }
+            }
+
             // ============================================================
             // MEDIA TRANSFER ENDPOINTS
             // ============================================================
@@ -398,7 +398,6 @@ when {
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
-
             method == "POST" && pathOnly == "/api/io/receive-media-chunk" -> {
                 try {
                     val fileId = headers["x-file-id"] ?: ""
@@ -435,7 +434,6 @@ when {
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
-
             method == "POST" && pathOnly == "/api/io/receive-media-finish" -> {
                 try {
                     val json = JSONObject(body)
@@ -485,6 +483,12 @@ when {
                             state.isFinished = true
                             state.savedPath = savedPath
                             Log.d(TAG, "Media finish: ${state.fileName} → $savedPath")
+
+                            // ============================================================
+                            // FIX: Update settings TV dengan path LOKAL baru
+                            // ============================================================
+                            applyMediaPathToSettings(state.fieldKey, savedPath)
+
                             sendResponse(writer, 200, "application/json",
                                 """{"success":true,"path":"$savedPath","size":${fullBytes.size}}""")
                         } else {
@@ -497,7 +501,6 @@ when {
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
-
             method == "GET" && pathOnly == "/api/io/media-status" -> {
                 val arr = JSONArray()
                 mediaTransfers.values.forEach { st ->
@@ -514,7 +517,7 @@ when {
             }
 
             // ============================================================
-            // FINALIZE — dipanggil HP setelah semua terkirim
+            // FINALIZE
             // ============================================================
             method == "POST" && pathOnly == "/api/io/finalize" -> {
                 Log.d(TAG, "🎬 Menerima sinyal FINALIZE dari pengirim")
@@ -550,8 +553,8 @@ when {
         Log.e(TAG, "Handle error: ${e.message}")
         try { client.close() } catch (_: Exception) {}
     }
-}
-
+    }
+    
 // ============================================================
 // SEND RESPONSE HELPERS
 // ============================================================
@@ -796,6 +799,60 @@ private fun saveMediaFile(
     } catch (e: Exception) {
         Log.e(TAG, "saveMediaFile error: ${e.message}")
         null
+    }
+}
+
+// ============================================================
+// V1.30.6 BARU — UPDATE SETTINGS SETELAH MEDIA MASUK
+// Ganti path lama (dari HP) dengan path lokal (di TV)
+// ============================================================
+private fun applyMediaPathToSettings(fieldKey: String, localPath: String) {
+    try {
+        val current = settingsRepository.settingsFlow.value
+        var updated = current
+
+        when {
+            fieldKey == "qrisPhotoUri" -> {
+                updated = current.copy(qrisPhotoUri = localPath)
+                Log.d(TAG, "✅ qrisPhotoUri updated: $localPath")
+            }
+            fieldKey == "officerPhotoUri" -> {
+                updated = current.copy(officerPhotoUri = localPath)
+                Log.d(TAG, "✅ officerPhotoUri updated: $localPath")
+            }
+            fieldKey == "customBackgroundUri" -> {
+                updated = current.copy(customBackgroundUri = localPath)
+                Log.d(TAG, "✅ customBackgroundUri updated: $localPath")
+            }
+            fieldKey == "prayerCardPhotoUri" -> {
+                updated = current.copy(prayerCardPhotoUri = localPath)
+                Log.d(TAG, "✅ prayerCardPhotoUri updated: $localPath")
+            }
+            fieldKey == "videoUri" -> {
+                updated = current.copy(videoUri = localPath)
+                Log.d(TAG, "✅ videoUri updated: $localPath")
+            }
+            fieldKey.startsWith("photoSlideshowUris[") -> {
+                val indexStr = fieldKey.substringAfter("[").substringBefore("]")
+                val index = indexStr.toIntOrNull()
+                if (index != null && index >= 0) {
+                    val list = current.photoSlideshowUris.toMutableList()
+                    while (list.size <= index) list.add("")
+                    list[index] = localPath
+                    updated = current.copy(photoSlideshowUris = list)
+                    Log.d(TAG, "✅ photoSlideshowUris[$index] updated: $localPath")
+                }
+            }
+            else -> {
+                Log.w(TAG, "⚠️ fieldKey tidak dikenal: $fieldKey")
+                return
+            }
+        }
+
+        settingsRepository.updateSettings(updated)
+        Log.d(TAG, "🎉 Settings TV berhasil diupdate dengan path lokal")
+    } catch (e: Exception) {
+        Log.e(TAG, "applyMediaPathToSettings error: ${e.message}")
     }
 }
 
