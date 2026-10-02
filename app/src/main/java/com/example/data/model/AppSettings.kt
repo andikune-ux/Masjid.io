@@ -155,6 +155,13 @@ data class AppSettings(
     val customBackgroundUri: String? = null,
     val animationsEnabled: Boolean = true,
     val showBirdsAnimation: Boolean = true,
+    // ============================================================
+    // RESPONSIVE LAYOUT (V1.30.3) — Auto-scale tampilan TV
+    // ============================================================
+    val tvAutoScaleEnabled: Boolean = true,
+    val tvSafeAreaPercent: Float = 3f,
+    val tvLayoutPreset: String = "AUTO",
+    // ============================================================
     val qrisPhotoUri: String? = null,
     val qrisImageUri: String = "",
     val qrisIntervalMinutes: Int = 15,
