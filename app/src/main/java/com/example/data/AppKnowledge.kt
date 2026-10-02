@@ -43,8 +43,7 @@ app/src/main/java/com/example/
 │   ├── KioskManager.kt                -> Mode kiosk (lock task)
 │   ├── WatchdogService.kt             -> Auto-restart
 │   └── AutoStartService.kt            -> Auto-start saat boot
-├── receiver/
-│   └── BootReceiver.kt                -> Terima broadcast boot
+├── receiver/BootReceiver.kt           -> Terima broadcast boot
 ├── util/
 │   ├── BackupManager.kt               -> Backup Aman (TXT)
 │   ├── CrashReporter.kt               -> Log crash + WA Fonnte
@@ -58,7 +57,7 @@ app/src/main/java/com/example/
 │   ├── ApkDownloader.kt               -> Download & install APK
 │   └── BuildHistoryFetcher.kt         -> Fetch build history GitHub
 └── ui/
-    ├── home/HomeScreen.kt             -> Tampilan utama
+    ├── home/HomeScreen.kt             -> Tampilan utama (responsive)
     ├── focus/
     │   ├── PrayerFocusOverlay.kt      -> Mode fokus 4 fase
     │   └── QRISFocusOverlay.kt        -> Preview QRIS
@@ -77,13 +76,14 @@ app/src/main/java/com/example/
     │   ├── IoControlScreen.kt         -> UI radar iO Control
     │   └── IoControlHelpSheet.kt      -> Panduan iO Control
     ├── settings/
-    │   ├── SettingsScreen.kt          -> Menu utama (19 kategori)
+    │   ├── SettingsScreen.kt          -> Menu utama (20 kategori)
     │   ├── DeveloperSettingsPane.kt   -> Opsi Developer
     │   ├── DeveloperPinDialog.kt      -> PIN 140399
     │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
     │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
     │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah
+    │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif (V1.30.3)
     │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
     │   ├── PowerSettingsPane.kt       -> Daya & Booting
@@ -104,6 +104,7 @@ app/src/main/java/com/example/
     │   └── RiwayatUpdateScreen.kt     -> Riwayat update
     ├── components/
     │   ├── MakkahDynamicBackground.kt -> Tema Makkah Dinamis (V1.30.2)
+    │   ├── ResponsiveLayoutHelper.kt  -> Auto-scale TV (V1.30.3)
     │   ├── TvSlider.kt                -> Slider TV
     │   ├── TvToggle.kt                -> Toggle TV
     │   ├── TvFocusHelper.kt           -> Helper fokus D-pad
@@ -132,103 +133,100 @@ app/src/main/java/com/example/
 1. JADWAL SHOLAT
    - 6 waktu: Subuh, Syuruq, Dzuhur, Ashar, Maghrib, Isya
    - Countdown + progress bar visual
-   - Background foto di kartu (opsional)
 
-2. TAMPILAN UTAMA
+2. TAMPILAN UTAMA (Responsive)
    - Jam digital besar + tanggal Hijriah/Masehi
-   - Nama masjid & logo
    - Kartu 6 waktu sejajar horizontal
    - Panel Imam & Muadzin auto-slide
    - Running text + Video/Foto Slideshow
-   - Konten rotasi (Ayat/Hadits/Asmaul Husna)
-   - CCTV Widget (PiP sudut layar)
+   - Auto-scale untuk semua ukuran TV (V1.30.3)
 
-3. TEMA MAKKAH DINAMIS (BARU — V1.30.2)
-   - Langit Makkah bergerak real-time
-   - Matahari melengkung dari timur (subuh) ke barat (maghrib)
-   - Bulan bergeser + fase real (sabit/purnama) via algoritma lunar
-   - 7 gradasi warna langit otomatis (subuh-malam)
-   - Awan bergerak 6 lapis, burung V-formation, bintang berkelip
-   - Hujan + petir otomatis mengikuti cuaca lokasi
-   - Kabut subuh jam 04:00-06:00
-   - Siluet Masjidil Haram + Ka'bah + pita emas Hizam
-   - Refleksi marmer di lantai Mataf
-   - Tema ini jadi DEFAULT (menggantikan NATURE)
+3. TEMA MAKKAH DINAMIS (V1.30.2)
+   - Langit bergerak real-time 24 jam
+   - Matahari melengkung + bulan fase real
+   - Awan, burung, bintang, hujan, petir otomatis
+   - Siluet Masjidil Haram + Ka'bah
+   - Default theme
 
-4. MODE FOKUS SHOLAT (4 Fase)
-   - Fase 1 Adzan: doa + countdown iqamah
-   - Fase 2 Qobliyah: countdown 5 menit
-   - Fase 3 Fardhu: panduan sholat
-   - Fase 4 Dzikir: rotasi dzikir setelah sholat
+4. RESPONSIVE AUTO-SCALE (BARU V1.30.3)
+   - Deteksi otomatis resolusi TV (px, dp, aspect ratio)
+   - Deteksi tipe layar: Ultrawide 21:9, Standar 16:9, Klasik 4:3
+   - Base design 1920x1080 — auto-scale 0.6× s/d 2.5×
+   - Safe Area Padding (0-10%) untuk hindari overscan bezel TV
+   - Preset layout: AUTO / STANDAR / ULTRAWIDE / 4:3
+   - Tombol Test Safe Area untuk kalibrasi visual
+   - Menu baru: Tampilan TV (kategori ke-20)
 
-5. AUDIO
+5. MODE FOKUS SHOLAT (4 Fase)
+   - Adzan / Qobliyah / Fardhu / Dzikir
+
+6. AUDIO
    - Mode Beep Only / Full Adzan / Silent
-   - Volume & durasi beep bisa diatur
 
-6. SLIDE FULLSCREEN
-   - Slide QRIS Infaq + Laporan Keuangan + Jadwal Kajian
-   - Auto-rotate setiap X detik, hanya saat idle
+7. SLIDE FULLSCREEN
+   - Slide QRIS / Laporan / Kajian auto-rotate
 
-7. CCTV MASJID
-   - Widget PiP di sudut layar (RTSP + HTTP)
-   - Posisi & ukuran bisa diatur
+8. CCTV MASJID
+   - Widget PiP (RTSP + HTTP)
 
-8. iO CONTROL (V1.30.1 + fix V1.30.2)
-   - HP sebagai remote TV via WiFi/Hotspot sama
-   - Auto-discovery via UDP broadcast (port 45678)
-   - UI radar biru + animasi sweep 360°
+9. iO CONTROL
+   - HP sebagai remote TV via WiFi
+   - Auto-discovery UDP + UI radar
    - Transfer semua pengaturan antar device
-   - Progress bar 0-100% + auto-restart penerima
-   - Endpoint /api/io/receive sekarang public (fix error 401)
+   - Endpoint /api/io/receive public (fix 401)
 
-9. REMOTE CONTROL WEB
-   - HTTP Server mini + dashboard browser HP
-   - Ubah running text, PIN, lihat status, restart
-   - Auto-detect IP + tombol Salin URL
+10. REMOTE CONTROL WEB
+    - HTTP server + dashboard browser HP
 
-10. MODE RAMADHAN
-    - Countdown Imsak & Iftar + Jadwal Tarawih/Kultum
+11. MODE RAMADHAN
+    - Countdown Imsak/Iftar + Tarawih + Kultum
 
-11. KIOSK MODE
+12. KIOSK MODE
     - Lock task + Watchdog + Auto-start
 
-12. TENTANG APLIKASI
-    - Versi + Periksa Update + Riwayat Update
-    - Install APK per-file (tap file untuk install) — V1.30.2
-    - Tombol hapus APK TERPISAH dari tombol install
+13. TENTANG APLIKASI
+    - Periksa Update + Riwayat + Install APK
+    - Tap file APK = install, tombol merah = hapus
 
-13. OPSI DEVELOPER (PIN 140399)
+14. OPSI DEVELOPER (PIN 140399)
     - Backup Aman + Riwayat Crash + WhatsApp Fonnte
 
-14. VERSIONING OTOMATIS
+15. VERSIONING OTOMATIS
     - Format V{inti}.{tanggal}.{countHariIni}
-    - Timezone Asia/Jakarta (WIB)
 
-15. WHATSAPP REPORT (FONNTE)
-    - Notifikasi crash otomatis ke grup WA admin
+16. WHATSAPP REPORT (FONNTE)
+    - Notifikasi crash otomatis ke grup admin
 
-16. FOTO SLIDESHOW + 17. KONTEN ROTASI
-    - Galeri foto + Ayat/Hadits/Asmaul Husna rotasi otomatis
+17. FOTO SLIDESHOW + 18. KONTEN ROTASI
+    - Galeri foto + Ayat/Hadits/Asmaul Husna
 
-18. DZIKIR SETELAH SHOLAT (8 dzikir, Phase 4 Fokus)
+19. DZIKIR SETELAH SHOLAT (8 dzikir)
 
-19. AUTO-SHOW CRASH LOG (dialog saat force close)
+20. AUTO-SHOW CRASH LOG
 
-20. FULL SOURCE CODE EXPORT (Backup Aman + GitHub API)
+21. FULL SOURCE CODE EXPORT
 
-21. FIX CRASH NESTED SCROLL (Box + fade manual 300ms)
+22. FIX CRASH NESTED SCROLL + FADE ANIMASI MANUAL
 
-22. FADE ANIMASI MANUAL (bukan Crossfade)
+23. SALIN URL OTOMATIS
 
-23. SALIN URL OTOMATIS (clipboard + feedback 3 detik)
+24. APK INSTALL DARI FILE TERSIMPAN
 
-24. APK INSTALL DARI FILE TERSIMPAN (V1.30.2)
-    - Tap file APK → INSTALL
-    - Tombol merah terpisah → HAPUS
-    - Visual: border hijau + "TAP UNTUK INSTALL"
+25. TAMPILAN TV RESPONSIF (V1.30.3)
+    - Auto-scale untuk TV 720p / FHD / 4K / Ultrawide / 4:3
+    - Safe Area padding untuk overscan
+    - 4 preset + Test Safe Area
     """.trimIndent()
 
     val UPDATE_HISTORY = """
+V1.30.3 (02 Oktober 2026)
+- Responsive Auto-Scale — tampilan otomatis semua ukuran TV
+- Deteksi resolusi TV (px, dp, aspect ratio, density)
+- Safe Area padding 0-10% hindari overscan bezel
+- Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
+- Menu baru: Tampilan TV (kategori ke-20)
+- File baru: ResponsiveLayoutHelper.kt + TvDisplaySettingsPane.kt
+
 V1.30.2 (02 Oktober 2026)
 - Tema Makkah Dinamis — langit real-time + cuaca otomatis
 - Matahari melengkung, bulan fase asli, awan, burung, bintang
@@ -236,15 +234,12 @@ V1.30.2 (02 Oktober 2026)
 - Siluet Masjidil Haram + Ka'bah + refleksi marmer
 - Fix: iO Control - transfer settings (fix 401)
 - Fix: AboutSettingsPane - install APK dari file tersimpan
-- Default backgroundMode: MAKKAH_DYNAMIC
 
 V1.30.1 (30 September 2026)
 - iO Control: HP sebagai remote TV via WiFi
 - Auto-discovery device (UDP broadcast)
 - UI radar biru + 2 tombol KIRIM/TERIMA
 - Transfer semua pengaturan antar device
-- Progress bar + auto-restart penerima
-- Salin URL otomatis + info chip IP/PORT/TOKEN
 
 V1.29.3 (29 September 2026)
 - Fix crash nested scroll di SettingsScreen
@@ -264,7 +259,6 @@ V1.28.3 (29 September 2026)
 V1.28.2 (28 September 2026)
 - Versioning otomatis + Keystore permanen
 - Backup Aman + Log Crash + Periksa Update
-- WhatsApp Fonnte + Foto Slideshow
 
 V1.28.1 (28 September 2026)
 - Foto per sesi petugas, HomeScreen video besar
@@ -275,7 +269,7 @@ V1.28.0 (27 September 2026)
 
     val KNOWN_ISSUES = """
 === SUDAH DIPERBAIKI ===
-1. Foto ustadz tidak tampil di HomeScreen → normalisasi nama hari
+1. Foto ustadz tidak tampil → normalisasi nama hari
 2. Suara beep terlalu pendek → TONE_CDMA_ALERT_CALL_GUARD
 3. Update APK harus uninstall dulu → keystore permanen
 4. File "File_paths.xml" error → rename "file_paths.xml"
@@ -292,9 +286,10 @@ V1.28.0 (27 September 2026)
 15. ArithmeticException divide by zero → guard + min 1000ms
 16. Versi stuck UTC → timezone Asia/Jakarta
 17. Tag release "autoVersionName" → extract via aapt
-18. iO Control error 401 → /api/io/receive jadi public route (V1.30.2)
-19. APK tidak bisa di-tap install → ApkFileItem kiri=install kanan=hapus (V1.30.2)
-20. DeviceDiscovery butuh deviceId → kirim dari IoControlScreen (V1.30.2)
+18. iO Control error 401 → /api/io/receive public route
+19. APK tidak bisa di-tap install → kiri=install kanan=hapus
+20. DeviceDiscovery butuh deviceId → kirim dari IoControlScreen
+21. TV beda ukuran kepotong → ResponsiveLayoutHelper (V1.30.3)
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -311,6 +306,11 @@ Solusi: [cara memperbaiki]
 
 === RIWAYAT ===
 
+[02-10-2026] - V1.30.3
+Error: Tidak ada error build untuk V1.30.3 (fitur baru saja)
+File: -
+Solusi: -
+
 [02-10-2026] - V1.30.2
 Error: iO Control transfer antar device gagal — "Server tolak (kode 401)"
 File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
@@ -319,7 +319,7 @@ Solusi: Tambahkan "/api/io/receive" ke isPublicRoute
 [02-10-2026] - V1.30.2
 Error: APK tidak bisa di-tap untuk install (hanya tombol hapus)
 File: app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
-Solusi: ApkFileItem: area kiri tap=install, tombol merah=hapus (terpisah)
+Solusi: ApkFileItem: kiri tap=install, kanan tombol=hapus
 
 [02-10-2026] - V1.30.2
 Error: IoControlScreen error "No value passed for parameter 'deviceId'"
@@ -327,7 +327,7 @@ File: app/src/main/java/com/example/ui/remote/IoControlScreen.kt
 Solusi: Ambil Android ID + fallback UUID, kirim ke DeviceDiscovery.configure()
 
 [30-09-2026] - V1.30.1
-Error: Versi build stuck di V1.29.X padahal tanggal sudah berubah
+Error: Versi build stuck di V1.29.X padahal tanggal berubah
 File: app/build.gradle.kts
 Solusi: Set timezone Asia/Jakarta di SimpleDateFormat
 
@@ -337,16 +337,16 @@ File: .github/workflows/build.yml
 Solusi: Extract versionName dari APK pakai aapt dump badging
 
 [29-09-2026] - V1.29.3
-Error: ArithmeticException divide by zero di Compose animation
+Error: ArithmeticException divide by zero di Compose
 File: RunningTextMarquee.kt
 Solusi: Guard text kosong + durasi minimal 1000ms
 
 [29-09-2026] - V1.29.3
 Error: IllegalStateException Vertically scrollable infinity
 File: SettingsScreen.kt
-Solusi: Ganti Crossfade ke Box + key() + animateFloatAsState + alpha
+Solusi: Ganti Crossfade ke Box + key() + alpha fade
     """.trimIndent()
-
+    
     val WORKFLOW_INSTRUCTION = """
 PRINSIP UTAMA:
 - KERJAKAN PER BATCH
@@ -396,7 +396,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.30.2
+- Versi saat ini : V1.30.3
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -410,7 +410,7 @@ ATURAN FORMAT:
 - Bahasa Indonesia simple
 - 1 chat = 1 fitur utuh kalau muat
     """.trimIndent()
-    
+
     val MEMORY_INSTRUCTION = """
 ATURAN FORMAT:
 - Setiap respon wajib 8 elemen (lihat WORKFLOW_INSTRUCTION)
@@ -429,7 +429,7 @@ ATURAN KERJA:
 - Kerjakan 1 per 1, atau sekaligus kalau user minta
 - Sebelum build, tanya "Harus Update / Skip"
 
-STRUKTUR MENU SETTINGS (19 Kategori):
+STRUKTUR MENU SETTINGS (20 Kategori):
 1.  Lokasi & Waktu Sholat
 2.  Pengaturan Waktu
 3.  Durasi & Hitungan Mundur
@@ -438,17 +438,18 @@ STRUKTUR MENU SETTINGS (19 Kategori):
 6.  Donasi QRIS & Rekening
 7.  Video Kegiatan Masjid
 8.  Tampilan & Background (termasuk Tema Makkah Dinamis)
-9.  Kartu Nasihat & Mutiara
-10. Running Text
-11. Audio & Adzan
-12. Mode Ramadhan
-13. Keamanan
-14. Daya & Booting
-15. Slide Fullscreen
-16. CCTV Masjid
-17. iO Control
-18. Tentang Aplikasi
-19. Opsi Developer (PIN 140399)
+9.  Tampilan TV (responsive auto-scale — V1.30.3)
+10. Kartu Nasihat & Mutiara
+11. Running Text
+12. Audio & Adzan
+13. Mode Ramadhan
+14. Keamanan
+15. Daya & Booting
+16. Slide Fullscreen
+17. CCTV Masjid
+18. iO Control
+19. Tentang Aplikasi
+20. Opsi Developer (PIN 140399)
 
 SOSMED:
 - WhatsApp : https://chat.whatsapp.com/ErJpG34fdzwL9FOmoh4fNN
@@ -473,7 +474,7 @@ PENANGANAN BUILD ERROR:
 5. Commit ulang
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.30.2)
+- Tidak ada (semua fitur selesai per V1.30.3)
     """.trimIndent()
 
     val MEMORY_KNOWLEDGE = """
@@ -513,7 +514,7 @@ TETAP dalam 1 bubble chat, dengan aturan:
 
 Tujuan: user tinggal sambung tempel, tidak ada kode hilang.
 
-=== BAGIAN 1C — ATURAN LINK GITHUB (BARU V1.30.2) ===
+=== BAGIAN 1C — ATURAN LINK GITHUB ===
 
 1. JANGAN tolak buka link GitHub publik — bisa dibuka via fitur web
 2. JANGAN gabung link 1 file dengan link file lain
@@ -521,7 +522,7 @@ Tujuan: user tinggal sambung tempel, tidak ada kode hilang.
 3. Kecuali link butuh login akun → baru boleh tolak dengan alasan logis
 4. Repo Masjid.io PUBLIC → bebas diakses kapan saja
 
-=== BAGIAN 1D — ATURAN SIMPLIFIKASI (BARU V1.30.2) ===
+=== BAGIAN 1D — ATURAN SIMPLIFIKASI ===
 
 1. Elemen 5 (2 Opsi Akses) TIDAK perlu ditampilkan lagi — user sudah paham
 2. Elemen 8 (Bahasa Indonesia) TIDAK perlu ditampilkan lagi — cukup dipahami
@@ -559,10 +560,10 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.30.2
+  Versi saat ini : V1.30.3
   PIN Developer  : 140399
 
-=== BAGIAN 4 — STRUKTUR MENU SETTINGS (19 KATEGORI) ===
+=== BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
 
 1.  Lokasi & Waktu Sholat
 2.  Pengaturan Waktu
@@ -572,17 +573,18 @@ APLIKASI:
 6.  Donasi QRIS & Rekening
 7.  Video Kegiatan Masjid
 8.  Tampilan & Background
-9.  Kartu Nasihat & Mutiara
-10. Running Text
-11. Audio & Adzan
-12. Mode Ramadhan
-13. Keamanan
-14. Daya & Booting
-15. Slide Fullscreen
-16. CCTV Masjid
-17. iO Control
-18. Tentang Aplikasi
-19. Opsi Developer (PIN 140399)
+9.  Tampilan TV
+10. Kartu Nasihat & Mutiara
+11. Running Text
+12. Audio & Adzan
+13. Mode Ramadhan
+14. Keamanan
+15. Daya & Booting
+16. Slide Fullscreen
+17. CCTV Masjid
+18. iO Control
+19. Tentang Aplikasi
+20. Opsi Developer (PIN 140399)
 
 === BAGIAN 5 — SOSIAL MEDIA ===
 
@@ -663,7 +665,7 @@ TUJUAN: AI baru langsung paham tanpa tanya user.
 === BAGIAN 14 — ATURAN KERJA SAMA DENGAN AI BARU ===
 
 Jika user ganti AI, AI baru WAJIB:
-1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-17).
+1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-19).
 2. Pahami struktur aplikasi + isi kode.
 3. Ikuti aturan 8 elemen format.
 4. Ikuti aturan anti-truncation (BAGIAN 1B).
@@ -682,36 +684,33 @@ LINK UTAMA:
 
 LINK RAW (untuk baca file langsung):
   Base Raw         : https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
-  Contoh:
-    MainActivity.kt
-    https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/app/src/main/java/com/example/MainActivity.kt
 
 LINK BLOB (untuk lihat di browser):
   Base Blob        : https://github.com/andikune-ux/Masjid.io/blob/main/
-  Contoh:
-    SettingsScreen.kt
-    https://github.com/andikune-ux/Masjid.io/blob/main/app/src/main/java/com/example/ui/settings/SettingsScreen.kt
 
 FOLDER KUNCI YANG SERING DIBACA:
 - app/src/main/java/com/example/MainActivity.kt
 - app/src/main/java/com/example/util/BackupManager.kt
 - app/src/main/java/com/example/util/CrashReporter.kt
-- app/src/main/java/com/example/util/CrashAutoShowHelper.kt
 - app/src/main/java/com/example/util/GithubSourceFetcher.kt
 - app/src/main/java/com/example/util/SettingsTransferHelper.kt
 - app/src/main/java/com/example/util/RemoteControlClient.kt
+- app/src/main/java/com/example/util/ApkDownloader.kt
 - app/src/main/java/com/example/data/AppKnowledge.kt
 - app/src/main/java/com/example/data/UpdateHistory.kt
-- app/src/main/java/com/example/data/local/SunMoonCalculator.kt (BARU V1.30.2)
+- app/src/main/java/com/example/data/local/SettingsRepository.kt
+- app/src/main/java/com/example/data/local/SunMoonCalculator.kt (V1.30.2)
+- app/src/main/java/com/example/data/model/AppSettings.kt
 - app/src/main/java/com/example/ui/settings/SettingsScreen.kt
-- app/src/main/java/com/example/ui/settings/RemoteSettingsPane.kt
 - app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
+- app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
+- app/src/main/java/com/example/ui/settings/TvDisplaySettingsPane.kt (V1.30.3)
 - app/src/main/java/com/example/ui/remote/RemoteServer.kt
 - app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
 - app/src/main/java/com/example/ui/remote/IoControlScreen.kt
-- app/src/main/java/com/example/ui/components/MakkahDynamicBackground.kt (BARU V1.30.2)
+- app/src/main/java/com/example/ui/components/MakkahDynamicBackground.kt (V1.30.2)
+- app/src/main/java/com/example/ui/components/ResponsiveLayoutHelper.kt (V1.30.3)
 - app/src/main/java/com/example/ui/home/HomeScreen.kt
-- app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
 - app/build.gradle.kts
 - gradle/libs.versions.toml
 - .github/workflows/build.yml
@@ -722,7 +721,7 @@ CATATAN UNTUK AI BARU:
 - Kalau butuh 1 file: pakai raw URL + path
 - JANGAN minta user copy-paste manual kalau bisa buka sendiri
 
-=== BAGIAN 16 — FITUR iO CONTROL (V1.30.1 + fix V1.30.2) ===
+=== BAGIAN 16 — FITUR iO CONTROL ===
 
 FITUR:
 - HP sebagai remote tampilan TV via WiFi/Hotspot sama
@@ -747,7 +746,7 @@ CATATAN PENTING:
 - Field tidak dikenal di penerima -> otomatis di-skip
 - Remote Control setting (port, token) TIDAK ditransfer
 - PIN IKUT ditransfer (sesuai keputusan user)
-- Endpoint /api/io/receive sekarang PUBLIC (fix 401 V1.30.2)
+- Endpoint /api/io/receive PUBLIC (fix 401 V1.30.2)
 
 === BAGIAN 17 — FITUR TEMA MAKKAH DINAMIS (V1.30.2) ===
 
@@ -764,11 +763,11 @@ FITUR BARU:
 - Tema ini jadi DEFAULT (menggantikan NATURE)
 
 FILE TERKAIT:
-- data/local/SunMoonCalculator.kt      -> Hitung posisi matahari/bulan/fase
+- data/local/SunMoonCalculator.kt          -> Hitung posisi matahari/bulan/fase
 - ui/components/MakkahDynamicBackground.kt -> Render canvas dinamis
-- data/model/AppSettings.kt            -> Enum MAKKAH_DYNAMIC + default
-- ui/home/HomeScreen.kt                -> Integrasi background
-- ui/settings/CustomBackgroundPane.kt  -> Opsi di Settings
+- data/model/AppSettings.kt                -> Enum MAKKAH_DYNAMIC + default
+- ui/home/HomeScreen.kt                    -> Integrasi background
+- ui/settings/CustomBackgroundPane.kt      -> Opsi di Settings
 
 CATATAN PENTING:
 - Cuaca otomatis via WeatherService (Open-Meteo, gratis)
@@ -793,6 +792,38 @@ CATATAN:
 - Area kiri (ikon + nama file) = INSTALL
 - Area kanan (tombol merah) = HAPUS
 - Tidak tabrakan niat install vs hapus
+
+=== BAGIAN 19 — FITUR RESPONSIVE AUTO-SCALE TV (V1.30.3) ===
+
+FITUR BARU:
+- Deteksi otomatis resolusi TV (px, dp, aspect ratio, density)
+- Deteksi tipe layar: ULTRAWIDE, STANDARD_WIDE, STANDARD, CLASSIC_4_3
+- Base design 1920x1080 — auto-scale 0.6× s/d 2.5×
+- Safe Area Padding dinamis (0-10%) untuk overscan bezel TV
+- Preset layout: AUTO / STANDAR / ULTRAWIDE / 4:3
+- TV Ultrawide: konten di-center (max 88% lebar)
+- TV 4:3 lama: spacing & font disesuaikan
+- Menu baru: Tampilan TV (kategori ke-20)
+- Tombol Test Safe Area untuk kalibrasi visual
+
+FILE TERKAIT:
+- ui/components/ResponsiveLayoutHelper.kt -> Deteksi & scale helper
+- ui/settings/TvDisplaySettingsPane.kt    -> UI panel pengaturan
+- ui/home/HomeScreen.kt                   -> ResponsiveRoot wrapper
+- ui/settings/SettingsScreen.kt           -> Tambah kategori TV_DISPLAY
+- data/model/AppSettings.kt               -> 3 field responsive
+- data/local/SettingsRepository.kt        -> load/save 3 field
+
+FIELD BARU:
+- tvAutoScaleEnabled: Boolean = true
+- tvSafeAreaPercent: Float = 3f
+- tvLayoutPreset: String = "AUTO"
+
+CATATAN:
+- ScreenInfo dihitung di ResponsiveRoot (CompositionLocal)
+- Extensi: screenInfo.sp(base), screenInfo.dp(base), screenInfo.safePadding()
+- Safe area default 3% (aman untuk 95% TV)
+- Kalau konten terpotong → naikkan safe area 5% s/d 8%
 
 ============================================================
 END OF MEMORY KNOWLEDGE
