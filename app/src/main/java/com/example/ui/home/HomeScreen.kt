@@ -64,7 +64,8 @@ import com.example.ui.components.ScreenInfo
 import com.example.ui.components.TopBar
 import com.example.ui.components.WeatherAmbientOverlay
 import com.example.ui.components.WisdomCardCarousel
-import com.example.ui.components.sp
+import com.example.ui.components.scaledDp
+import com.example.ui.components.scaledSp
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.slides.SlideManager
 import com.example.ui.theme.IslamicGold
@@ -87,9 +88,6 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // ============================================================
-    // RESPONSIVE ROOT — deteksi ukuran TV + auto-scale
-    // ============================================================
     ResponsiveRoot(
         autoScaleEnabled = settings.tvAutoScaleEnabled,
         safeAreaPercent = settings.tvSafeAreaPercent
@@ -129,21 +127,17 @@ private fun HomeScreenContent(
     var userDismissedVideoFullscreen by remember { mutableStateOf(false) }
     var userDismissedSlide by remember { mutableStateOf(false) }
 
-    // ============================================================
-    // PRESET LAYOUT — penyesuaian khusus per tipe aspect ratio
-    // ============================================================
-    val (layoutPad, contentMaxWidth) = when {
-        // Paksa STANDAR kalau user pilih preset STANDAR
-        settings.tvLayoutPreset == "STANDAR" -> Pair(0f, 1f)
-        settings.tvLayoutPreset == "ULTRAWIDE" -> Pair(0.05f, 0.88f)
-        settings.tvLayoutPreset == "4:3" -> Pair(0f, 1f)
-        // AUTO — berdasarkan deteksi aspect ratio
-        screenInfo.aspectType == AspectType.ULTRAWIDE -> Pair(0.05f, 0.88f)
-        screenInfo.aspectType == AspectType.CLASSIC_4_3 -> Pair(0f, 1f)
-        else -> Pair(0f, 1f)
+    val layoutPad: Float = when {
+        settings.tvLayoutPreset == "ULTRAWIDE" -> 0.05f
+        settings.tvLayoutPreset == "AUTO" && screenInfo.aspectType == AspectType.ULTRAWIDE -> 0.05f
+        else -> 0f
+    }
+    val contentMaxWidth: Float = when {
+        settings.tvLayoutPreset == "ULTRAWIDE" -> 0.88f
+        settings.tvLayoutPreset == "AUTO" && screenInfo.aspectType == AspectType.ULTRAWIDE -> 0.88f
+        else -> 1f
     }
 
-    // SLIDE FULLSCREEN TRIGGER
     LaunchedEffect(
         settings.slideEnabled,
         settings.slideShowOnlyWhenIdle,
@@ -169,7 +163,6 @@ private fun HomeScreenContent(
         if (!settings.slideEnabled) userDismissedSlide = false
     }
 
-    // QRIS FOCUS TRIGGER
     if (settings.qrisIntervalMinutes > 0 && !showSlideOverlay) {
         LaunchedEffect(settings.qrisIntervalMinutes, showSlideOverlay) {
             if (showSlideOverlay) return@LaunchedEffect
@@ -207,9 +200,6 @@ private fun HomeScreenContent(
             .fillMaxSize()
             .background(Color(0xFF071219))
     ) {
-        // ============================================================
-        // BACKGROUND LAYER
-        // ============================================================
         when (settings.backgroundMode) {
             BackgroundMode.MAKKAH_DYNAMIC -> {
                 MakkahDynamicBackground(
@@ -255,7 +245,6 @@ private fun HomeScreenContent(
             }
         }
 
-        // Tint overlay
         if (settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
             Box(
                 modifier = Modifier
@@ -292,7 +281,6 @@ private fun HomeScreenContent(
             )
         }
 
-        // CCTV WIDGET
         if (settings.cctvEnabled && settings.cctvUrl.isNotBlank()) {
             CctvWidget(
                 settings = settings,
@@ -300,9 +288,6 @@ private fun HomeScreenContent(
             )
         }
 
-        // ============================================================
-        // SMART FULLSCREEN VIDEO MODE
-        // ============================================================
         if (isSmartVideoFullscreen) {
             Box(modifier = Modifier.fillMaxSize()) {
                 MasjidVideoPlayer(
@@ -313,12 +298,12 @@ private fun HomeScreenContent(
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = screenInfo.dp(16))
-                        .clip(RoundedCornerShape(screenInfo.dp(12)))
+                        .padding(top = screenInfo.scaledDp(16))
+                        .clip(RoundedCornerShape(screenInfo.scaledDp(12)))
                         .background(Color(0xCC000000))
                         .padding(
-                            horizontal = screenInfo.dp(20),
-                            vertical = screenInfo.dp(8)
+                            horizontal = screenInfo.scaledDp(20),
+                            vertical = screenInfo.scaledDp(8)
                         )
                         .clickable { userDismissedVideoFullscreen = true },
                     verticalAlignment = Alignment.CenterVertically
@@ -327,23 +312,20 @@ private fun HomeScreenContent(
                         imageVector = Icons.Default.Mosque,
                         contentDescription = null,
                         tint = IslamicGold,
-                        modifier = Modifier.size(screenInfo.dp(18))
+                        modifier = Modifier.size(screenInfo.scaledDp(18))
                     )
-                    Spacer(modifier = Modifier.width(screenInfo.dp(10)))
+                    Spacer(modifier = Modifier.width(screenInfo.scaledDp(10)))
                     val nextName = schedule.nextPrayer?.id?.displayName ?: "Sholat"
                     val mm = schedule.secondsToNext / 60
                     Text(
                         text = "$nextName dalam $mm menit • Sentuh untuk tampilan penuh",
-                        fontSize = screenInfo.sp(13),
+                        fontSize = screenInfo.scaledSp(13),
                         fontWeight = FontWeight.SemiBold,
                         color = IslamicGoldLight
                     )
                 }
             }
         } else {
-            // ============================================================
-            // MAIN UI — dengan safe area padding & auto-scale
-            // ============================================================
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -352,7 +334,6 @@ private fun HomeScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        // Pad untuk ultrawide — konten tidak melebar
                         .padding(horizontal = screenInfo.widthDp.dp * layoutPad)
                         .then(
                             if (contentMaxWidth < 1f) {
@@ -362,7 +343,6 @@ private fun HomeScreenContent(
                         .align(Alignment.Center),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // TOP BAR
                     TopBar(
                         locationName = "${settings.city}, ${settings.province}",
                         dayDateString = gregorianDateString,
@@ -373,14 +353,13 @@ private fun HomeScreenContent(
                         modifier = Modifier.weight(0.07f)
                     )
 
-                    // MIDDLE: JAM + Video/Foto
                     if (isSplitMode) {
                         Row(
                             modifier = Modifier
                                 .weight(0.24f)
                                 .fillMaxWidth()
-                                .padding(horizontal = screenInfo.dp(24)),
-                            horizontalArrangement = Arrangement.spacedBy(screenInfo.dp(16)),
+                                .padding(horizontal = screenInfo.scaledDp(24)),
+                            horizontalArrangement = Arrangement.spacedBy(screenInfo.scaledDp(16)),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(
@@ -389,7 +368,7 @@ private fun HomeScreenContent(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 MosqueHeader(mosqueName = settings.mosqueName)
-                                Spacer(modifier = Modifier.height(screenInfo.dp(4)))
+                                Spacer(modifier = Modifier.height(screenInfo.scaledDp(4)))
                                 ClockAndDate(
                                     timeString = currentTimeString,
                                     hijriDateString = hijriDateString,
@@ -434,7 +413,6 @@ private fun HomeScreenContent(
                         }
                     }
 
-                    // 6 KARTU SHOLAT
                     PrayerCardsRow(
                         prayerItems = schedule.items,
                         settings = settings,
@@ -443,7 +421,6 @@ private fun HomeScreenContent(
                             .fillMaxWidth(if (isSplitMode) 0.62f else 1f)
                     )
 
-                    // PROGRESS COUNTDOWN
                     PrayerProgressBar(
                         nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
                         secondsRemaining = schedule.secondsToNext,
@@ -451,7 +428,6 @@ private fun HomeScreenContent(
                         modifier = Modifier.weight(0.05f)
                     )
 
-                    // KONTEN ROTASI / WISDOM CARD
                     if (settings.contentRotationEnabled) {
                         ContentRotationCard(
                             settings = settings,
@@ -467,7 +443,6 @@ private fun HomeScreenContent(
                         )
                     }
 
-                    // PANEL IMAM & MUADZIN
                     OfficerCarousel(
                         officers = settings.officers,
                         weeklyOfficers = settings.weeklyOfficers,
@@ -476,7 +451,6 @@ private fun HomeScreenContent(
                         modifier = Modifier.weight(0.24f)
                     )
 
-                    // RUNNING TEXT
                     RunningTextMarquee(
                         text = settings.runningText,
                         speed = settings.runningTextSpeed,
@@ -487,7 +461,6 @@ private fun HomeScreenContent(
             }
         }
 
-        // QRIS FOCUS MODAL
         if (showQrisModal && !showSlideOverlay) {
             QRISFocusOverlay(
                 settings = settings,
@@ -495,7 +468,6 @@ private fun HomeScreenContent(
             )
         }
 
-        // SLIDE MANAGER OVERLAY
         if (showSlideOverlay) {
             SlideManager(
                 settings = settings,
@@ -509,10 +481,6 @@ private fun HomeScreenContent(
         }
     }
 }
-
-// ============================================================
-// KONTEN ROTASI CARD
-// ============================================================
 
 @Composable
 private fun ContentRotationCard(
