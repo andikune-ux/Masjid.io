@@ -2,40 +2,18 @@ package com.example.data
 
 /**
  * AppKnowledge — Data statis aplikasi MASJID.IO.
- *
- * Berisi semua teks yang dipakai oleh Backup Aman:
- *   - APP_STRUCTURE        : Peta folder aplikasi
- *   - APP_FEATURES         : Daftar fitur
- *   - UPDATE_HISTORY       : Riwayat versi (ringkas)
- *   - KNOWN_ISSUES         : Masalah + solusi
- *   - BUILD_ERROR_HISTORY  : Riwayat error build
- *   - WORKFLOW_INSTRUCTION : Prinsip kerja AI
- *   - DEVELOPER_INSTRUCTION: Panduan update
- *   - MEMORY_INSTRUCTION   : Aturan AI lengkap
- *   - MEMORY_KNOWLEDGE     : Memory + link GitHub + anti-truncation
- *   - STRUCTURE            : Alias APP_STRUCTURE
- *   - FEATURES             : Alias APP_FEATURES
  */
 object AppKnowledge {
 
-    // ============================================================
-    // KONSTANTA UTAMA
-    // ============================================================
     const val APP_NAME = "MASJID.IO"
     const val APP_DESCRIPTION = "Display jadwal sholat Android TV untuk masjid"
     const val REPO_URL = "https://github.com/andikune-ux/Masjid.io"
 
-    // ============================================================
-    // LINK GITHUB — UNTUK AI BARU BUKA SENDIRI
-    // ============================================================
     const val GITHUB_REPO = "https://github.com/andikune-ux/Masjid.io"
     const val GITHUB_TREE_API = "https://api.github.com/repos/andikune-ux/Masjid.io/git/trees/main?recursive=1"
     const val GITHUB_RAW_BASE = "https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/"
     const val GITHUB_BLOB_BASE = "https://github.com/andikune-ux/Masjid.io/blob/main/"
 
-    // ============================================================
-    // STRUKTUR APLIKASI
-    // ============================================================
     val APP_STRUCTURE = """
 app/src/main/java/com/example/
 ├── MainActivity.kt                    -> Activity utama
@@ -49,6 +27,9 @@ app/src/main/java/com/example/
 │   │   ├── PrayerTimesCalculator.kt   -> Hitung jadwal sholat
 │   │   ├── IslamicCalendar.kt         -> Kalender Hijriah
 │   │   ├── IslamicWisdomStore.kt      -> Data kartu nasihat
+│   │   ├── SunMoonCalculator.kt       -> Posisi matahari/bulan real-time (V1.30.2)
+│   │   ├── DynamicSkyTheme.kt         -> Warna langit dinamis
+│   │   ├── IndonesiaLocations.kt      -> Data lokasi Indonesia
 │   │   └── WeatherService.kt          -> Data cuaca
 │   ├── content/
 │   │   ├── DzikirStore.kt             -> Data dzikir setelah sholat
@@ -71,6 +52,7 @@ app/src/main/java/com/example/
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
 │   ├── SettingsTransferHelper.kt      -> Serialize AppSettings (iO Control)
 │   ├── RemoteControlClient.kt         -> HTTP client iO Control
+│   ├── FonnteHelper.kt                -> Token & Group ID Fonnte
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
 │   ├── ApkDownloader.kt               -> Download & install APK
@@ -85,23 +67,23 @@ app/src/main/java/com/example/
     │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
     │   ├── KajianSlide.kt             -> Slide Jadwal Kajian
     │   └── SlideManager.kt            -> Manager rotasi slide
-    ├── ramadhan/
-    │   └── RamadhanOverlay.kt         -> Overlay Mode Ramadhan
-    ├── cctv/
-    │   └── CctvWidget.kt              -> Widget CCTV (RTSP/HTTP)
+    ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
+    ├── cctv/CctvWidget.kt             -> Widget CCTV (RTSP/HTTP)
     ├── remote/
     │   ├── RemoteServer.kt            -> HTTP server (Remote + iO Control)
     │   ├── RemoteDashboard.kt         -> Info akses remote
     │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
-    │   └── IoControlScreen.kt         -> UI radar iO Control
+    │   ├── NetworkHelper.kt           -> Helper deteksi IP WiFi
+    │   ├── IoControlScreen.kt         -> UI radar iO Control
+    │   └── IoControlHelpSheet.kt      -> Panduan iO Control
     ├── settings/
     │   ├── SettingsScreen.kt          -> Menu utama (19 kategori)
     │   ├── DeveloperSettingsPane.kt   -> Opsi Developer
     │   ├── DeveloperPinDialog.kt      -> PIN 140399
-    │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed
+    │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
     │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
-    │   ├── CustomBackgroundPane.kt    -> Background
+    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah
     │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
     │   ├── PowerSettingsPane.kt       -> Daya & Booting
@@ -116,28 +98,36 @@ app/src/main/java/com/example/
     │   ├── VideoSettingsPane.kt       -> Video & Foto Slideshow
     │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan
     │   ├── WisdomSettingsPane.kt      -> Kartu nasihat
+    │   ├── MiniCalendarPickerModal.kt -> Kalender mini
+    │   ├── PinDialog.kt               -> Dialog PIN
     │   ├── RiwayatCrashScreen.kt      -> Riwayat crash
     │   └── RiwayatUpdateScreen.kt     -> Riwayat update
     ├── components/
+    │   ├── MakkahDynamicBackground.kt -> Tema Makkah Dinamis (V1.30.2)
     │   ├── TvSlider.kt                -> Slider TV
     │   ├── TvToggle.kt                -> Toggle TV
     │   ├── TvFocusHelper.kt           -> Helper fokus D-pad
+    │   ├── FocusHelper.kt             -> Helper fokus tambahan
+    │   ├── NeonFocusBorder.kt         -> Border fokus neon
     │   ├── PhotoSlideshow.kt          -> Slideshow foto
     │   ├── MasjidVideoPlayer.kt       -> Video player (ExoPlayer)
     │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat (with foto)
+    │   ├── PrayerProgressBar.kt       -> Bar progres sholat
     │   ├── RunningTextMarquee.kt      -> Running text bergulir
     │   ├── PinDialog.kt               -> Dialog PIN
     │   ├── ChangePinDialog.kt         -> Dialog ubah PIN
     │   ├── TopBar.kt                  -> Top bar
-    │   └── ... (komponen lain)
+    │   ├── ClockAndDate.kt            -> Jam & tanggal
+    │   ├── MosqueHeader.kt            -> Header nama masjid
+    │   ├── ArabesquePattern.kt        -> Pola arabesque
+    │   ├── IslamicEventCard.kt        -> Kartu event Islam
+    │   ├── WeatherAmbientOverlay.kt   -> Efek cuaca ambient
+    │   └── WisdomCardCarousel.kt      -> Karusel kartu nasihat
     └── theme/                          -> Warna & tipografi
     """.trimIndent()
-    
-    // ============================================================
-    // FITUR APLIKASI
-    // ============================================================
+
     val APP_FEATURES = """
 1. JADWAL SHOLAT
    - 6 waktu: Subuh, Syuruq, Dzuhur, Ashar, Maghrib, Isya
@@ -153,128 +143,101 @@ app/src/main/java/com/example/
    - Konten rotasi (Ayat/Hadits/Asmaul Husna)
    - CCTV Widget (PiP sudut layar)
 
-3. MODE FOKUS SHOLAT (4 Fase)
+3. TEMA MAKKAH DINAMIS (BARU — V1.30.2)
+   - Langit Makkah bergerak real-time
+   - Matahari melengkung dari timur (subuh) ke barat (maghrib)
+   - Bulan bergeser + fase real (sabit/purnama) via algoritma lunar
+   - 7 gradasi warna langit otomatis (subuh-malam)
+   - Awan bergerak 6 lapis, burung V-formation, bintang berkelip
+   - Hujan + petir otomatis mengikuti cuaca lokasi
+   - Kabut subuh jam 04:00-06:00
+   - Siluet Masjidil Haram + Ka'bah + pita emas Hizam
+   - Refleksi marmer di lantai Mataf
+   - Tema ini jadi DEFAULT (menggantikan NATURE)
+
+4. MODE FOKUS SHOLAT (4 Fase)
    - Fase 1 Adzan: doa + countdown iqamah
    - Fase 2 Qobliyah: countdown 5 menit
    - Fase 3 Fardhu: panduan sholat
    - Fase 4 Dzikir: rotasi dzikir setelah sholat
 
-4. AUDIO
-   - Mode Beep Only (bip...bip...bip)
-   - Mode Full Adzan (Makkah/Madinah/Indonesia)
-   - Mode Silent
+5. AUDIO
+   - Mode Beep Only / Full Adzan / Silent
    - Volume & durasi beep bisa diatur
 
-5. SLIDE FULLSCREEN
-   - Slide QRIS Infaq (dengan animasi pulse)
-   - Slide Laporan Keuangan (pemasukan/pengeluaran)
-   - Slide Jadwal Kajian (foto ustadz + tema)
-   - Auto-rotate setiap X detik
-   - Hanya tampil saat idle
+6. SLIDE FULLSCREEN
+   - Slide QRIS Infaq + Laporan Keuangan + Jadwal Kajian
+   - Auto-rotate setiap X detik, hanya saat idle
 
-6. CCTV MASJID
-   - Widget PiP di sudut layar
-   - Support RTSP (via ExoPlayer)
-   - Support HTTP Snapshot / MJPEG / DVR Dashboard
+7. CCTV MASJID
+   - Widget PiP di sudut layar (RTSP + HTTP)
    - Posisi & ukuran bisa diatur
 
-7. REMOTE CONTROL
-   - HTTP Server mini berjalan di background
-   - Akses dashboard dari HP via browser
-   - Bisa ubah running text, PIN, lihat status, restart
-   - Auto-detect IP + tombol Salin URL otomatis
+8. iO CONTROL (V1.30.1 + fix V1.30.2)
+   - HP sebagai remote TV via WiFi/Hotspot sama
+   - Auto-discovery via UDP broadcast (port 45678)
+   - UI radar biru + animasi sweep 360°
+   - Transfer semua pengaturan antar device
+   - Progress bar 0-100% + auto-restart penerima
+   - Endpoint /api/io/receive sekarang public (fix error 401)
 
-8. MODE RAMADHAN
-   - Countdown Imsak & Iftar besar
-   - Jadwal Tarawih + Kultum
-   - Menu Sahur/Iftar
-   - Doa Berbuka otomatis
+9. REMOTE CONTROL WEB
+   - HTTP Server mini + dashboard browser HP
+   - Ubah running text, PIN, lihat status, restart
+   - Auto-detect IP + tombol Salin URL
 
-9. KIOSK MODE
-   - Lock task + Watchdog + Auto-start
-   - Launcher default Android TV
+10. MODE RAMADHAN
+    - Countdown Imsak & Iftar + Jadwal Tarawih/Kultum
 
-10. TENTANG APLIKASI
-    - Versi + Periksa Update (progress bar)
-    - Riwayat Update + Install APK
-    - Icon Sosmed (WhatsApp, TikTok, Instagram)
+11. KIOSK MODE
+    - Lock task + Watchdog + Auto-start
 
-11. OPSI DEVELOPER (PIN 140399)
-    - Backup Aman (termasuk build history + full source)
-    - Riwayat Crash + Refresh Build History
-    - WhatsApp Fonnte (notifikasi crash)
+12. TENTANG APLIKASI
+    - Versi + Periksa Update + Riwayat Update
+    - Install APK per-file (tap file untuk install) — V1.30.2
+    - Tombol hapus APK TERPISAH dari tombol install
 
-12. VERSIONING OTOMATIS
-    - Format: V{inti}.{tanggal}.{countHariIni}
-    - Timezone Asia/Jakarta (WIB) — tidak stuck di UTC
-    - Auto GitHub Release setiap build
+13. OPSI DEVELOPER (PIN 140399)
+    - Backup Aman + Riwayat Crash + WhatsApp Fonnte
 
-13. WHATSAPP REPORT (FONNTE)
-    - Kirim notifikasi WA otomatis saat crash
-    - Token + Group ID diisi di Opsi Developer
+14. VERSIONING OTOMATIS
+    - Format V{inti}.{tanggal}.{countHariIni}
+    - Timezone Asia/Jakarta (WIB)
 
-14. FOTO SLIDESHOW
-    - Galeri foto kegiatan masjid
-    - Auto-ganti setiap X detik
-    - Tampil di posisi video (kalau video tidak aktif)
+15. WHATSAPP REPORT (FONNTE)
+    - Notifikasi crash otomatis ke grup WA admin
 
-15. KONTEN ROTASI
-    - Ayat Al-Quran (10 ayat pilihan)
-    - Hadits (10 hadits pilihan)
-    - Asmaul Husna (99 nama Allah)
-    - Rotasi otomatis dengan animasi
+16. FOTO SLIDESHOW + 17. KONTEN ROTASI
+    - Galeri foto + Ayat/Hadits/Asmaul Husna rotasi otomatis
 
-16. DZIKIR SETELAH SHOLAT
-    - 8 dzikir lengkap (Arab + Latin + arti)
-    - Auto-rotate 8 detik
-    - Phase 4 di Mode Fokus
+18. DZIKIR SETELAH SHOLAT (8 dzikir, Phase 4 Fokus)
 
-17. AUTO-SHOW CRASH LOG
-    - Deteksi crash saat force close
-    - Saat dibuka kembali, dialog crash muncul otomatis
-    - Tombol Salin + Tombol Kembali
+19. AUTO-SHOW CRASH LOG (dialog saat force close)
 
-18. FULL SOURCE CODE EXPORT
-    - Backup Aman menyertakan ISI SEMUA FILE kode
-    - Cara C: folder lokal + fallback GitHub API
-    - Format: ---BEGIN--- path ---END--- path
-    - AI baru langsung paham tanpa tanya user
+20. FULL SOURCE CODE EXPORT (Backup Aman + GitHub API)
 
-19. FIX CRASH NESTED SCROLL
-    - Fix crash "Vertically scrollable component infinity"
-    - Ganti Crossfade ke Box + key + alpha fade manual
-    - Tetap ada animasi fade antar pane (300ms)
+21. FIX CRASH NESTED SCROLL (Box + fade manual 300ms)
 
-20. FADE ANIMASI MANUAL
-    - Animasi fade-in 300ms saat ganti kategori
-    - Implementasi via key() + animateFloatAsState + alpha
-    - Tidak pakai Crossfade (hindari nested scroll crash)
+22. FADE ANIMASI MANUAL (bukan Crossfade)
 
-21. iO CONTROL (BARU — V1.30.1)
-    - HP sebagai remote tampilan TV via WiFi/Hotspot sama
-    - Auto-discovery device Masjid.io lain (UDP broadcast)
-    - UI radar biru dengan animasi sweep 360° + pulse
-    - Daftar device: nama, role (TV/HP), IP, versi
-    - Auto-detect TV atau HP via UI_MODE_TYPE_TELEVISION
-    - Setelah connect: 2 tombol besar KIRIM & TERIMA
-    - Transfer semua pengaturan (tema, jadwal, ustadz, PIN, dll)
-    - Progress bar realtime 0-100%
-    - Device penerima otomatis restart setelah transfer 100%
-    - Serialisasi JSON (aman lintas versi, field tidak dikenal di-skip)
+23. SALIN URL OTOMATIS (clipboard + feedback 3 detik)
 
-22. SALIN URL OTOMATIS (BARU — V1.30.1)
-    - Tombol besar "SALIN URL" (clipboard)
-    - Feedback "✓ TERSALIN" 3 detik
-    - Auto-refresh IP tiap 5 detik
-    - Info chip IP / PORT / TOKEN
-    - Peringatan kalau WiFi OFF
-    - User tidak perlu ketik manual lagi
+24. APK INSTALL DARI FILE TERSIMPAN (V1.30.2)
+    - Tap file APK → INSTALL
+    - Tombol merah terpisah → HAPUS
+    - Visual: border hijau + "TAP UNTUK INSTALL"
     """.trimIndent()
 
-    // ============================================================
-    // RIWAYAT UPDATE (RINGKAS)
-    // ============================================================
     val UPDATE_HISTORY = """
+V1.30.2 (02 Oktober 2026)
+- Tema Makkah Dinamis — langit real-time + cuaca otomatis
+- Matahari melengkung, bulan fase asli, awan, burung, bintang
+- Hujan + petir real-time dari cuaca lokasi
+- Siluet Masjidil Haram + Ka'bah + refleksi marmer
+- Fix: iO Control - transfer settings (fix 401)
+- Fix: AboutSettingsPane - install APK dari file tersimpan
+- Default backgroundMode: MAKKAH_DYNAMIC
+
 V1.30.1 (30 September 2026)
 - iO Control: HP sebagai remote TV via WiFi
 - Auto-discovery device (UDP broadcast)
@@ -282,114 +245,61 @@ V1.30.1 (30 September 2026)
 - Transfer semua pengaturan antar device
 - Progress bar + auto-restart penerima
 - Salin URL otomatis + info chip IP/PORT/TOKEN
-- Fix: build timezone Asia/Jakarta (versi tidak stuck UTC)
-- Fix: build.yml tag release pakai versi asli via aapt
 
 V1.29.3 (29 September 2026)
 - Fix crash nested scroll di SettingsScreen
 - Ganti Crossfade ke Box + fade manual (300ms)
 - Fix RunningTextMarquee (divide by zero)
 - Auto-show dialog crash log setelah force close
-- BackupManager: pertahankan method lama + fetch source GitHub
-- SettingsRepository: tambah exportSummary() + full AppSettings
-- AppKnowledge: BAGIAN 15 (link GitHub) + anti-truncation
 
 V1.28.4 (29 September 2026)
 - Slide Fullscreen (QRIS, Laporan, Kajian)
 - Konten Rotasi (Ayat, Hadits, Asmaul Husna)
-- Mode Ramadhan lengkap (Imsak/Iftar/Tarawih)
-- CCTV Widget (RTSP + HTTP)
-- Remote Control via HP
-- Dzikir setelah sholat (Phase 4)
-- Background foto di kartu sholat
+- Mode Ramadhan lengkap + CCTV + Remote Control
 
 V1.28.3 (29 September 2026)
-- Fokus D-pad lebih tebal
-- TvSlider + TvToggle (remote-friendly)
+- Fokus D-pad lebih tebal, TvSlider + TvToggle
 - LocationSettingsPane + IdentitySettingsPane lengkap
-- RunningTextSettingsPane lengkap
 
 V1.28.2 (28 September 2026)
 - Versioning otomatis + Keystore permanen
-- Backup Aman + Log Crash + Riwayat Crash
-- Periksa Update + ApkDownloader
-- WhatsApp Fonnte
-- Foto Slideshow
-- Build History Fetcher
+- Backup Aman + Log Crash + Periksa Update
+- WhatsApp Fonnte + Foto Slideshow
 
 V1.28.1 (28 September 2026)
-- Foto per sesi petugas
-- Foto profil kotak tumpul
-- HomeScreen: video besar, jam kecil
-- Suara beep diperbaiki
+- Foto per sesi petugas, HomeScreen video besar
 
 V1.28.0 (27 September 2026)
 - Versi dasar: jadwal sholat, mode fokus, kiosk, dll
     """.trimIndent()
-    
-    // ============================================================
-    // MASALAH & SOLUSI
-    // ============================================================
+
     val KNOWN_ISSUES = """
 === SUDAH DIPERBAIKI ===
-1. Foto ustadz tidak tampil di HomeScreen
-   Solusi: Normalisasi nama hari
-
-2. Suara beep terlalu pendek & lucu
-   Solusi: TONE_CDMA_ALERT_CALL_GUARD + durasi dinamis
-
-3. Update APK harus uninstall dulu
-   Solusi: Keystore permanen di repo
-
-4. File "File_paths.xml" error (huruf besar F)
-   Solusi: Rename jadi "file_paths.xml"
-
-5. Konflik GitHub Actions - signing error
-   Solusi: Commit debug.keystore ke repo
-
-6. Setup keystore gagal karena .gitignore
-   Solusi: Pakai "git add -f debug.keystore"
-
-7. Backup Aman error EPERM
-   Solusi: Cek permission + fallback ke app dir
-
-8. Build error: KSP 2.3.5 NPE di GitHub Actions
-   Solusi: Upgrade KSP ke 2.3.12
-
-9. Build error: phaseNum di luar scope
-   Solusi: Pindah phaseNum ke luar Box
-
-10. Build error: LaunchedEffect belum di-import
-    Solusi: Tambah import LaunchedEffect
-
-11. Build error: Icon Battery tidak ada
-    Solusi: Ganti ke BatteryFull
-
-12. Build error: LocationSettingsPane & IdentitySettingsPane hilang
-    Solusi: Restore + buat file sendiri
-
-13. Fitur Location & Identity pakai placeholder
-    Solusi: Buat file sendiri + hapus placeholder di SettingsScreen
-
-14. Crash: Vertically scrollable component infinity (V1.29.3)
-    Solusi: Ganti Crossfade ke Box + key + alpha fade manual
-
-15. Crash: ArithmeticException divide by zero (V1.29.3)
-    Solusi: RunningTextMarquee guard text kosong + durasi minimal 1000ms
-
-16. Versi stuck di V1.29.X padahal tanggal sudah berubah (V1.30.1)
-    Solusi: Set timezone Asia/Jakarta di build.gradle.kts
-
-17. Tag release "autoVersionName" literal (V1.30.1)
-    Solusi: Extract version via aapt dari APK (bukan grep build.gradle)
+1. Foto ustadz tidak tampil di HomeScreen → normalisasi nama hari
+2. Suara beep terlalu pendek → TONE_CDMA_ALERT_CALL_GUARD
+3. Update APK harus uninstall dulu → keystore permanen
+4. File "File_paths.xml" error → rename "file_paths.xml"
+5. Konflik GitHub Actions signing → commit debug.keystore
+6. Setup keystore gagal .gitignore → git add -f debug.keystore
+7. Backup Aman error EPERM → cek permission + fallback
+8. KSP 2.3.5 NPE → upgrade KSP 2.3.12
+9. phaseNum di luar scope → pindah ke luar Box
+10. LaunchedEffect belum di-import → tambah import
+11. Icon Battery tidak ada → ganti BatteryFull
+12. LocationSettingsPane & IdentitySettingsPane hilang → restore
+13. Location & Identity placeholder → buat file sendiri
+14. Crash Vertically scrollable infinity → Box + fade manual
+15. ArithmeticException divide by zero → guard + min 1000ms
+16. Versi stuck UTC → timezone Asia/Jakarta
+17. Tag release "autoVersionName" → extract via aapt
+18. iO Control error 401 → /api/io/receive jadi public route (V1.30.2)
+19. APK tidak bisa di-tap install → ApkFileItem kiri=install kanan=hapus (V1.30.2)
+20. DeviceDiscovery butuh deviceId → kirim dari IoControlScreen (V1.30.2)
 
 === BELUM DIPERBAIKI ===
-(Tidak ada - semua sudah diperbaiki)
+(Tidak ada)
     """.trimIndent()
 
-    // ============================================================
-    // BUILD ERROR HISTORY
-    // ============================================================
     val BUILD_ERROR_HISTORY = """
 FORMAT:
 ---
@@ -401,73 +311,42 @@ Solusi: [cara memperbaiki]
 
 === RIWAYAT ===
 
+[02-10-2026] - V1.30.2
+Error: iO Control transfer antar device gagal — "Server tolak (kode 401)"
+File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+Solusi: Tambahkan "/api/io/receive" ke isPublicRoute
+
+[02-10-2026] - V1.30.2
+Error: APK tidak bisa di-tap untuk install (hanya tombol hapus)
+File: app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
+Solusi: ApkFileItem: area kiri tap=install, tombol merah=hapus (terpisah)
+
+[02-10-2026] - V1.30.2
+Error: IoControlScreen error "No value passed for parameter 'deviceId'"
+File: app/src/main/java/com/example/ui/remote/IoControlScreen.kt
+Solusi: Ambil Android ID + fallback UUID, kirim ke DeviceDiscovery.configure()
+
 [30-09-2026] - V1.30.1
 Error: Versi build stuck di V1.29.X padahal tanggal sudah berubah
 File: app/build.gradle.kts
-Solusi: Set timezone Asia/Jakarta di SimpleDateFormat currentDate & currentDay
+Solusi: Set timezone Asia/Jakarta di SimpleDateFormat
 
 [30-09-2026] - V1.30.1
-Error: Tag release GitHub jadi "autoVersionName" (string literal)
+Error: Tag release GitHub jadi "autoVersionName" (literal)
 File: .github/workflows/build.yml
-Solusi: Extract versionName dari APK pakai aapt dump badging,
-        bukan grep dari build.gradle.kts
-
-[30-09-2026] - V1.30.1
-Error: version.properties tidak ke-push setelah build
-File: .github/workflows/build.yml
-Solusi: Perbaiki step commit version.properties (git pull --rebase dulu)
+Solusi: Extract versionName dari APK pakai aapt dump badging
 
 [29-09-2026] - V1.29.3
-Error: ArithmeticException "divide by zero" di Compose animation
+Error: ArithmeticException divide by zero di Compose animation
 File: RunningTextMarquee.kt
-Solusi: Guard text kosong (return) + durasi minimal 1000ms
+Solusi: Guard text kosong + durasi minimal 1000ms
 
 [29-09-2026] - V1.29.3
-Error: IllegalStateException "Vertically scrollable component was
-       measured with an infinity maximum height constraints"
+Error: IllegalStateException Vertically scrollable infinity
 File: SettingsScreen.kt
-Solusi: Ganti Crossfade ke Box biasa + tambah key() + animasi
-        fade manual via animateFloatAsState + Modifier.alpha
-
-[29-09-2026] - V1.28.4
-Error: PrayerCardsRow belum terima parameter settings
-File: HomeScreen.kt
-Solusi: Update pemanggilan PrayerCardsRow(prayerItems, settings)
-
-[29-09-2026] - V1.28.4
-Error: SettingsScreen belum terima isRemoteServerRunning
-File: MainActivity.kt
-Solusi: Passing isRemoteServerRunning ke SettingsScreen
-
-[29-09-2026] - V1.28.3
-Error: LocationSettingsPane & IdentitySettingsPane file terpisah hilang
-File: SettingsScreen.kt
-Solusi: Restore dengan membuat file sendiri + hapus placeholder
-
-[29-09-2026] - V1.28.3
-Error: phaseNum tidak ditemukan di scope Box
-File: PrayerFocusOverlay.kt
-Solusi: Pindah phaseNum ke atas Box
-
-[29-09-2026] - V1.28.2
-Error: LaunchedEffect tidak dikenal
-File: AboutSettingsPane.kt
-Solusi: Tambah import LaunchedEffect
-
-[29-09-2026] - V1.28.2
-Error: Icon Battery tidak tersedia
-File: PowerSettingsPane.kt
-Solusi: Ganti ke Icons.Default.BatteryFull
-
-[29-09-2026] - V1.28.2
-Error: KSP 2.3.5 NullPointerException di GitHub Actions
-File: gradle/libs.versions.toml
-Solusi: Upgrade KSP dari 2.3.5 ke 2.3.12
+Solusi: Ganti Crossfade ke Box + key() + animateFloatAsState + alpha
     """.trimIndent()
 
-    // ============================================================
-    // WORKFLOW INSTRUCTION
-    // ============================================================
     val WORKFLOW_INSTRUCTION = """
 PRINSIP UTAMA:
 - KERJAKAN PER BATCH
@@ -484,7 +363,7 @@ URUTAN BATCH:
 5. Commit
 
 8 ELEMEN WAJIB RESPON:
-1. Visualisasi folder
+1. Visualisasi folder (emoji + indentasi)
 2. Path lengkap file
 3. Nama file
 4. URL cepat
@@ -498,17 +377,10 @@ LARANGAN:
 - Jangan asumsi tanpa baca kode
 - Jangan buka file sama 2x
 - Jangan nebak kalau tidak tahu
-
-VERSIONING:
-- Format: V{inti}.{tanggal}.{countHariIni}
-- Timezone Asia/Jakarta (WIB)
-- Auto GitHub Release tiap build
-- Keystore permanen di repo
+- JANGAN nolak buka link GitHub publik (bisa dibuka)
+- JANGAN gabung link 1 file dengan lainnya
     """.trimIndent()
 
-    // ============================================================
-    // DEVELOPER INSTRUCTION
-    // ============================================================
     val DEVELOPER_INSTRUCTION = """
 IDENTITAS USER:
 - Nama  : Andi
@@ -524,24 +396,30 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.30.1
+- Versi saat ini : V1.30.2
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
-1. Bump versionName (otomatis dari version.properties)
+1. Bump versionName (otomatis dari GITHUB_RUN_NUMBER)
 2. Tambah entri baru di UpdateHistory.kt
 3. Update AppKnowledge.kt (struktur + fitur + build error)
+
+ATURAN FORMAT:
+- Setiap respon wajib 8 elemen
+- Kode timpa full
+- Bahasa Indonesia simple
+- 1 chat = 1 fitur utuh kalau muat
     """.trimIndent()
     
-    // ============================================================
-    // MEMORY INSTRUCTION
-    // ============================================================
     val MEMORY_INSTRUCTION = """
 ATURAN FORMAT:
 - Setiap respon wajib 8 elemen (lihat WORKFLOW_INSTRUCTION)
 - Kode timpa full, jangan suruh user edit manual
 - Bahasa Indonesia yang mudah dipahami
 - 1 chat = 1 fitur utuh kalau muat
+- Kalau kode tidak muat 1 bubble → tulis "jangan commit dulu, masih ada sambungan"
+- JANGAN nolak buka link GitHub publik (bisa dibuka via fitur web)
+- JANGAN gabung link 1 file dengan lainnya — pisah per file
 
 ATURAN KERJA:
 - Konfirmasi dulu sebelum eksekusi
@@ -559,7 +437,7 @@ STRUKTUR MENU SETTINGS (19 Kategori):
 5.  Jadwal Petugas & Foto
 6.  Donasi QRIS & Rekening
 7.  Video Kegiatan Masjid
-8.  Tampilan & Background
+8.  Tampilan & Background (termasuk Tema Makkah Dinamis)
 9.  Kartu Nasihat & Mutiara
 10. Running Text
 11. Audio & Adzan
@@ -595,13 +473,9 @@ PENANGANAN BUILD ERROR:
 5. Commit ulang
 
 FITUR YANG BELUM SELESAI:
-- Integrasi real transfer (tombol KIRIM masih simulasi)
-  (direncanakan di rilis berikutnya)
+- Tidak ada (semua fitur selesai per V1.30.2)
     """.trimIndent()
 
-    // ============================================================
-    // MEMORY KNOWLEDGE (LENGKAP + LINK GITHUB)
-    // ============================================================
     val MEMORY_KNOWLEDGE = """
 ============================================================
 MEMORY KNOWLEDGE & INSTRUCTION — MASJID.IO
@@ -611,9 +485,9 @@ Untuk AI baru yang membaca backup ini
 === BAGIAN 1 — ATURAN FORMAT RESPON (8 ELEMEN WAJIB) ===
 
 1. Visualisasi folder (emoji + indentasi, seperti file manager)
-2. Path lengkap file (contoh: app/src/main/java/com/example/MainActivity.kt)
+2. Path lengkap file
 3. Nama file (agar mudah di-copy)
-4. URL cepat (format: https://github.com/USER/REPO/blob/main/PATH)
+4. URL cepat (bisa di-tap)
 5. 2 opsi akses file:
    - OPSI A: Buka pakai link
    - OPSI B: Navigasi folder step-by-step
@@ -638,6 +512,22 @@ TETAP dalam 1 bubble chat, dengan aturan:
 7. Semua BAGIAN wajib ada di 1 bubble chat yang sama
 
 Tujuan: user tinggal sambung tempel, tidak ada kode hilang.
+
+=== BAGIAN 1C — ATURAN LINK GITHUB (BARU V1.30.2) ===
+
+1. JANGAN tolak buka link GitHub publik — bisa dibuka via fitur web
+2. JANGAN gabung link 1 file dengan link file lain
+   (tiap file punya section-nya sendiri dengan link-nya sendiri)
+3. Kecuali link butuh login akun → baru boleh tolak dengan alasan logis
+4. Repo Masjid.io PUBLIC → bebas diakses kapan saja
+
+=== BAGIAN 1D — ATURAN SIMPLIFIKASI (BARU V1.30.2) ===
+
+1. Elemen 5 (2 Opsi Akses) TIDAK perlu ditampilkan lagi — user sudah paham
+2. Elemen 8 (Bahasa Indonesia) TIDAK perlu ditampilkan lagi — cukup dipahami
+3. Fokus tampilkan: folder, path, nama file, URL, kode, pesan commit
+4. Kalau kode bisa 1 bubble → kirim 1 bubble
+5. Kalau tidak muat → bilang "jangan commit dulu, masih ada sambungan"
 
 === BAGIAN 2 — ATURAN KERJA ===
 
@@ -669,7 +559,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.30.1
+  Versi saat ini : V1.30.2
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (19 KATEGORI) ===
@@ -714,7 +604,7 @@ gradle/libs.versions.toml         -> KSP & dependency
 
 === BAGIAN 8 — UPDATE WAJIB TIAP BUILD ===
 
-1. Bump versionName  -> app/build.gradle.kts
+1. Bump versionName  -> GITHUB_RUN_NUMBER otomatis
 2. Tambah entri baru -> UpdateHistory.kt
 3. Update info baru  -> AppKnowledge.kt
 
@@ -773,12 +663,13 @@ TUJUAN: AI baru langsung paham tanpa tanya user.
 === BAGIAN 14 — ATURAN KERJA SAMA DENGAN AI BARU ===
 
 Jika user ganti AI, AI baru WAJIB:
-1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-16).
+1. Baca BACKUP AMAN terlebih dahulu (BAGIAN 1-17).
 2. Pahami struktur aplikasi + isi kode.
 3. Ikuti aturan 8 elemen format.
 4. Ikuti aturan anti-truncation (BAGIAN 1B).
-5. Konfirmasi dulu sebelum eksekusi.
-6. Jangan menebak - tanya user kalau tidak tahu.
+5. Ikuti aturan link GitHub (BAGIAN 1C).
+6. Konfirmasi dulu sebelum eksekusi.
+7. Jangan menebak - tanya user kalau tidak tahu.
 
 === BAGIAN 15 — LINK GITHUB SOURCE CODE (UNTUK AI BARU) ===
 
@@ -811,11 +702,16 @@ FOLDER KUNCI YANG SERING DIBACA:
 - app/src/main/java/com/example/util/RemoteControlClient.kt
 - app/src/main/java/com/example/data/AppKnowledge.kt
 - app/src/main/java/com/example/data/UpdateHistory.kt
+- app/src/main/java/com/example/data/local/SunMoonCalculator.kt (BARU V1.30.2)
 - app/src/main/java/com/example/ui/settings/SettingsScreen.kt
 - app/src/main/java/com/example/ui/settings/RemoteSettingsPane.kt
+- app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
 - app/src/main/java/com/example/ui/remote/RemoteServer.kt
 - app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
 - app/src/main/java/com/example/ui/remote/IoControlScreen.kt
+- app/src/main/java/com/example/ui/components/MakkahDynamicBackground.kt (BARU V1.30.2)
+- app/src/main/java/com/example/ui/home/HomeScreen.kt
+- app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
 - app/build.gradle.kts
 - gradle/libs.versions.toml
 - .github/workflows/build.yml
@@ -826,9 +722,9 @@ CATATAN UNTUK AI BARU:
 - Kalau butuh 1 file: pakai raw URL + path
 - JANGAN minta user copy-paste manual kalau bisa buka sendiri
 
-=== BAGIAN 16 — FITUR iO CONTROL (V1.30.1) ===
+=== BAGIAN 16 — FITUR iO CONTROL (V1.30.1 + fix V1.30.2) ===
 
-FITUR BARU:
+FITUR:
 - HP sebagai remote tampilan TV via WiFi/Hotspot sama
 - Auto-discovery via UDP broadcast (port 45678)
 - UI radar biru (sweep 360° + pulse)
@@ -840,9 +736,10 @@ FILE TERKAIT:
 - ui/remote/DeviceDiscovery.kt      -> UDP broadcast & listen
 - ui/remote/IoControlScreen.kt      -> UI radar + progress
 - ui/remote/RemoteServer.kt         -> HTTP endpoint /api/io/*
+- ui/remote/NetworkHelper.kt        -> Deteksi IP WiFi
 - util/SettingsTransferHelper.kt    -> Serialize JSON settings
 - util/RemoteControlClient.kt       -> HTTP client kirim settings
-- ui/settings/RemoteSettingsPane.kt -> Tombol BUKA iO CONTROL + Salin URL
+- ui/settings/RemoteSettingsPane.kt -> Tombol BUKA iO CONTROL
 - MainActivity.kt                   -> Integrasi screen + callback
 
 CATATAN PENTING:
@@ -850,21 +747,52 @@ CATATAN PENTING:
 - Field tidak dikenal di penerima -> otomatis di-skip
 - Remote Control setting (port, token) TIDAK ditransfer
 - PIN IKUT ditransfer (sesuai keputusan user)
+- Endpoint /api/io/receive sekarang PUBLIC (fix 401 V1.30.2)
 
-=== BAGIAN 17 — FITUR SALIN URL OTOMATIS (V1.30.1) ===
+=== BAGIAN 17 — FITUR TEMA MAKKAH DINAMIS (V1.30.2) ===
 
-FITUR:
-- Auto-detect IP WiFi TV (update tiap 5 detik)
-- Gabung jadi URL lengkap: http://IP:PORT/?token=TOKEN
-- Tombol besar "SALIN URL" -> clipboard
-- Feedback "✓ TERSALIN" 3 detik
-- Info chip: IP, PORT, TOKEN terlihat jelas
-- Peringatan merah kalau WiFi OFF
+FITUR BARU:
+- Langit Makkah bergerak real-time (24 jam siklus)
+- Matahari melengkung timur ke barat berdasarkan jam lokal
+- Bulan bergeser + fase asli (sabit/purnama) via algoritma lunar
+- 7 gradasi warna langit otomatis
+- Awan bergerak + burung terbang + bintang berkelip
+- Hujan + petir real-time dari WeatherService (Open-Meteo)
+- Kabut subuh jam 04:00-06:00
+- Siluet Masjidil Haram + Ka'bah + pita emas Hizam
+- Refleksi marmer di lantai Mataf
+- Tema ini jadi DEFAULT (menggantikan NATURE)
 
 FILE TERKAIT:
-- ui/settings/RemoteSettingsPane.kt
+- data/local/SunMoonCalculator.kt      -> Hitung posisi matahari/bulan/fase
+- ui/components/MakkahDynamicBackground.kt -> Render canvas dinamis
+- data/model/AppSettings.kt            -> Enum MAKKAH_DYNAMIC + default
+- ui/home/HomeScreen.kt                -> Integrasi background
+- ui/settings/CustomBackgroundPane.kt  -> Opsi di Settings
 
-TUJUAN: User tidak perlu ketik manual lagi.
+CATATAN PENTING:
+- Cuaca otomatis via WeatherService (Open-Meteo, gratis)
+- Lat/Lon Makkah hardcoded (-21.42, 39.83) untuk sudut matahari
+- Bintang muncul saat malam + cuaca cerah
+- Burung tidak muncul saat hujan/badai
+- Petir muncul acak 10-15 detik sekali
+
+=== BAGIAN 18 — FITUR APK INSTALL DARI FILE (V1.30.2) ===
+
+FITUR:
+- Tap file APK tersimpan -> INSTALL
+- Tombol merah terpisah -> HAPUS
+- Visual feedback: border hijau + "TAP UNTUK INSTALL"
+- File APK di /sdcard/masjid.io/pembaharuan aplikasi/
+
+FILE TERKAIT:
+- ui/settings/AboutSettingsPane.kt -> ApkFileItem
+- util/ApkDownloader.kt            -> Install, hapus, list APK
+
+CATATAN:
+- Area kiri (ikon + nama file) = INSTALL
+- Area kanan (tombol merah) = HAPUS
+- Tidak tabrakan niat install vs hapus
 
 ============================================================
 END OF MEMORY KNOWLEDGE
