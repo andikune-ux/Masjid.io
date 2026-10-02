@@ -10,9 +10,6 @@ package com.example.data
  */
 object UpdateHistory {
 
-    // ============================================================
-    // DATA CLASS
-    // ============================================================
     data class UpdateEntry(
         val version: String,
         val date: String,
@@ -20,10 +17,37 @@ object UpdateHistory {
         val features: List<String>
     )
 
-    // ============================================================
-    // DAFTAR ENTRI
-    // ============================================================
     val entries: List<UpdateEntry> = listOf(
+        UpdateEntry(
+            version = "V1.30.3",
+            date = "02 Oktober 2026",
+            title = "Responsive Auto-Scale — Tampilan Otomatis Semua Ukuran TV",
+            features = listOf(
+                "Fitur BARU: Auto-Scale tampilan untuk semua ukuran TV",
+                "Deteksi otomatis resolusi TV (px, dp, aspect ratio, density)",
+                "Deteksi tipe layar: Ultrawide 21:9, Standar 16:9, Klasik 4:3",
+                "Base design 1920x1080 (FHD) — semua elemen auto-scale",
+                "Scale factor clamp 0.6× - 2.5× supaya tidak ekstrem",
+                "Safe Area Padding dinamis (0-10%) untuk hindari overscan bezel TV",
+                "TV Ultrawide: konten otomatis di-center (max 88% lebar)",
+                "TV 4:3 lama: spacing & font otomatis disesuaikan",
+                "TV 4K: font & padding auto-membesar proporsional",
+                "TV 720p: font & padding auto-mengecil proporsional",
+                "Tombol Settings di TopBar tidak terpotong di TV apapun",
+                "Kartu sholat, jam, panel imam/muadzin semua responsif",
+                "Menu baru di Pengaturan: 'Tampilan TV' (kategori ke-20)",
+                "Info resolusi TV real-time tampil di panel pengaturan",
+                "Toggle Auto-Scale ON/OFF (default ON)",
+                "Slider Safe Area 0-10% (default 3%)",
+                "4 Preset layout: AUTO / STANDAR / ULTRAWIDE / 4:3",
+                "Tombol Test Safe Area untuk cek area aman dari bezel",
+                "File baru: ResponsiveLayoutHelper.kt (helper deteksi & scale)",
+                "File baru: TvDisplaySettingsPane.kt (panel pengaturan)",
+                "AppSettings: 3 field baru — tvAutoScaleEnabled, tvSafeAreaPercent, tvLayoutPreset",
+                "SettingsRepository: load/save 3 field responsive",
+                "HomeScreen: dibungkus ResponsiveRoot untuk auto-scale"
+            )
+        ),
         UpdateEntry(
             version = "V1.30.2",
             date = "02 Oktober 2026",
@@ -31,7 +55,7 @@ object UpdateHistory {
             features = listOf(
                 "Fitur BARU: Tema Makkah Dinamis sebagai tema DEFAULT",
                 "Langit Makkah bergerak real-time: matahari melengkung dari timur ke barat",
-                "Matahari otomatis berubah posisi sesuai jam: Subuh (terbit) - Dzuhur (zenit) - Maghrib (tenggelam)",
+                "Matahari otomatis berubah posisi sesuai jam: Subuh - Dzuhur - Maghrib",
                 "Bulan bergeser otomatis dari kiri bawah ke kanan atas sepanjang malam",
                 "Fase bulan REAL: purnama/sabit mengikuti siklus lunar otomatis",
                 "Awan bergerak kiri ke kanan dengan 6 lapis paralax",
@@ -42,18 +66,14 @@ object UpdateHistory {
                 "Efek petir: kilat putih muncul 10-15 detik sekali saat badai",
                 "Kabut tipis muncul otomatis jam 04:00-06:00 (waktu subuh)",
                 "Refleksi marmer di lantai Mataf (silau matahari)",
-                "Siluet Masjidil Haram: arcade + kubah + 2 menara + Ka'bah + pita emas Hizam",
-                "Lampu arcade menyala otomatis saat malam (twinkle kuning hangat)",
-                "7 gradasi warna langit: subuh, pagi, siang, ashar, maghrib, isya, malam",
-                "Glow matahari emas saat golden hour (subuh & maghrib)",
-                "Matahari membesar saat dekat horizon (efek atmosfer)",
-                "UI tema Makkah Dinamis muncul di Pengaturan → Tampilan & Background",
-                "Background lama tetap ada: NATURE, KABAH, EMERALD, CUSTOM (tidak ada yang dihapus)",
+                "Siluet Masjidil Haram + Ka'bah + pita emas Hizam",
+                "Lampu arcade menyala otomatis saat malam",
+                "7 gradasi warna langit otomatis (subuh-malam)",
+                "Background lama tetap ada: NATURE, KABAH, EMERALD, CUSTOM",
                 "Fix CRITICAL: transfer iO Control antar device berhasil (fix error 401)",
-                "Fix: /api/io/receive jadi public route — tidak perlu login dari HP ke TV",
-                "Fix: APK tersimpan bisa di-tap untuk INSTALL (bukan hanya hapus)",
-                "Fix: tombol hapus APK dipisah dari area install (tidak tabrakan lagi)",
-                "Fix: file APK tetap bisa di-install setelah ditambah fitur hapus manual",
+                "Fix: /api/io/receive jadi public route",
+                "Fix: APK tersimpan bisa di-tap untuk INSTALL",
+                "Fix: tombol hapus APK dipisah dari area install",
                 "File baru: SunMoonCalculator.kt (posisi matahari/bulan/fase lunar)",
                 "File baru: MakkahDynamicBackground.kt (canvas langit dinamis)"
             )
@@ -70,27 +90,24 @@ object UpdateHistory {
                 "Auto-detect TV atau HP via Configuration.UI_MODE_TYPE_TELEVISION",
                 "Setelah connect: 2 tombol besar KIRIM dan TERIMA",
                 "Transfer semua pengaturan: tema, jadwal, ustadz, running text, PIN, dll",
-                "Tombol KIRIM → kirim settings dari device ini ke device lain",
                 "Progress bar realtime 0-100% saat transfer",
                 "Device penerima otomatis restart setelah 100% transfer",
                 "Serialisasi AppSettings via JSON (aman lintas versi)",
-                "Field yang tidak dikenal di versi penerima otomatis di-skip",
                 "RemoteSettingsPane: tombol BUKA iO CONTROL (biru, di atas)",
                 "RemoteSettingsPane: tombol SALIN URL otomatis (clipboard)",
                 "RemoteSettingsPane: auto-refresh IP tiap 5 detik",
                 "RemoteSettingsPane: info chip IP / PORT / TOKEN",
                 "RemoteSettingsPane: peringatan kalau WiFi OFF",
-                "Menu Settings: kategori 'Remote Control' → 'iO Control'",
                 "Permission baru: CHANGE_WIFI_MULTICAST_STATE, ACCESS_WIFI_STATE, NEARBY_WIFI_DEVICES",
-                "Endpoint baru RemoteServer: POST /api/io/handshake (ping device)",
-                "Endpoint baru RemoteServer: POST /api/io/receive (terima settings)",
-                "Fix: SettingsRepository lengkap — load/save semua 100+ field AppSettings",
-                "Fix: SettingsRepository tambah exportSummary() untuk Backup Aman",
+                "Endpoint baru RemoteServer: POST /api/io/handshake",
+                "Endpoint baru RemoteServer: POST /api/io/receive",
+                "Fix: SettingsRepository lengkap — load/save semua 100+ field",
+                "Fix: SettingsRepository tambah exportSummary()",
                 "Fix: UpdateHistory tambah getFullText() + getSummary()",
-                "Fix: AppKnowledge tambah BAGIAN 15 (link GitHub untuk AI baru)",
-                "Fix: AppKnowledge tambah aturan anti-truncation kode panjang",
-                "Fix: build.gradle.kts timezone Asia/Jakarta (versi tidak stuck di UTC)",
-                "Fix: build.yml tag release pakai versi asli via aapt (bukan literal)"
+                "Fix: AppKnowledge tambah BAGIAN 15 (link GitHub)",
+                "Fix: AppKnowledge tambah aturan anti-truncation",
+                "Fix: build.gradle.kts timezone Asia/Jakarta",
+                "Fix: build.yml tag release pakai versi asli via aapt"
             )
         ),
         UpdateEntry(
@@ -101,12 +118,11 @@ object UpdateHistory {
                 "Fix crash: 'Vertically scrollable component was measured with infinity maximum height'",
                 "Ganti Crossfade ke Box + key + alpha fade manual (300ms)",
                 "Pertahankan animasi fade antar pane tanpa nested scroll",
-                "Update BackupManager: pertahankan semua method lama + fetch source code dari GitHub",
-                "Update SettingsRepository: tambah exportSummary() + load/save semua field AppSettings",
+                "Update BackupManager: pertahankan method lama + fetch source code dari GitHub",
+                "Update SettingsRepository: tambah exportSummary() + load/save semua field",
                 "Update UpdateHistory: tambah getFullText() dan getSummary()",
-                "Update AppKnowledge: tambah BAGIAN 15 (link GitHub) + aturan anti-truncation",
-                "Update AppKnowledge: tambah alias STRUCTURE & FEATURES + MEMORY_KNOWLEDGE",
-                "Fix: RunningTextMarquee guard text kosong + durasi minimal 1000ms (atasi divide by zero)",
+                "Update AppKnowledge: tambah BAGIAN 15 (link GitHub)",
+                "Fix: RunningTextMarquee guard text kosong + durasi minimal 1000ms",
                 "Feat: MainActivity auto-show dialog crash log setelah force close",
                 "Feat: CrashAutoShowHelper + dialog crash (Salin + Kembali)"
             )
@@ -125,7 +141,7 @@ object UpdateHistory {
                 "Menambahkan data AyatStore (10 ayat)",
                 "Menambahkan data HaditsStore (10 hadits)",
                 "Menambahkan data AsmaulHusnaStore (99 nama Allah)",
-                "Menambahkan Mode Ramadhan Overlay (countdown Imsak/Iftar)",
+                "Menambahkan Mode Ramadhan Overlay",
                 "Menambahkan CCTV Widget (RTSP + HTTP support)",
                 "Menambahkan ExoPlayer RTSP (untuk CCTV RTSP)",
                 "Menambahkan Remote Control (HTTP server)",
@@ -212,20 +228,12 @@ object UpdateHistory {
         )
     )
 
-    // ============================================================
-    // METHOD LAMA (tetap dipertahankan)
-    // ============================================================
     fun getEntry(version: String): UpdateEntry? =
         entries.find { it.version.equals(version, ignoreCase = true) }
 
     fun getLatestVersion(): String =
         entries.firstOrNull()?.version ?: "V1.0.0"
 
-    // ============================================================
-    // METHOD UNTUK BACKUP MANAGER
-    // ============================================================
-
-    /** Format lengkap semua entri — dipakai BackupManager. */
     fun getFullText(): String = buildString {
         appendLine("Total: ${entries.size} versi tercatat")
         appendLine()
@@ -241,7 +249,6 @@ object UpdateHistory {
         }
     }
 
-    /** Format ringkas — untuk preview. */
     fun getSummary(): String = buildString {
         entries.forEach { entry ->
             appendLine("${entry.version} (${entry.date})")
