@@ -25,6 +25,40 @@ object UpdateHistory {
     // ============================================================
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.30.2",
+            date = "02 Oktober 2026",
+            title = "Tema Makkah Dinamis & Fix iO Control Transfer",
+            features = listOf(
+                "Fitur BARU: Tema Makkah Dinamis sebagai tema DEFAULT",
+                "Langit Makkah bergerak real-time: matahari melengkung dari timur ke barat",
+                "Matahari otomatis berubah posisi sesuai jam: Subuh (terbit) - Dzuhur (zenit) - Maghrib (tenggelam)",
+                "Bulan bergeser otomatis dari kiri bawah ke kanan atas sepanjang malam",
+                "Fase bulan REAL: purnama/sabit mengikuti siklus lunar otomatis",
+                "Awan bergerak kiri ke kanan dengan 6 lapis paralax",
+                "Burung berterbangan V-formation (siang saja, tidak saat hujan)",
+                "Bintang berkelip di langit malam (60 bintang dengan twinkle)",
+                "Cuaca real-time: cerah, berawan, hujan, hujan petir",
+                "Efek hujan: 140 tetes air dengan kecepatan bervariasi",
+                "Efek petir: kilat putih muncul 10-15 detik sekali saat badai",
+                "Kabut tipis muncul otomatis jam 04:00-06:00 (waktu subuh)",
+                "Refleksi marmer di lantai Mataf (silau matahari)",
+                "Siluet Masjidil Haram: arcade + kubah + 2 menara + Ka'bah + pita emas Hizam",
+                "Lampu arcade menyala otomatis saat malam (twinkle kuning hangat)",
+                "7 gradasi warna langit: subuh, pagi, siang, ashar, maghrib, isya, malam",
+                "Glow matahari emas saat golden hour (subuh & maghrib)",
+                "Matahari membesar saat dekat horizon (efek atmosfer)",
+                "UI tema Makkah Dinamis muncul di Pengaturan → Tampilan & Background",
+                "Background lama tetap ada: NATURE, KABAH, EMERALD, CUSTOM (tidak ada yang dihapus)",
+                "Fix CRITICAL: transfer iO Control antar device berhasil (fix error 401)",
+                "Fix: /api/io/receive jadi public route — tidak perlu login dari HP ke TV",
+                "Fix: APK tersimpan bisa di-tap untuk INSTALL (bukan hanya hapus)",
+                "Fix: tombol hapus APK dipisah dari area install (tidak tabrakan lagi)",
+                "Fix: file APK tetap bisa di-install setelah ditambah fitur hapus manual",
+                "File baru: SunMoonCalculator.kt (posisi matahari/bulan/fase lunar)",
+                "File baru: MakkahDynamicBackground.kt (canvas langit dinamis)"
+            )
+        ),
+        UpdateEntry(
             version = "V1.30.1",
             date = "30 September 2026",
             title = "iO Control — Kontrol & Transfer Pengaturan Antar Device via WiFi",
