@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
@@ -93,6 +94,7 @@ enum class SettingsCategory(
     QRIS_DONATION("Donasi QRIS & Rekening", Icons.Default.QrCode),
     VIDEO_MEDIA("Video Kegiatan Masjid", Icons.Default.VideoLibrary),
     APPEARANCE("Tampilan & Background", Icons.Default.Palette),
+    TV_DISPLAY("Tampilan TV", Icons.Default.Tv),
     WISDOM_CARDS("Kartu Nasihat & Mutiara", Icons.Default.Book),
     RUNNING_TEXT("Running Text", Icons.Default.TextFields),
     AUDIO("Audio & Adzan", Icons.Default.Notifications),
@@ -108,7 +110,6 @@ enum class SettingsCategory(
 
 object SettingsNavState {
     var lastCategory: SettingsCategory = SettingsCategory.LOCATION
-    // Flag unlock Opsi Developer (persist selama app berjalan)
     var isDeveloperUnlocked: Boolean = false
 }
 
@@ -138,7 +139,6 @@ fun SettingsScreen(
         SettingsNavState.lastCategory = selectedCategory
     }
 
-    // AUTO-SAVE debounce 500ms
     LaunchedEffect(draftSettings) {
         if (isInitialLoad) {
             isInitialLoad = false
@@ -206,11 +206,9 @@ fun SettingsScreen(
                         onClick = {
                             if (cat == SettingsCategory.DEVELOPER) {
                                 if (SettingsNavState.isDeveloperUnlocked) {
-                                    // Sudah unlock — langsung tampil
                                     selectedCategory = cat
                                     previewCategory = cat
                                 } else {
-                                    // Belum unlock — tampil PIN dialog
                                     showDeveloperPinDialog = true
                                 }
                             } else {
@@ -222,8 +220,6 @@ fun SettingsScreen(
                             if (isFocused) {
                                 scope.launch {
                                     delay(100)
-                                    // Preview hanya untuk kategori NON-DEVELOPER
-                                    // atau kalau developer sudah unlock
                                     if (cat != SettingsCategory.DEVELOPER ||
                                         SettingsNavState.isDeveloperUnlocked
                                     ) {
@@ -236,7 +232,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             // PANE KANAN
             Box(
                 modifier = Modifier
@@ -257,11 +253,9 @@ fun SettingsScreen(
                     )
                     Box(modifier = Modifier.fillMaxSize().alpha(alpha)) {
 
-                        // ============ CEK DEVELOPER BELUM UNLOCK ============
                         if (previewCategory == SettingsCategory.DEVELOPER &&
                             !SettingsNavState.isDeveloperUnlocked
                         ) {
-                            // Tampilkan placeholder kosong (LOCKED)
                             DeveloperLockedPane()
                         } else {
                             when (previewCategory) {
@@ -295,6 +289,10 @@ fun SettingsScreen(
                                     onUpdate = { draftSettings = it }
                                 )
                                 SettingsCategory.APPEARANCE -> CustomBackgroundPane(
+                                    settings = draftSettings,
+                                    onUpdate = { draftSettings = it }
+                                )
+                                SettingsCategory.TV_DISPLAY -> TvDisplaySettingsPane(
                                     settings = draftSettings,
                                     onUpdate = { draftSettings = it }
                                 )
@@ -359,7 +357,7 @@ fun SettingsScreen(
             correctPin = "140399",
             onSuccess = {
                 showDeveloperPinDialog = false
-                SettingsNavState.isDeveloperUnlocked = true   // ← Set unlock
+                SettingsNavState.isDeveloperUnlocked = true
                 selectedCategory = SettingsCategory.DEVELOPER
                 previewCategory = SettingsCategory.DEVELOPER
             },
@@ -379,9 +377,6 @@ fun SettingsScreen(
     }
 }
 
-// ============================================================
-// DEVELOPER LOCKED PANE — placeholder sebelum PIN benar
-// ============================================================
 @Composable
 private fun DeveloperLockedPane() {
     Box(
@@ -416,9 +411,6 @@ private fun DeveloperLockedPane() {
     }
 }
 
-// ============================================================
-// SIDEBAR ITEM
-// ============================================================
 @Composable
 private fun SidebarItem(
     category: SettingsCategory,
@@ -489,9 +481,6 @@ private fun SidebarItem(
     }
 }
 
-// ============================================================
-// TOP BAR ICON BUTTON
-// ============================================================
 @Composable
 private fun TopBarIconButton(
     onClick: () -> Unit,
@@ -531,9 +520,6 @@ private fun TopBarIconButton(
     }
 }
 
-// ============================================================
-// SAVE BUTTON
-// ============================================================
 @Composable
 private fun SaveButton(
     onClick: () -> Unit
