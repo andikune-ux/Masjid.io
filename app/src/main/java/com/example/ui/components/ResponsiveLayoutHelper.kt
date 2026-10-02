@@ -1,20 +1,15 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -185,11 +180,4 @@ fun Modifier.responsivePadding(info: ScreenInfo, base: Dp): Modifier = composed 
 fun Modifier.responsivePaddingCurrent(base: Dp): Modifier {
     val info = LocalScreenInfo.current
     return this.then(Modifier.padding(base * info.scaleFactor))
-}
-
-private fun Modifier.padding(value: Dp): Modifier {
-    return this.then(
-        androidx.compose.foundation.layout.PaddingModifier.let { it }
-            .let { androidx.compose.foundation.layout.padding(it) } as Modifier
-    )
 }
