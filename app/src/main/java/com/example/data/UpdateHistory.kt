@@ -2,11 +2,6 @@ package com.example.data
 
 /**
  * UpdateHistory — Riwayat update aplikasi MASJID.IO.
- *
- * Menyimpan semua entri versi + fitur baru.
- * Dipakai oleh:
- *   - RiwayatUpdateScreen (UI)
- *   - BackupManager (generateBackupContent)
  */
 object UpdateHistory {
 
@@ -18,6 +13,33 @@ object UpdateHistory {
     )
 
     val entries: List<UpdateEntry> = listOf(
+        UpdateEntry(
+            version = "V1.30.4",
+            date = "02 Oktober 2026",
+            title = "Transfer Media iO Control — Foto & Video Antar Device",
+            features = listOf(
+                "Fix CRITICAL: transfer foto & video via iO Control sekarang berhasil",
+                "Transfer file media via chunk upload (1 MB per chunk)",
+                "Support semua media: QRIS, Logo, Background, Kartu Sholat, Video, Foto Slideshow",
+                "Kompres foto otomatis (max 1920px, quality 85%) sebelum kirim",
+                "Kompres video otomatis via MediaMuxer (remux stream tanpa re-encode)",
+                "Progress bar per-file + total keseluruhan (real-time)",
+                "Status fase jelas: membaca → transfer → selesai → error",
+                "Retry otomatis 3x kalau chunk gagal terkirim",
+                "Notifikasi sukses/gagal/berjalan untuk setiap file",
+                "Alur baru: kirim settings dulu → auto lanjut kirim media",
+                "Server endpoint baru: receive-media-start, receive-media-chunk, receive-media-finish",
+                "Endpoint /api/io/media-status untuk cek status transfer aktif",
+                "Semua endpoint media PUBLIC (tidak perlu login)",
+                "File baru: MediaTransferHelper.kt (helper chunk + kompres)",
+                "File RemoteServer.kt: 4 endpoint media baru",
+                "File RemoteControlClient.kt: sendMediaFilesChunked() + MediaTransferResult",
+                "File SettingsTransferHelper.kt: uploadMediaFiles() wrapper",
+                "File IoControlScreen.kt: MediaProgressView + enum SENDING_MEDIA",
+                "Fix: transfer settings via iO Control tetap normal (tidak terganggu)",
+                "Auto-save media di folder internal TV: filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}"
+            )
+        ),
         UpdateEntry(
             version = "V1.30.3",
             date = "02 Oktober 2026",
