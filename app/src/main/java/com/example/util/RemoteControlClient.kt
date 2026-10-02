@@ -7,7 +7,6 @@ import com.example.data.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -15,7 +14,7 @@ import java.util.UUID
 /**
  * RemoteControlClient — HTTP client untuk kirim settings + media via iO Control.
  *
- * V1.30.4: Tambah sendMediaFilesChunked() untuk transfer file media.
+ * V1.30.5: Tambah sendFinalizeSignal() untuk trigger countdown restart di TV.
  */
 object RemoteControlClient {
 
@@ -39,7 +38,7 @@ object RemoteControlClient {
     )
 
     // ============================================================
-    // KIRIM SETTINGS (existing)
+    // KIRIM SETTINGS
     // ============================================================
     suspend fun sendSettings(
         targetIp: String,
@@ -125,14 +124,67 @@ object RemoteControlClient {
     }
 
     // ============================================================
-    // V1.30.4 BARU — KIRIM MEDIA FILES (CHUNKED)
+    // V1.30.5 BARU — KIRIM SINYAL FINALIZE
     // ============================================================
     /**
-     * Kirim semua file media dari HP ke TV via chunk upload.
+     * Kirim sinyal finalize ke TV setelah SEMUA settings + media terkirim sukses.
      *
-     * @param mediaList List MediaFileInfo dari MediaTransferHelper.collectMediaFiles()
-     * @param onProgress callback (currentIndex, totalFiles, currentFileName, fileProgress, overallProgress, phase, message)
+     * TV akan:
+     *   1. Tampilkan overlay countdown 5 detik
+     *   2. Restart aplikasi (recreate / killProcess)
      */
+    suspend fun sendFinalizeSignal(
+        targetIp: String,
+        targetPort: Int
+    ): TransferResult = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "🎬 Mengirim sinyal FINALIZE ke $targetIp:$targetPort")
+
+            val url = URL("http://$targetIp:$targetPort/api/io/finalize")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+
+            val json = JSONObject().apply {
+                put("timestamp", System.currentTimeMillis())
+            }.toString()
+
+            conn.outputStream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+
+            val responseCode = conn.responseCode
+            val responseBody = try {
+                if (responseCode in 200..299) {
+                    conn.inputStream.bufferedReader().use { it.readText() }
+                } else {
+                    conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                }
+            } catch (e: Exception) { "" } finally { conn.disconnect() }
+
+            if (responseCode in 200..299) {
+                Log.d(TAG, "✅ Finalize terkirim — TV akan restart dalam 5 detik")
+                TransferResult(success = true, message = "Finalize terkirim")
+            } else {
+                Log.e(TAG, "❌ Finalize gagal: $responseCode - $responseBody")
+                TransferResult(
+                    success = false,
+                    message = "Server tolak finalize (kode $responseCode)"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Finalize error: ${e.message}", e)
+            TransferResult(
+                success = false,
+                message = "Gagal kirim finalize: ${e.message ?: "Unknown"}"
+            )
+        }
+    }
+
+    // ============================================================
+    // KIRIM MEDIA FILES (CHUNKED)
+    // ============================================================
     suspend fun sendMediaFilesChunked(
         context: Context,
         targetIp: String,
@@ -155,7 +207,6 @@ object RemoteControlClient {
         var totalBytes: Long = 0L
 
         try {
-            // Fase collecting: hitung semua ukuran file dulu
             onProgress(MediaTransferHelper.TransferProgress(
                 currentFileIndex = 0,
                 totalFiles = totalFiles,
@@ -166,7 +217,6 @@ object RemoteControlClient {
                 message = "Menyiapkan data..."
             ))
 
-            // Cek handshake dulu
             if (!handshake(targetIp, targetPort)) {
                 return@withContext MediaTransferResult(
                     success = false,
@@ -174,7 +224,6 @@ object RemoteControlClient {
                 )
             }
 
-            // Proses tiap file
             mediaList.forEachIndexed { index, media ->
                 val overallStart = index.toFloat() / totalFiles
                 val overallEnd = (index + 1).toFloat() / totalFiles
@@ -207,7 +256,6 @@ object RemoteControlClient {
                 } else {
                     failed++
                     Log.e(TAG, "❌ File ${index + 1}/$totalFiles GAGAL: ${media.displayName} - ${fileSuccess.message}")
-                    // Update progress dengan pesan error
                     onProgress(MediaTransferHelper.TransferProgress(
                         currentFileIndex = index + 1,
                         totalFiles = totalFiles,
@@ -220,7 +268,6 @@ object RemoteControlClient {
                 }
             }
 
-            // Done
             onProgress(MediaTransferHelper.TransferProgress(
                 currentFileIndex = totalFiles,
                 totalFiles = totalFiles,
@@ -266,7 +313,6 @@ object RemoteControlClient {
     ): TransferResult = withContext(Dispatchers.IO) {
 
         try {
-            // 1. Baca + kompres
             onFileProgress(0.0f, "reading", "Membaca ${media.displayName}...")
 
             val rawBytes: ByteArray? = if (media.fileType == "photo") {
@@ -285,13 +331,11 @@ object RemoteControlClient {
 
             onFileProgress(0.15f, "reading", "File dibaca (${MediaTransferHelper.formatSize(rawBytes.size.toLong())})")
 
-            // 2. Split jadi chunk
             val chunks = MediaTransferHelper.splitIntoChunks(rawBytes)
             val totalChunks = chunks.size
             val fileId = UUID.randomUUID().toString()
             Log.d(TAG, "File ${media.displayName}: ${rawBytes.size} bytes → $totalChunks chunks")
 
-            // 3. Media start
             onFileProgress(0.18f, "starting", "Memulai transfer...")
             val startOk = mediaStart(
                 targetIp, targetPort,
@@ -310,7 +354,6 @@ object RemoteControlClient {
                 )
             }
 
-            // 4. Kirim chunk satu-satu (0.18 → 0.95)
             val chunkStartProgress = 0.18f
             val chunkEndProgress = 0.95f
             var allChunksOk = true
@@ -358,7 +401,6 @@ object RemoteControlClient {
                 )
             }
 
-            // 5. Media finish
             onFileProgress(0.97f, "finishing", "Menyelesaikan...")
             val finishOk = mediaFinish(targetIp, targetPort, fileId)
 
