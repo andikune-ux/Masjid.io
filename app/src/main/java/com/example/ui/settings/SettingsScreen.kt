@@ -254,10 +254,6 @@ fun SettingsScreen(
                         label = "pane_fade"
                     )
 
-                    // ============================================================
-                    // AUTO-FOCUS WRAPPER — sekali pakai untuk 20 pane
-                    // Fokus otomatis ke elemen pertama saat pane baru dibuka
-                    // ============================================================
                     AutoFocusPane(
                         paneKey = previewCategory,
                         focusDelayMs = 150L,
@@ -265,7 +261,6 @@ fun SettingsScreen(
                             .fillMaxSize()
                             .alpha(alpha)
                     ) {
-                        // CEK DEVELOPER BELUM UNLOCK
                         if (previewCategory == SettingsCategory.DEVELOPER &&
                             !SettingsNavState.isDeveloperUnlocked
                         ) {
@@ -391,7 +386,7 @@ fun SettingsScreen(
 }
 
 // ============================================================
-// DEVELOPER LOCKED PANE — placeholder sebelum PIN benar
+// DEVELOPER LOCKED PANE
 // ============================================================
 @Composable
 private fun DeveloperLockedPane() {
@@ -501,9 +496,7 @@ private fun SidebarItem(
 }
 
 // ============================================================
-// TOP BAR ICON BUTTON — TOMBOL KEMBALI
-// PENTING: focusProperties { down = ... } supaya D-pad arrow DOWN
-// tidak default ke tombol kembali, tapi ke pane pertama
+// TOP BAR ICON BUTTON
 // ============================================================
 @Composable
 private fun TopBarIconButton(
@@ -515,7 +508,7 @@ private fun TopBarIconButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.05f else 1f,
+        targetValue = if (isFocused) 1.1f else 1f,
         animationSpec = tween(150),
         label = "icon_scale"
     )
