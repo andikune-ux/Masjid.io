@@ -21,13 +21,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -423,7 +423,7 @@ fun DeveloperSettingsPane(
             }
             Box(modifier = Modifier.weight(1f)) {
                 FonnteButton(
-                    icon = Icons.Default.Send,
+                    icon = Icons.AutoMirrored.Filled.Send,
                     label = if (isTestingFonnte) "MENGIRIM..." else "TEST",
                     backgroundColor = IslamicGreen,
                     textColor = Color.White,
