@@ -64,7 +64,7 @@ app/src/main/java/com/example/
     │   └── QRISFocusOverlay.kt        -> Preview QRIS
     ├── slides/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
-    │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
+    │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan (V1.30.6)
     │   ├── KajianSlide.kt             -> Slide Jadwal Kajian
     │   └── SlideManager.kt            -> Manager rotasi slide
     ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
@@ -75,7 +75,8 @@ app/src/main/java/com/example/
     │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
     │   ├── NetworkHelper.kt           -> Helper deteksi IP WiFi
     │   ├── IoControlScreen.kt         -> UI radar iO Control + media progress
-    │   └── IoControlHelpSheet.kt      -> Panduan iO Control
+    │   ├── IoControlHelpSheet.kt      -> Panduan iO Control
+    │   └── RestartCountdownOverlay.kt -> Overlay countdown restart (V1.30.5)
     ├── settings/
     │   ├── SettingsScreen.kt          -> Menu utama (20 kategori)
     │   ├── DeveloperSettingsPane.kt   -> Opsi Developer
@@ -106,21 +107,22 @@ app/src/main/java/com/example/
     ├── components/
     │   ├── MakkahDynamicBackground.kt -> Tema Makkah Dinamis (V1.30.2)
     │   ├── ResponsiveLayoutHelper.kt  -> Auto-scale TV (V1.30.3)
+    │   ├── AutoFocusPane.kt           -> Auto-focus D-pad (V1.30.5)
     │   ├── TvSlider.kt                -> Slider TV
     │   ├── TvToggle.kt                -> Toggle TV
     │   ├── TvFocusHelper.kt           -> Helper fokus D-pad
     │   ├── FocusHelper.kt             -> Helper fokus tambahan
-    │   ├── NeonFocusBorder.kt         -> Border fokus neon
+    │   ├── NeonFocusBorder.kt         -> Border fokus berputar (V1.30.6)
     │   ├── PhotoSlideshow.kt          -> Slideshow foto
     │   ├── MasjidVideoPlayer.kt       -> Video player (ExoPlayer)
-    │   ├── UpdateDialog.kt            -> Dialog update
+    │   ├── UpdateDialog.kt            -> Dialog update (V1.30.6 fix tombol)
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat (with foto)
     │   ├── PrayerProgressBar.kt       -> Bar progres sholat
     │   ├── RunningTextMarquee.kt      -> Running text bergulir
     │   ├── PinDialog.kt               -> Dialog PIN
     │   ├── ChangePinDialog.kt         -> Dialog ubah PIN
-    │   ├── TopBar.kt                  -> Top bar
+    │   ├── TopBar.kt                  -> Top bar (V1.30.6 NeonFocusBorder)
     │   ├── ClockAndDate.kt            -> Jam & tanggal
     │   ├── MosqueHeader.kt            -> Header nama masjid
     │   ├── ArabesquePattern.kt        -> Pola arabesque
@@ -156,118 +158,140 @@ app/src/main/java/com/example/
    - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
    - Menu baru: Tampilan TV (kategori ke-20)
 
-5. MODE FOKUS SHOLAT (4 Fase)
+5. NAVIGASI D-PAD (V1.30.5 + V1.30.6) — BARU
+   - Auto-focus ke elemen pertama pane (AutoFocusPane.kt)
+   - Border fokus berputar (NeonFocusBorder.kt)
+   - Fokus pindah INSTANT, animasi scale smooth 150ms
+   - Blur glow tetap dipertahankan
+   - Fokus tidak mendarat di tombol Kembali
+   - Konsisten di semua layar (Settings, iO Control, HomeScreen)
+
+6. MODE FOKUS SHOLAT (4 Fase)
    - Adzan / Qobliyah / Fardhu / Dzikir
 
-6. AUDIO
+7. AUDIO
    - Mode Beep Only / Full Adzan / Silent
 
-7. SLIDE FULLSCREEN
+8. SLIDE FULLSCREEN
    - Slide QRIS / Laporan / Kajian auto-rotate
+   - Slide Laporan pakai icon dompet (V1.30.6, bukan celengan babi)
 
-8. CCTV MASJID
+9. CCTV MASJID
    - Widget PiP (RTSP + HTTP)
 
-9. iO CONTROL (V1.30.4 + V1.30.3)
-   - HP sebagai remote TV via WiFi
-   - Auto-discovery UDP + UI radar
-   - Transfer semua pengaturan antar device
-   - TRANSFER MEDIA (foto + video) via chunk upload — V1.30.4
-   - Kompres foto otomatis (1920px, 85%)
-   - Kompres video otomatis (MediaMuxer)
-   - Progress bar per-file + total
-   - Retry otomatis 3x per chunk
-   - Auto-restart penerima setelah transfer selesai
+10. iO CONTROL (V1.30.1 + V1.30.4)
+    - HP sebagai remote TV via WiFi
+    - Auto-discovery UDP + UI radar
+    - Transfer semua pengaturan antar device
+    - TRANSFER MEDIA (foto + video) via chunk upload
+    - Kompres foto otomatis (1920px, 85%)
+    - Kompres video otomatis (MediaMuxer)
+    - Progress bar per-file + total
+    - Retry otomatis 3x per chunk
+    - UPDATE PATH LOKAL setelah media masuk TV (V1.30.6)
+    - Auto-restart penerima setelah transfer selesai
 
-10. REMOTE CONTROL WEB
+11. REMOTE CONTROL WEB
     - HTTP server + dashboard browser HP
 
-11. MODE RAMADHAN
+12. MODE RAMADHAN
     - Countdown Imsak/Iftar + Tarawih + Kultum
 
-12. KIOSK MODE
+13. KIOSK MODE
     - Lock task + Watchdog + Auto-start
 
-13. TENTANG APLIKASI
+14. TENTANG APLIKASI
     - Periksa Update + Riwayat + Install APK
     - Tap file APK = install, tombol merah = hapus
+    - Dialog update fix: tombol selalu terlihat (V1.30.6)
 
-14. OPSI DEVELOPER (PIN 140399)
+15. OPSI DEVELOPER (PIN 140399)
     - Backup Aman + Riwayat Crash + WhatsApp Fonnte
 
-15. VERSIONING OTOMATIS
+16. VERSIONING OTOMATIS
     - Format V{inti}.{tanggal}.{countHariIni}
 
-16. WHATSAPP REPORT (FONNTE)
+17. WHATSAPP REPORT (FONNTE)
     - Notifikasi crash otomatis ke grup admin
 
-17. FOTO SLIDESHOW + 18. KONTEN ROTASI
+18. FOTO SLIDESHOW + 19. KONTEN ROTASI
 
-19. DZIKIR SETELAH SHOLAT (8 dzikir)
+20. DZIKIR SETELAH SHOLAT (8 dzikir)
 
-20. AUTO-SHOW CRASH LOG
+21. AUTO-SHOW CRASH LOG
 
-21. FULL SOURCE CODE EXPORT
+22. FULL SOURCE CODE EXPORT
 
-22. FIX CRASH NESTED SCROLL + FADE ANIMASI
+23. FIX CRASH NESTED SCROLL + FADE ANIMASI
 
-23. SALIN URL OTOMATIS
+24. SALIN URL OTOMATIS
 
-24. APK INSTALL DARI FILE TERSIMPAN
+25. APK INSTALL DARI FILE TERSIMPAN
 
-25. TAMPILAN TV RESPONSIF (V1.30.3)
+26. TAMPILAN TV RESPONSIF (V1.30.3)
 
-26. TRANSFER MEDIA iO CONTROL (V1.30.4) — BARU
+27. TRANSFER MEDIA iO CONTROL (V1.30.4)
     - Foto & video ikut terkirim via chunk
     - Progress per-file + total
     - Retry otomatis
     - Notifikasi status (sukses/gagal/berjalan)
+
+28. FIX MEDIA PATH (V1.30.6) — BARU
+    - Update settings TV dengan path lokal setelah media masuk
+    - Foto/video langsung muncul di TV setelah transfer
+    - Support: QRIS, Logo, Background, Kartu Sholat, Video, Slideshow
     """.trimIndent()
     
     val UPDATE_HISTORY = """
+V1.30.6 (03 Oktober 2026)
+- Fix fokus D-pad TV + fix transfer media iO Control
+- Foto/video tidak muncul di TV (fix path lokal)
+- AutoFocusPane: auto-fokus ke elemen pertama pane
+- Border fokus berputar kembali (NeonFocusBorder)
+- Icon dompet di Laporan Keuangan (ganti celengan babi)
+- UpdateDialog: tombol selalu terlihat + changelog scrollable
+
+V1.30.5 (03 Oktober 2026)
+- Auto-Focus Pane & Smooth D-pad Navigation
+- Fokus langsung ke elemen pertama pane
+- Border INSTANT + scale smooth 150ms
+- File baru: AutoFocusPane.kt
+
 V1.30.4 (02 Oktober 2026)
-- Transfer media iO Control — foto & video antar device
-- Chunk upload 1 MB per request (support video besar)
+- Transfer Media iO Control — Foto & Video Antar Device
+- Chunk upload 1 MB per request
 - Kompres foto + video otomatis
-- Progress bar per-file + total keseluruhan
-- Retry otomatis 3x per chunk
-- Alur: kirim settings → auto lanjut kirim media
-- File baru: MediaTransferHelper.kt
+- Progress bar per-file + total
+- Retry otomatis 3x
 
 V1.30.3 (02 Oktober 2026)
-- Responsive Auto-Scale — tampilan otomatis semua ukuran TV
-- Deteksi resolusi TV (px, dp, aspect ratio, density)
-- Safe Area padding 0-10% hindari overscan bezel
-- Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
-- Menu baru: Tampilan TV (kategori ke-20)
+- Responsive Auto-Scale semua ukuran TV
+- Deteksi resolusi, aspect ratio, density
+- Safe Area padding 0-10%
+- Menu baru: Tampilan TV
 
 V1.30.2 (02 Oktober 2026)
-- Tema Makkah Dinamis — langit real-time + cuaca otomatis
-- Matahari melengkung, bulan fase asli, awan, burung, bintang
-- Hujan + petir real-time dari cuaca lokasi
-- Siluet Masjidil Haram + Ka'bah + refleksi marmer
-- Fix: iO Control - transfer settings (fix 401)
-- Fix: AboutSettingsPane - install APK dari file tersimpan
+- Tema Makkah Dinamis (default)
+- Langit real-time + cuaca otomatis
+- Fix iO Control transfer (fix 401)
 
 V1.30.1 (30 September 2026)
 - iO Control: HP sebagai remote TV via WiFi
 - Auto-discovery device (UDP broadcast)
-- UI radar biru + 2 tombol KIRIM/TERIMA
 
 V1.29.3 (29 September 2026)
-- Fix crash nested scroll di SettingsScreen
-- Ganti Crossfade ke Box + fade manual (300ms)
-- Fix RunningTextMarquee (divide by zero)
-- Auto-show dialog crash log setelah force close
+- Fix crash nested scroll
+- Ganti Crossfade ke Box + fade manual
+- Auto-show dialog crash log
 
 V1.28.4 (29 September 2026)
 - Slide Fullscreen (QRIS, Laporan, Kajian)
 - Konten Rotasi (Ayat, Hadits, Asmaul Husna)
-- Mode Ramadhan lengkap + CCTV + Remote Control
+- CCTV + Remote Control
 
 V1.28.3 (29 September 2026)
-- Fokus D-pad lebih tebal, TvSlider + TvToggle
-- LocationSettingsPane + IdentitySettingsPane lengkap
+- Fokus D-pad, TvSlider + TvToggle
+- LocationSettingsPane + IdentitySettingsPane
 
 V1.28.2 (28 September 2026)
 - Versioning otomatis + Keystore permanen
@@ -305,6 +329,11 @@ V1.28.0 (27 September 2026)
 21. TV beda ukuran kepotong → ResponsiveLayoutHelper
 22. Extension .dp() bentrok dengan Compose → rename .scaledDp()
 23. Foto & video tidak ikut transfer iO Control → chunk upload (V1.30.4)
+24. Foto/video tidak muncul di TV → update path lokal (V1.30.6)
+25. Fokus D-pad hilang/tidak jelas → AutoFocusPane (V1.30.5)
+26. Border fokus tidak terlihat (tertutup solid) → tipis dim gold (V1.30.6)
+27. Icon celengan babi di Laporan Keuangan → dompet (V1.30.6)
+28. Tombol UpdateDialog tidak terlihat → fillMaxHeight 0.92f (V1.30.6)
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -320,6 +349,16 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[03-10-2026] - V1.30.6
+Error: Fungsi applyMediaPathToSettings tidak ditemukan
+File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+Solusi: Tambah fungsi applyMediaPathToSettings setelah saveMediaFile
+
+[03-10-2026] - V1.30.6
+Error: Konten RemoteServer.kt terpotong saat paste
+File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+Solusi: Bagi jadi 8 BAGIAN rata, paste berurutan
 
 [02-10-2026] - V1.30.4
 Error: Foto & video tidak ikut terkirim via iO Control (hanya path)
@@ -416,7 +455,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.30.4
+- Versi saat ini : V1.30.6
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -494,9 +533,9 @@ PENANGANAN BUILD ERROR:
 5. Commit ulang
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.30.4)
+- Tidak ada (semua fitur selesai per V1.30.6)
     """.trimIndent()
-    
+  
     val MEMORY_KNOWLEDGE = """
 ============================================================
 MEMORY KNOWLEDGE & INSTRUCTION — MASJID.IO
@@ -568,7 +607,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.30.4
+  Versi saat ini : V1.30.6
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -647,10 +686,6 @@ Solusi: [cara memperbaiki]
 
 Backup Aman WAJIB menyertakan ISI SEMUA FILE KODE.
 
-FILE YANG HARUS DI-EXPORT:
-- Semua file .kt, .java, .xml, .gradle, .kts
-- Semua file .toml, .yml, .yaml, .properties, .pro
-
 FORMAT EXPORT:
 ---BEGIN--- path/file.kt
 [ISI KODE LENGKAP]
@@ -683,129 +718,108 @@ LINK UTAMA:
   Repo Utama: https://github.com/andikune-ux/Masjid.io
   Daftar Semua File: https://api.github.com/repos/andikune-ux/Masjid.io/git/trees/main?recursive=1
 
-LINK RAW (baca file langsung):
-  Base Raw: https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
-
-LINK BLOB (lihat di browser):
-  Base Blob: https://github.com/andikune-ux/Masjid.io/blob/main/
+LINK RAW: https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
+LINK BLOB: https://github.com/andikune-ux/Masjid.io/blob/main/
 
 FOLDER KUNCI:
-- MainActivity.kt
-- util/BackupManager.kt
-- util/CrashReporter.kt
-- util/GithubSourceFetcher.kt
-- util/SettingsTransferHelper.kt
-- util/RemoteControlClient.kt
-- util/MediaTransferHelper.kt (V1.30.4)
-- data/AppKnowledge.kt
-- data/UpdateHistory.kt
-- data/local/SettingsRepository.kt
-- data/local/SunMoonCalculator.kt
-- data/model/AppSettings.kt
-- ui/settings/SettingsScreen.kt
-- ui/settings/AboutSettingsPane.kt
-- ui/settings/CustomBackgroundPane.kt
-- ui/settings/TvDisplaySettingsPane.kt
-- ui/remote/RemoteServer.kt
-- ui/remote/DeviceDiscovery.kt
-- ui/remote/IoControlScreen.kt
-- ui/components/MakkahDynamicBackground.kt
-- ui/components/ResponsiveLayoutHelper.kt
-- ui/home/HomeScreen.kt
+- app/src/main/java/com/example/MainActivity.kt
+- app/src/main/java/com/example/util/BackupManager.kt
+- app/src/main/java/com/example/util/CrashReporter.kt
+- app/src/main/java/com/example/util/GithubSourceFetcher.kt
+- app/src/main/java/com/example/util/SettingsTransferHelper.kt
+- app/src/main/java/com/example/util/RemoteControlClient.kt
+- app/src/main/java/com/example/util/MediaTransferHelper.kt
+- app/src/main/java/com/example/data/AppKnowledge.kt
+- app/src/main/java/com/example/data/UpdateHistory.kt
+- app/src/main/java/com/example/data/local/SettingsRepository.kt
+- app/src/main/java/com/example/data/local/SunMoonCalculator.kt
+- app/src/main/java/com/example/data/model/AppSettings.kt
+- app/src/main/java/com/example/ui/settings/SettingsScreen.kt
+- app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
+- app/src/main/java/com/example/ui/settings/TvDisplaySettingsPane.kt
+- app/src/main/java/com/example/ui/remote/RemoteServer.kt
+- app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
+- app/src/main/java/com/example/ui/remote/IoControlScreen.kt
+- app/src/main/java/com/example/ui/components/MakkahDynamicBackground.kt
+- app/src/main/java/com/example/ui/components/ResponsiveLayoutHelper.kt
+- app/src/main/java/com/example/ui/components/AutoFocusPane.kt
+- app/src/main/java/com/example/ui/components/NeonFocusBorder.kt
+- app/src/main/java/com/example/ui/home/HomeScreen.kt
 - app/build.gradle.kts
 - gradle/libs.versions.toml
 - .github/workflows/build.yml
 
-CATATAN:
-- Repo PUBLIC -> bebas diakses kapan saja
-- JANGAN minta user copy-paste manual kalau bisa buka sendiri
-
 === BAGIAN 16 — FITUR iO CONTROL ===
 
-FITUR:
-- HP sebagai remote tampilan TV via WiFi/Hotspot sama
-- Auto-discovery via UDP broadcast (port 45678)
-- UI radar biru (sweep 360° + pulse)
+- HP sebagai remote TV via WiFi
+- Auto-discovery UDP (port 45678)
 - Transfer semua pengaturan antar device
 - Endpoint /api/io/receive PUBLIC (fix 401)
 
-FILE: DeviceDiscovery.kt, IoControlScreen.kt, RemoteServer.kt,
-      NetworkHelper.kt, SettingsTransferHelper.kt, RemoteControlClient.kt
-
 === BAGIAN 17 — FITUR TEMA MAKKAH DINAMIS ===
 
-FITUR:
-- Langit Makkah bergerak real-time 24 jam
-- Matahari melengkung, bulan fase asli via algoritma lunar
-- Awan 12 bulatan 3-layer, burung V-formation, bintang berkelip
-- Hujan + petir real-time (Open-Meteo)
-- Siluet Masjidil Haram + Ka'bah HD + pita emas Hizam
+- Langit real-time 24 jam
+- Matahari melengkung + bulan fase asli
+- Awan, burung, bintang, hujan, petir
+- Siluet Masjidil Haram + Ka'bah + Hizam emas
 - Lampu arcade + menara NYALA saat malam
-- Tema DEFAULT
-
-FILE: SunMoonCalculator.kt, MakkahDynamicBackground.kt,
-      AppSettings.kt, HomeScreen.kt, CustomBackgroundPane.kt
+- Default theme
 
 === BAGIAN 18 — FITUR APK INSTALL DARI FILE ===
 
-FITUR:
-- Tap file APK tersimpan -> INSTALL
-- Tombol merah terpisah -> HAPUS
-- Visual: border hijau + "TAP UNTUK INSTALL"
+- Tap file APK = INSTALL
+- Tombol merah terpisah = HAPUS
 - Folder: /sdcard/masjid.io/pembaharuan aplikasi/
-
-FILE: AboutSettingsPane.kt, ApkDownloader.kt
 
 === BAGIAN 19 — FITUR RESPONSIVE AUTO-SCALE TV ===
 
-FITUR:
-- Deteksi otomatis resolusi TV (px, dp, aspect, density)
+- Deteksi resolusi TV otomatis
 - Base 1920x1080 — auto-scale 0.6× s/d 2.5×
-- Safe Area Padding 0-10% untuk overscan bezel
+- Safe Area Padding 0-10%
 - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
-- Menu baru: Tampilan TV (kategori ke-20)
+- Menu: Tampilan TV (kategori ke-20)
+- Extension: .scaledDp() & .scaledSp() — JANGAN pakai .dp()/.sp()
 
-FILE: ResponsiveLayoutHelper.kt, TvDisplaySettingsPane.kt,
-      HomeScreen.kt, SettingsScreen.kt, AppSettings.kt
+=== BAGIAN 20 — FITUR TRANSFER MEDIA iO CONTROL ===
 
-FIELD: tvAutoScaleEnabled, tvSafeAreaPercent, tvLayoutPreset
-
-CATATAN:
-- Extension .scaledDp() dan .scaledSp() — JANGAN pakai .dp()/.sp()
-- ScreenInfo via CompositionLocal (ResponsiveRoot)
-
-=== BAGIAN 20 — FITUR TRANSFER MEDIA iO CONTROL (V1.30.4) ===
-
-FITUR BARU:
-- Foto & video IKUT terkirim via iO Control (fix bug lama)
-- Chunk upload 1 MB per request (support video besar)
-- Base64 encoding untuk transfer via HTTP POST
-- Kompres foto otomatis (1920px, quality 85%)
-- Kompres video otomatis (MediaMuxer remux tanpa re-encode)
-- Progress bar per-file + total keseluruhan
+- Foto & video ikut terkirim via chunk upload (1 MB/chunk)
+- Base64 encode untuk HTTP POST
+- Kompres foto (1920px, 85%) + video (MediaMuxer)
+- Progress bar per-file + total
 - Retry otomatis 3x per chunk
-- Alur: kirim settings → auto lanjut kirim media
-- File disimpan di filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}
-- Endpoint media PUBLIC (tidak perlu login)
+- Alur: settings → media → finalize
+- File di filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}
+- Endpoint media PUBLIC
 
-FILE TERKAIT:
-- util/MediaTransferHelper.kt          -> Chunk + kompres (BARU)
-- util/RemoteControlClient.kt          -> sendMediaFilesChunked()
-- util/SettingsTransferHelper.kt       -> uploadMediaFiles()
-- ui/remote/RemoteServer.kt            -> 4 endpoint media baru
-- ui/remote/IoControlScreen.kt         -> MediaProgressView + enum baru
+=== BAGIAN 21 — FITUR AUTO-FOCUS D-PAD (V1.30.5) ===
 
-ENDPOINT BARU:
-- POST /api/io/receive-media-start     -> mulai transfer
-- POST /api/io/receive-media-chunk     -> kirim chunk (base64)
-- POST /api/io/receive-media-finish    -> selesaikan + simpan
-- GET  /api/io/media-status            -> cek status aktif
+- AutoFocusPane.kt: auto-fokus ke elemen pertama pane
+- Fokus tidak mendarat di tombol Kembali
+- Border fokus INSTANT pindah
+- Scale smooth 150ms menyusul
+- Blur glow tetap ada
 
-CATATAN PENTING:
-- File besar (500 MB) butuh 10+ menit
-- Jangan tutup aplikasi saat transfer
-- Kompres video pakai MediaMuxer (stream copy, tidak re-encode)
-- Progress 2 tingkat: per-file + total keseluruhan
+=== BAGIAN 22 — FITUR MEDIA PATH FIX (V1.30.6) ===
+
+- Foto/video tidak muncul di TV (fix path lokal)
+- applyMediaPathToSettings() di RemoteServer.kt
+- Ganti path HP → path lokal setelah media tersimpan
+- Support: QRIS, Logo, Background, Kartu Sholat, Video, Slideshow
+
+=== BAGIAN 23 — FITUR BORDER BERPUTAR (V1.30.6) ===
+
+- NeonFocusBorder: core border tipis (dim gold 20%)
+- Glow berputar 2-kutub (putih + emas)
+- Tail 30% dari keliling
+- Blur tetap ada
+- Animasi berputar terlihat jelas
+
+=== BAGIAN 24 — FITUR UPDATE DIALOG FIX (V1.30.6) ===
+
+- Dialog pakai fillMaxHeight(0.92f) — maks 92% tinggi layar
+- Changelog pakai weight(1f) + verticalScroll
+- Tombol SKIP / NANTI / UPDATE selalu terlihat
+- build.yml: extract changelog dari UpdateHistory.kt
 
 ============================================================
 END OF MEMORY KNOWLEDGE
