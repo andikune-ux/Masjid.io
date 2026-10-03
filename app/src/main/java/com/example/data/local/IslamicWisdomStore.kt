@@ -177,6 +177,9 @@ object IslamicWisdomStore {
         )
     )
 
+    val wisdomCards: List<WisdomCardItem>
+        get() = items
+
     fun getFilteredItems(settings: AppSettings): List<WisdomCardItem> {
         val filtered = items.filter { item ->
             when (item.category) {

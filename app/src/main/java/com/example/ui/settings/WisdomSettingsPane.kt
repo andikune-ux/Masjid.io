@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.IslamicWisdomStore
 import com.example.data.model.AppSettings
 import com.example.ui.components.TvSlider
+import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
@@ -157,6 +158,68 @@ fun WisdomSettingsPane(
                 valueRange = 4f..60f,
                 steps = 55,
                 unit = " Detik"
+            )
+        }
+
+        // ============================================================
+        // FILTER KATEGORI KARTU MUTIARA
+        // ============================================================
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFF091620))
+                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Pilih Kategori Konten yang Ditampilkan:",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+            Text(
+                text = "Aktifkan atau nonaktifkan jenis mutiara nasihat pada karusel layar utama.",
+                fontSize = 12.sp,
+                color = TextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            TvToggle(
+                label = "Asmaul Husna",
+                description = "Nama-nama agung Allah beserta arti dan fadhilahnya",
+                isChecked = settings.showAsmaulHusna,
+                onToggle = { onUpdate(settings.copy(showAsmaulHusna = it)) }
+            )
+
+            TvToggle(
+                label = "Hadits Shahih Harian",
+                description = "Hadits-hadits pilihan seputar sholat, adab, dan keutamaan ibadah",
+                isChecked = settings.showHaditsHarian,
+                onToggle = { onUpdate(settings.copy(showHaditsHarian = it)) }
+            )
+
+            TvToggle(
+                label = "Ayat Al-Qur'an Pilihan",
+                description = "Kutipan ayat suci Al-Qur'an penyejuk hati dan pengingat ketaatan",
+                isChecked = settings.showAyatQuran,
+                onToggle = { onUpdate(settings.copy(showAyatQuran = it)) }
+            )
+
+            TvToggle(
+                label = "Doa Harian & Masjid",
+                description = "Doa setelah adzan, doa masuk/keluar masjid, dan doa harian",
+                isChecked = settings.showDoaHarian,
+                onToggle = { onUpdate(settings.copy(showDoaHarian = it)) }
+            )
+
+            TvToggle(
+                label = "Pengingat Sholat Sunnah",
+                description = "Keutamaan sholat sunnah rawatib, dhuha, dan tahajjud",
+                isChecked = settings.showSunnahReminder,
+                onToggle = { onUpdate(settings.copy(showSunnahReminder = it)) }
             )
         }
 
