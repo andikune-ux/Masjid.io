@@ -14,6 +14,56 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.30.6",
+            date = "03 Oktober 2026",
+            title = "Fix Fokus D-pad TV + Fix Transfer Media iO Control",
+            features = listOf(
+                "Fix CRITICAL: foto & video tidak muncul di TV setelah transfer iO Control",
+                "Update settings TV dengan path lokal setelah file media masuk",
+                "Fungsi baru: applyMediaPathToSettings() di RemoteServer.kt",
+                "Support update path: QRIS, Logo, Background, Kartu Sholat, Video, Foto Slideshow",
+                "Fix fokus D-pad tidak jelas / hilang di layar Settings",
+                "File baru: AutoFocusPane.kt — auto-fokus ke elemen pertama pane",
+                "Fokus langsung ke elemen pertama pane (bukan tombol Kembali)",
+                "Border fokus jadi INSTANT saat pindah, animasi scale menyusul smooth 150ms",
+                "Kembalikan animasi border berputar di NeonFocusBorder",
+                "Core border tipis (dim gold 20%) → glow berputar 2-kutub terlihat jelas",
+                "Blur glow tetap dipertahankan sesuai permintaan",
+                "TvFocusHelper: spring(800) diganti tween(150) — respons lebih cepat",
+                "IoControlScreen: semua tombol pakai NeonFocusBorder",
+                "TopBar: tombol Settings pakai NeonFocusBorder",
+                "Fix icon celengan babi di slide Laporan Keuangan",
+                "Ganti icon Icons.Default.Savings → Icons.Default.AccountBalanceWallet",
+                "Icon dompet lebih cocok untuk konteks masjid",
+                "Konsisten border berputar di seluruh halaman Settings, iO Control, HomeScreen"
+            )
+        ),
+        UpdateEntry(
+            version = "V1.30.5",
+            date = "03 Oktober 2026",
+            title = "Auto-Focus Pane & Smooth D-pad Navigation",
+            features = listOf(
+                "Fix UX: fokus D-pad sekarang langsung ke elemen PERTAMA pane (bukan tombol Kembali)",
+                "Auto-focus instan saat pane baru dibuka — tidak perlu tekan D-pad dulu",
+                "File baru: AutoFocusPane.kt — wrapper sekali pakai untuk 20 pane",
+                "SettingsScreen: bungkus semua pane dengan AutoFocusPane",
+                "Fokus pindah INSTANT — user langsung tahu elemen mana yang aktif",
+                "Border tebal muncul INSTANT saat fokus pindah",
+                "Scale smooth 150ms MENYUSUL setelah fokus (bukan bareng)",
+                "Glow blur tetap ada, animasi menyusul (tidak menghilang)",
+                "TvFocusHelper: spring(800) diganti tween(150) — lebih snappy",
+                "4 modifier di TvFocusHelper: pro, simple, icon, card — semua konsisten",
+                "NeonFocusBorder: border instant via drawInstantBorder()",
+                "NeonFocusBorder: glow blur tetap, dot berputar smooth",
+                "Boundary color: emas full opacity saat fokus (INSTANT)",
+                "Hilangkan efek 'ayun dulu' dari spring lama",
+                "Fix UX: tidak lagi kepencet tombol Kembali tidak sengaja saat buru-buru",
+                "Fix UX: navigasi antar tombol terasa langsung nempel, tidak nyangkut",
+                "Performa TV low-end lebih lancar karena animasi singkat",
+                "Konsisten di semua pane: Location, Audio, QRIS, CCTV, iO Control, dll"
+            )
+        ),
+        UpdateEntry(
             version = "V1.30.4",
             date = "02 Oktober 2026",
             title = "Transfer Media iO Control — Foto & Video Antar Device",
@@ -36,7 +86,6 @@ object UpdateHistory {
                 "File RemoteControlClient.kt: sendMediaFilesChunked() + MediaTransferResult",
                 "File SettingsTransferHelper.kt: uploadMediaFiles() wrapper",
                 "File IoControlScreen.kt: MediaProgressView + enum SENDING_MEDIA",
-                "Fix: transfer settings via iO Control tetap normal (tidak terganggu)",
                 "Auto-save media di folder internal TV: filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}"
             )
         ),
@@ -56,7 +105,6 @@ object UpdateHistory {
                 "TV 4K: font & padding auto-membesar proporsional",
                 "TV 720p: font & padding auto-mengecil proporsional",
                 "Tombol Settings di TopBar tidak terpotong di TV apapun",
-                "Kartu sholat, jam, panel imam/muadzin semua responsif",
                 "Menu baru di Pengaturan: 'Tampilan TV' (kategori ke-20)",
                 "Info resolusi TV real-time tampil di panel pengaturan",
                 "Toggle Auto-Scale ON/OFF (default ON)",
@@ -65,9 +113,7 @@ object UpdateHistory {
                 "Tombol Test Safe Area untuk cek area aman dari bezel",
                 "File baru: ResponsiveLayoutHelper.kt (helper deteksi & scale)",
                 "File baru: TvDisplaySettingsPane.kt (panel pengaturan)",
-                "AppSettings: 3 field baru — tvAutoScaleEnabled, tvSafeAreaPercent, tvLayoutPreset",
-                "SettingsRepository: load/save 3 field responsive",
-                "HomeScreen: dibungkus ResponsiveRoot untuk auto-scale"
+                "AppSettings: 3 field baru — tvAutoScaleEnabled, tvSafeAreaPercent, tvLayoutPreset"
             )
         ),
         UpdateEntry(
@@ -77,7 +123,6 @@ object UpdateHistory {
             features = listOf(
                 "Fitur BARU: Tema Makkah Dinamis sebagai tema DEFAULT",
                 "Langit Makkah bergerak real-time: matahari melengkung dari timur ke barat",
-                "Matahari otomatis berubah posisi sesuai jam: Subuh - Dzuhur - Maghrib",
                 "Bulan bergeser otomatis dari kiri bawah ke kanan atas sepanjang malam",
                 "Fase bulan REAL: purnama/sabit mengikuti siklus lunar otomatis",
                 "Awan bergerak kiri ke kanan dengan 6 lapis paralax",
@@ -91,13 +136,11 @@ object UpdateHistory {
                 "Siluet Masjidil Haram + Ka'bah + pita emas Hizam",
                 "Lampu arcade menyala otomatis saat malam",
                 "7 gradasi warna langit otomatis (subuh-malam)",
-                "Background lama tetap ada: NATURE, KABAH, EMERALD, CUSTOM",
                 "Fix CRITICAL: transfer iO Control antar device berhasil (fix error 401)",
                 "Fix: /api/io/receive jadi public route",
                 "Fix: APK tersimpan bisa di-tap untuk INSTALL",
                 "Fix: tombol hapus APK dipisah dari area install",
-                "File baru: SunMoonCalculator.kt (posisi matahari/bulan/fase lunar)",
-                "File baru: MakkahDynamicBackground.kt (canvas langit dinamis)"
+                "File baru: SunMoonCalculator.kt + MakkahDynamicBackground.kt"
             )
         ),
         UpdateEntry(
@@ -108,30 +151,19 @@ object UpdateHistory {
                 "Fitur iO Control: HP sebagai remote tampilan TV via WiFi/Hotspot sama",
                 "Auto-discovery device Masjid.io lain pakai UDP broadcast (port 45678)",
                 "UI radar biru dengan animasi sweep 360° + pulse",
-                "Tampilkan daftar device yang ditemukan (nama, role, IP, versi)",
-                "Auto-detect TV atau HP via Configuration.UI_MODE_TYPE_TELEVISION",
                 "Setelah connect: 2 tombol besar KIRIM dan TERIMA",
                 "Transfer semua pengaturan: tema, jadwal, ustadz, running text, PIN, dll",
                 "Progress bar realtime 0-100% saat transfer",
                 "Device penerima otomatis restart setelah 100% transfer",
                 "Serialisasi AppSettings via JSON (aman lintas versi)",
-                "RemoteSettingsPane: tombol BUKA iO CONTROL (biru, di atas)",
-                "RemoteSettingsPane: tombol SALIN URL otomatis (clipboard)",
-                "RemoteSettingsPane: auto-refresh IP tiap 5 detik",
-                "RemoteSettingsPane: info chip IP / PORT / TOKEN",
-                "RemoteSettingsPane: peringatan kalau WiFi OFF",
-                "Permission baru: CHANGE_WIFI_MULTICAST_STATE, ACCESS_WIFI_STATE, NEARBY_WIFI_DEVICES",
-                "Endpoint baru RemoteServer: POST /api/io/handshake",
-                "Endpoint baru RemoteServer: POST /api/io/receive",
+                "RemoteSettingsPane: tombol BUKA iO CONTROL + SALIN URL otomatis",
+                "Endpoint baru RemoteServer: POST /api/io/handshake + /api/io/receive",
                 "Fix: SettingsRepository lengkap — load/save semua 100+ field",
-                "Fix: SettingsRepository tambah exportSummary()",
-                "Fix: UpdateHistory tambah getFullText() + getSummary()",
-                "Fix: AppKnowledge tambah BAGIAN 15 (link GitHub)",
-                "Fix: AppKnowledge tambah aturan anti-truncation",
                 "Fix: build.gradle.kts timezone Asia/Jakarta",
                 "Fix: build.yml tag release pakai versi asli via aapt"
             )
         ),
+        
         UpdateEntry(
             version = "V1.29.3",
             date = "29 September 2026",
@@ -139,14 +171,9 @@ object UpdateHistory {
             features = listOf(
                 "Fix crash: 'Vertically scrollable component was measured with infinity maximum height'",
                 "Ganti Crossfade ke Box + key + alpha fade manual (300ms)",
-                "Pertahankan animasi fade antar pane tanpa nested scroll",
                 "Update BackupManager: pertahankan method lama + fetch source code dari GitHub",
-                "Update SettingsRepository: tambah exportSummary() + load/save semua field",
-                "Update UpdateHistory: tambah getFullText() dan getSummary()",
-                "Update AppKnowledge: tambah BAGIAN 15 (link GitHub)",
                 "Fix: RunningTextMarquee guard text kosong + durasi minimal 1000ms",
-                "Feat: MainActivity auto-show dialog crash log setelah force close",
-                "Feat: CrashAutoShowHelper + dialog crash (Salin + Kembali)"
+                "Feat: MainActivity auto-show dialog crash log setelah force close"
             )
         ),
         UpdateEntry(
@@ -157,24 +184,13 @@ object UpdateHistory {
                 "Menambahkan Slide Fullscreen (QRIS Infaq)",
                 "Menambahkan Slide Laporan Keuangan",
                 "Menambahkan Slide Jadwal Kajian",
-                "Menambahkan SlideManager (rotasi otomatis)",
                 "Menambahkan Konten Rotasi (Ayat/Hadits/Asmaul Husna)",
-                "Menambahkan data DzikirStore (8 dzikir)",
-                "Menambahkan data AyatStore (10 ayat)",
-                "Menambahkan data HaditsStore (10 hadits)",
-                "Menambahkan data AsmaulHusnaStore (99 nama Allah)",
+                "Menambahkan data DzikirStore + AyatStore + HaditsStore + AsmaulHusnaStore",
                 "Menambahkan Mode Ramadhan Overlay",
                 "Menambahkan CCTV Widget (RTSP + HTTP support)",
-                "Menambahkan ExoPlayer RTSP (untuk CCTV RTSP)",
                 "Menambahkan Remote Control (HTTP server)",
-                "Menambahkan Remote Dashboard (info akses)",
                 "Menambahkan background foto di PrayerCard",
-                "Menambahkan Phase 4 Dzikir di PrayerFocusOverlay",
-                "Menambahkan SlideSettingsPane",
-                "Menambahkan CctvSettingsPane",
-                "Menambahkan RemoteSettingsPane",
-                "Update SettingsScreen (menu baru: Slide, CCTV, Remote)",
-                "Update MainActivity (integrasi RemoteServer)"
+                "Menambahkan Phase 4 Dzikir di PrayerFocusOverlay"
             )
         ),
         UpdateEntry(
@@ -197,7 +213,7 @@ object UpdateHistory {
             date = "28 September 2026",
             title = "Versioning, Keystore & Fitur Inti",
             features = listOf(
-                "Implementasi versioning otomatis (format V1.28.2)",
+                "Implementasi versioning otomatis",
                 "Setup keystore permanen (update tanpa uninstall)",
                 "Auto GitHub Release setiap build",
                 "Fitur Backup Aman (TXT)",
