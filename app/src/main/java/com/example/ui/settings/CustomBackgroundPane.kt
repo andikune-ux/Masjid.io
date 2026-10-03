@@ -62,6 +62,7 @@ import com.example.ui.theme.UrgentRed
 fun CustomBackgroundPane(
     settings: AppSettings,
     onUpdate: (AppSettings) -> Unit,
+    onRestart: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val bgPickerLauncher = rememberLauncherForActivityResult(
@@ -90,7 +91,9 @@ fun CustomBackgroundPane(
             color = IslamicGoldLight
         )
 
-        // Custom Background Picker Card
+        // ============================================================
+        // CUSTOM BACKGROUND PICKER (tetap)
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -174,7 +177,9 @@ fun CustomBackgroundPane(
             }
         }
 
-        // Preset Background Themes
+        // ============================================================
+        // PRESET BACKGROUND THEMES (tetap)
+        // ============================================================
         Text(
             text = "Pilihan Tema Latar Bawaan:",
             fontSize = 15.sp,
@@ -221,9 +226,38 @@ fun CustomBackgroundPane(
                 onClick = { onUpdate(settings.copy(backgroundMode = mode)) }
             )
         }
+
+        // ============================================================
+        // V1.30.7 BARU — DAFTAR FILE TEMPLATE .iO
+        // ============================================================
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "📁 FILE TEMPLATE .iO YANG PERNAH DITERIMA",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
+        Text(
+            text = "File template berisi pengaturan + foto + video dari pengirim. " +
+                    "Tekan GUNAKAN untuk apply template, INFO untuk lihat log, " +
+                    "HAPUS untuk buang file.",
+            fontSize = 12.sp,
+            color = TextSecondary,
+            lineHeight = 16.sp
+        )
+
+        IoBundleListSection(
+            currentSettings = settings,
+            onApplySettings = { newSettings ->
+                onUpdate(newSettings)
+            },
+            onRestart = onRestart
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
-
 // ============================================================
 // KOMPONEN: TOMBOL DENGAN FOKUS LEBIH TEBAL
 // ============================================================
