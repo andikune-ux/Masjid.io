@@ -54,6 +54,10 @@ jobs:
 
       - name: Verify keystore exists
         run: |
+          if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
+            echo "📦 Restore debug.keystore dari debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
           if [ ! -f debug.keystore ]; then
             echo "❌ debug.keystore tidak ada di repo!"
             exit 1
