@@ -20,7 +20,8 @@ object PrayerTimesCalculator {
         date: LocalDate = LocalDate.now(),
         latitude: Double = -6.1754,
         longitude: Double = 106.8272,
-        timezoneOffset: Double = 7.0
+        timezoneOffset: Double = 7.0,
+        calculationMethod: String = "Kementerian Agama RI (Kemenag)"
     ): PrayerSchedule {
         val dayOfYear = date.dayOfYear
 
@@ -58,36 +59,67 @@ object PrayerTimesCalculator {
             return Math.toDegrees(acos(clamped)) / 15.0
         }
 
-        // Kemenag standard parameters:
-        // Subuh: -20 degrees
-        // Sunrise/Syuruq: -0.833 degrees
-        // Ashar (Shafi'i): shadow multiplier = 1
-        // Maghrib/Sunset: -0.833 degrees
-        // Isya: -18 degrees
-        // Ihtiyat (safety margin): +2 minutes for Dzuhur, Subuh, Ashar, Maghrib, Isya
+        // Tentukan parameter sudut astronomi berdasarkan metode
+        val subuhAngle: Double
+        val isyaAngle: Double
+        val ihtiyatMinutes: Double
+        var isUmmAlQuraFixedInterval = false
 
-        val subuhHA = hourAngle(-20.0)
+        when {
+            calculationMethod.contains("Muslim World", ignoreCase = true) -> {
+                subuhAngle = -18.0
+                isyaAngle = -17.0
+                ihtiyatMinutes = 0.0
+            }
+            calculationMethod.contains("ISNA", ignoreCase = true) -> {
+                subuhAngle = -15.0
+                isyaAngle = -15.0
+                ihtiyatMinutes = 0.0
+            }
+            calculationMethod.contains("Umm Al-Qura", ignoreCase = true) -> {
+                subuhAngle = -18.5
+                isyaAngle = -18.0
+                ihtiyatMinutes = 0.0
+                isUmmAlQuraFixedInterval = true // 90 menit setelah maghrib
+            }
+            calculationMethod.contains("Egyptian", ignoreCase = true) -> {
+                subuhAngle = -19.5
+                isyaAngle = -17.5
+                ihtiyatMinutes = 0.0
+            }
+            else -> {
+                // Default: Kementerian Agama RI (Kemenag)
+                subuhAngle = -20.0
+                isyaAngle = -18.0
+                ihtiyatMinutes = 2.0 // Standar pengaman (ihtiyat) Kemenag
+            }
+        }
+
+        val subuhHA = hourAngle(subuhAngle)
         val sunriseHA = hourAngle(-0.833)
 
-        // Ashar altitude calculation
+        // Ashar altitude calculation (Shafi'i: shadow multiplier = 1)
         val noonAlt = (Math.PI / 2.0) - abs(latRad - delta)
         val noonShadow = 1.0 / tan(noonAlt)
-        val asharShadow = 1.0 + noonShadow // Shafi'i: 1 * object height + noon shadow
+        val asharShadow = 1.0 + noonShadow
         val asharAltRad = atan(1.0 / asharShadow)
         val asharHA = hourAngle(Math.toDegrees(asharAltRad))
 
         val sunsetHA = sunriseHA
-        val isyaHA = hourAngle(-18.0)
+        val isyaHA = hourAngle(isyaAngle)
 
-        // Add 2-3 minutes ihtiyat (kemenag practice)
-        val ihtiyatHours = 2.0 / 60.0
+        val ihtiyatHours = ihtiyatMinutes / 60.0
 
         val subuhDecimal = transit - subuhHA + ihtiyatHours
         val syuruqDecimal = transit - sunriseHA
         val dzuhurDecimal = transit + ihtiyatHours
         val asharDecimal = transit + asharHA + ihtiyatHours
         val maghribDecimal = transit + sunsetHA + ihtiyatHours
-        val isyaDecimal = transit + isyaHA + ihtiyatHours
+        val isyaDecimal = if (isUmmAlQuraFixedInterval) {
+            maghribDecimal + 1.5 // 90 menit setelah maghrib
+        } else {
+            transit + isyaHA + ihtiyatHours
+        }
         val imsakDecimal = subuhDecimal - (10.0 / 60.0)
         val dhuhaDecimal = syuruqDecimal + (25.0 / 60.0)
 

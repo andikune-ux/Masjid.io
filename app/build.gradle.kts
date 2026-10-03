@@ -140,6 +140,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-exoplayer-rtsp:1.4.1")
 
+    // ===== QR CODE (BARCODE) GENERATION =====
+    implementation("com.google.zxing:core:3.5.3")
+
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)

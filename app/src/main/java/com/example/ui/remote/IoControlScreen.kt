@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Tv
@@ -153,6 +154,7 @@ fun IoControlScreen(
     var isRetrying by remember { mutableStateOf(false) }
 
     var showHelp by remember { mutableStateOf(false) }
+    var showWebRemoteQr by remember { mutableStateOf(false) }
     var currentIp by remember { mutableStateOf("...") }
     var isWifiOn by remember { mutableStateOf(false) }
 
@@ -356,10 +358,16 @@ fun IoControlScreen(
                 IoPhase.ERROR -> "Error"
             },
             onBack = onBack,
-            onHelp = { showHelp = true }
+            onHelp = { showHelp = true },
+            onWebRemoteQr = { showWebRemoteQr = true }
         )
 
-        NetworkInfoBar(ip = currentIp, wifiOn = isWifiOn, deviceName = deviceName)
+        NetworkInfoBar(
+            ip = currentIp,
+            wifiOn = isWifiOn,
+            deviceName = deviceName,
+            onOpenQr = { showWebRemoteQr = true }
+        )
 
         when (phase) {
             IoPhase.SCANNING, IoPhase.CONNECTING -> {
@@ -378,6 +386,7 @@ fun IoControlScreen(
                             DeviceDiscovery.startScan(context, scope)
                         }
                     },
+                    onOpenWebRemoteQr = { showWebRemoteQr = true },
                     scanButtonFocusRequester = scanButtonFocusRequester,
                     firstDeviceFocusRequester = firstDeviceFocusRequester
                 )
@@ -529,6 +538,18 @@ fun IoControlScreen(
                 onDismiss = { showFailureDialog = false }
             )
         }
+
+        // ===== DIALOG BARCODE QR WEB REMOTE =====
+        if (showWebRemoteQr) {
+            val webRemoteUrl = "http://$currentIp:$serverPort/?token=${currentSettings.remoteAuthToken}"
+            WebRemoteQrDialog(
+                url = webRemoteUrl,
+                ip = currentIp,
+                port = serverPort,
+                isWifiConnected = isWifiOn,
+                onDismiss = { showWebRemoteQr = false }
+            )
+        }
     }
 }
 // ============================================================
@@ -539,7 +560,8 @@ private fun IoTopBar(
     title: String,
     subtitle: String,
     onBack: () -> Unit,
-    onHelp: () -> Unit
+    onHelp: () -> Unit,
+    onWebRemoteQr: () -> Unit = {}
 ) {
     val interactionSourceBack = remember { MutableInteractionSource() }
     val isFocusedBack by interactionSourceBack.collectIsFocusedAsState()
@@ -548,6 +570,10 @@ private fun IoTopBar(
     val interactionSourceHelp = remember { MutableInteractionSource() }
     val isFocusedHelp by interactionSourceHelp.collectIsFocusedAsState()
     val isPressedHelp by interactionSourceHelp.collectIsPressedAsState()
+
+    val interactionSourceQr = remember { MutableInteractionSource() }
+    val isFocusedQr by interactionSourceQr.collectIsFocusedAsState()
+    val isPressedQr by interactionSourceQr.collectIsPressedAsState()
 
     Row(
         modifier = Modifier
@@ -592,32 +618,74 @@ private fun IoTopBar(
             }
         }
 
-        NeonFocusBorder(
-            focused = isFocusedHelp,
-            pressed = isPressedHelp,
-            borderWidth = 5.dp,
-            cornerRadius = 10.dp
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(IoBlue.copy(alpha = 0.2f))
-                    .focusable(interactionSource = interactionSourceHelp)
-                    .clickable(
-                        interactionSource = interactionSourceHelp,
-                        indication = null
-                    ) { onHelp() }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Tombol SCAN BARCODE WEB REMOTE
+            NeonFocusBorder(
+                focused = isFocusedQr,
+                pressed = isPressedQr,
+                borderWidth = 5.dp,
+                cornerRadius = 10.dp
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = "Panduan",
-                    tint = IoBlueLight,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "Panduan", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF103657))
+                        .border(1.5.dp, IslamicGoldLight.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                        .focusable(interactionSource = interactionSourceQr)
+                        .clickable(
+                            interactionSource = interactionSourceQr,
+                            indication = null
+                        ) { onWebRemoteQr() }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCode,
+                        contentDescription = "Scan Barcode Web Remote",
+                        tint = IslamicGoldLight,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Scan Barcode HP",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                }
+            }
+
+            // Tombol PANDUAN
+            NeonFocusBorder(
+                focused = isFocusedHelp,
+                pressed = isPressedHelp,
+                borderWidth = 5.dp,
+                cornerRadius = 10.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(IoBlue.copy(alpha = 0.2f))
+                        .focusable(interactionSource = interactionSourceHelp)
+                        .clickable(
+                            interactionSource = interactionSourceHelp,
+                            indication = null
+                        ) { onHelp() }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Panduan",
+                        tint = IoBlueLight,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Panduan", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
+                }
             }
         }
     }
@@ -627,7 +695,12 @@ private fun IoTopBar(
 // INFO BAR JARINGAN
 // ============================================================
 @Composable
-private fun NetworkInfoBar(ip: String, wifiOn: Boolean, deviceName: String) {
+private fun NetworkInfoBar(
+    ip: String,
+    wifiOn: Boolean,
+    deviceName: String,
+    onOpenQr: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -658,7 +731,49 @@ private fun NetworkInfoBar(ip: String, wifiOn: Boolean, deviceName: String) {
                 fontFamily = FontFamily.Monospace
             )
         }
-        Text(text = deviceName, fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val qrInteraction = remember { MutableInteractionSource() }
+            val isFocusedQr by qrInteraction.collectIsFocusedAsState()
+            val isPressedQr by qrInteraction.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = isFocusedQr,
+                pressed = isPressedQr,
+                cornerRadius = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF132F4C))
+                        .border(1.dp, IoBlueLight.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .focusable(interactionSource = qrInteraction)
+                        .clickable(
+                            interactionSource = qrInteraction,
+                            indication = null
+                        ) { onOpenQr() }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCode,
+                        contentDescription = "Scan Barcode Web Remote",
+                        tint = IoBlueLight,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Scan Barcode Web HP",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = IoBlueLight
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(text = deviceName, fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
+        }
     }
 }
 
@@ -672,6 +787,7 @@ private fun ScanningView(
     myRole: String,
     onDeviceClick: (DiscoveredDevice) -> Unit,
     onRescan: () -> Unit,
+    onOpenWebRemoteQr: () -> Unit = {},
     scanButtonFocusRequester: FocusRequester,
     firstDeviceFocusRequester: FocusRequester
 ) {
@@ -741,6 +857,72 @@ private fun ScanningView(
             }
 
             ScanButton(onClick = onRescan, focusRequester = scanButtonFocusRequester)
+
+            // TOMBOL CEPAT SCAN BARCODE WEB REMOTE HP
+            WebRemoteQuickButton(onClick = onOpenWebRemoteQr)
+        }
+    }
+}
+
+// ============================================================
+// WEB REMOTE QUICK BUTTON
+// ============================================================
+@Composable
+private fun WebRemoteQuickButton(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFF0F3254), Color(0xFF144775))
+                    )
+                )
+                .border(1.5.dp, IslamicGold.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.QrCode,
+                    contentDescription = null,
+                    tint = IslamicGoldLight,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "SCAN BARCODE WEB REMOTE HP",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                    Text(
+                        text = "Atur TV langsung lewat browser di HP Anda",
+                        fontSize = 10.5.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
         }
     }
 }

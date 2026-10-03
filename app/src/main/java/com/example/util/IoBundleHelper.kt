@@ -526,7 +526,7 @@ object IoBundleHelper {
             null
         }
     }
-}
+
     // ============================================================
     // V1.30.7 BARU — RESTORE DENGAN PATH LOKAL
     // Sama seperti restoreBundle, tapi settings yang dikembalikan
@@ -539,13 +539,14 @@ object IoBundleHelper {
     ): RestoreResult {
         // 1. Panggil restoreBundle untuk extract media
         val raw = restoreBundle(context, bundleFile, currentSettings)
-        if (!raw.success || raw.settings == null) return raw
+        val initialSettings = raw.settings
+        if (!raw.success || initialSettings == null) return raw
 
         // 2. Scan folder masjid_io untuk cari file terbaru
         val filesDir = context.filesDir
         val root = File(filesDir, "masjid_io")
 
-        var patched = raw.settings
+        var patched: AppSettings = initialSettings
 
         // Patch QRIS
         findLatestFile(File(root, "qris"))?.let { f ->

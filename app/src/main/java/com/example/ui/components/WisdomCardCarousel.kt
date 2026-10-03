@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.IslamicEvent
 import com.example.data.local.IslamicWisdomStore
+import com.example.data.model.AppSettings
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.TextPrimary
@@ -30,19 +31,24 @@ import kotlinx.coroutines.delay
 @Composable
 fun WisdomCardCarousel(
     upcomingEvent: IslamicEvent?,
+    settings: AppSettings = AppSettings(),
     intervalSeconds: Int = 12,
     animationType: String = "Fade",
     modifier: Modifier = Modifier
 ) {
-    val wisdomList = IslamicWisdomStore.wisdomCards
-    var currentIndex by remember { mutableStateOf(0) }
+    val wisdomList = remember(settings.showAsmaulHusna, settings.showHaditsHarian, settings.showAyatQuran, settings.showDoaHarian, settings.showSunnahReminder) {
+        IslamicWisdomStore.getFilteredItems(settings)
+    }
 
+    var currentIndex by remember { mutableStateOf(0) }
     val safeInterval = intervalSeconds.coerceAtLeast(4)
 
-    LaunchedEffect(safeInterval) {
+    LaunchedEffect(safeInterval, wisdomList.size) {
         while (true) {
             delay(safeInterval * 1000L)
-            currentIndex = (currentIndex + 1) % (wisdomList.size + if (upcomingEvent != null) 1 else 0)
+            if (wisdomList.isNotEmpty()) {
+                currentIndex = (currentIndex + 1) % (wisdomList.size + if (upcomingEvent != null) 1 else 0)
+            }
         }
     }
 
@@ -115,15 +121,24 @@ fun WisdomCardCarousel(
                         color = if (isUrgent) Color.White else IslamicGold
                     )
                 }
-            } else {
+            } else if (wisdomList.isNotEmpty()) {
                 val item = wisdomList[index % wisdomList.size]
+                val displayText = "${item.title}: ${item.translation}"
+
+                // Ukuran teks adaptif otomatis agar teks panjang tidak pernah terpotong!
+                val adaptiveFontSize = when {
+                    displayText.length > 130 -> 10.5.sp
+                    displayText.length > 80 -> 12.sp
+                    else -> 13.sp
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0x880C1B26))
                         .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 5.dp),
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -137,7 +152,7 @@ fun WisdomCardCarousel(
                     ) {
                         Text(
                             text = item.category.uppercase(),
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = IslamicGoldLight
                         )
@@ -145,13 +160,14 @@ fun WisdomCardCarousel(
 
                     Spacer(modifier = Modifier.width(10.dp))
 
-                    // Title & translation
+                    // Title & Content (Dua baris adaptif jika panjang, tidak terpotong)
                     Text(
-                        text = "${item.title}: \"${item.translation}\"",
-                        fontSize = 13.sp,
+                        text = displayText,
+                        fontSize = adaptiveFontSize,
                         fontWeight = FontWeight.Medium,
                         color = TextPrimary,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 15.sp,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center
@@ -162,7 +178,7 @@ fun WisdomCardCarousel(
                     // Source
                     Text(
                         text = item.source,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = IslamicGold,
                         maxLines = 1

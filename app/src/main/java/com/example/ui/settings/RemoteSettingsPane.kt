@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,8 +31,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,10 +60,12 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.AppSettings
 import com.example.ui.components.NeonFocusBorder
 import com.example.ui.components.TvToggle
+import com.example.ui.remote.WebRemoteQrDialog
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.util.QrCodeGenerator
 import kotlinx.coroutines.delay
 import java.net.Inet4Address
 
@@ -84,6 +91,7 @@ fun RemoteSettingsPane(
     // ============================================================
     var currentIp by remember { mutableStateOf(getLocalIpAddress(context)) }
     var currentNetworkOn by remember { mutableStateOf(isNetworkConnected(context)) }
+    var showQrDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -233,27 +241,139 @@ fun RemoteSettingsPane(
             }
         }
         
-        // AKSES DARI HP — dengan TOMBOL SALIN OTOMATIS
+        // AKSES DARI HP — SCAN BARCODE QR & TOMBOL SALIN OTOMATIS
         if (isServerRunning) {
             val fullUrl = "http://$currentIp:${settings.remoteServerPort}/?token=${settings.remoteAuthToken}"
+            val qrBitmap = remember(fullUrl) {
+                if (fullUrl.isNotBlank()) QrCodeGenerator.generateQrImageBitmap(fullUrl, 400) else null
+            }
 
-            RemoteSectionCard(title = "AKSES DARI HP") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
+            RemoteSectionCard(title = "AKSES DARI HP — SCAN BARCODE QR") {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(
-                        text = "① Sambungkan HP ke jaringan yang sama",
+                        text = "Scan barcode dengan kamera HP untuk langsung membuka web remote pengaturan TV:",
                         fontSize = 13.sp,
                         color = TextPrimary
                     )
+
+                    // KARTU TAMPILAN BARCODE QR
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF0C1F33))
+                            .border(1.5.dp, IoBlue.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // KOTAK QR CODE
+                            Box(
+                                modifier = Modifier
+                                    .size(150.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White)
+                                    .border(2.dp, IslamicGold, RoundedCornerShape(12.dp))
+                                    .clickable { showQrDialog = true }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (qrBitmap != null) {
+                                    Image(
+                                        bitmap = qrBitmap,
+                                        contentDescription = "Barcode QR Web Remote",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    CircularProgressIndicator(color = IoBlue, modifier = Modifier.size(28.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            // PENJELASAN & TOMBOL PERBESAR
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCode,
+                                        contentDescription = null,
+                                        tint = IoBlueLight,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "KODE QR SIAP SCAN",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = IslamicGoldLight
+                                    )
+                                }
+
+                                Text(
+                                    text = "Buka Kamera di HP Anda, arahkan ke kode QR ini. Notifikasi web akan langsung muncul di HP.",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary,
+                                    lineHeight = 16.sp
+                                )
+
+                                val expandInteraction = remember { MutableInteractionSource() }
+                                val expandFocused by expandInteraction.collectIsFocusedAsState()
+                                val expandPressed by expandInteraction.collectIsPressedAsState()
+
+                                NeonFocusBorder(
+                                    focused = expandFocused,
+                                    pressed = expandPressed,
+                                    cornerRadius = 10.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFF132F4C))
+                                            .border(1.dp, IoBlueLight, RoundedCornerShape(10.dp))
+                                            .focusable(interactionSource = expandInteraction)
+                                            .clickable(
+                                                interactionSource = expandInteraction,
+                                                indication = null
+                                            ) { showQrDialog = true }
+                                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.OpenInFull,
+                                                contentDescription = null,
+                                                tint = IoBlueLight,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "PERBESAR BARCODE QR",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = IoBlueLight
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "② Buka browser di HP (Chrome/Safari)",
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "③ Salin URL di bawah ini:",
-                        fontSize = 13.sp,
-                        color = TextPrimary
+                        text = "Atau gunakan alamat URL manual:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextSecondary
                     )
 
                     CopyUrlBox(
@@ -298,6 +418,17 @@ fun RemoteSettingsPane(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    if (showQrDialog) {
+        val fullUrl = "http://$currentIp:${settings.remoteServerPort}/?token=${settings.remoteAuthToken}"
+        WebRemoteQrDialog(
+            url = fullUrl,
+            ip = currentIp,
+            port = settings.remoteServerPort,
+            isWifiConnected = currentNetworkOn,
+            onDismiss = { showQrDialog = false }
+        )
     }
 }
 
