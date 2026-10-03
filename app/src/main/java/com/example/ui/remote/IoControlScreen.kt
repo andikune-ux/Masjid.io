@@ -35,11 +35,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -63,7 +67,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -93,6 +99,7 @@ private val IoRed = Color(0xFFFF5252)
 private val IoBg = Color(0xFF0A1929)
 private val IoCard = Color(0xFF132F4C)
 private val IoAmber = Color(0xFFFFA726)
+private val IoPurple = Color(0xFFBB86FC)
 
 // ============================================================
 // STATE MACHINE
@@ -103,12 +110,16 @@ enum class IoPhase {
     CONNECTED,
     SENDING_SETTINGS,
     SENDING_MEDIA,
-    FINALIZING,
+    VERIFYING,          // V1.30.7 BARU: cek hasil transfer
+    READY_TO_RESTART,   // V1.30.7 BARU: tampil konfirmasi restart manual
     RECEIVING,
     DONE,
     ERROR
 }
 
+// ============================================================
+// MAIN COMPOSABLE
+// ============================================================
 @Composable
 fun IoControlScreen(
     settingsRepository: SettingsRepository,
@@ -125,6 +136,7 @@ fun IoControlScreen(
     val isScanning by DeviceDiscovery.isScanning.collectAsState()
     val currentSettings by settingsRepository.settingsFlow.collectAsState()
 
+    // ===== STATE UTAMA =====
     var phase by remember { mutableStateOf(IoPhase.SCANNING) }
     var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
     var transferProgress by remember { mutableStateOf(0f) }
@@ -132,6 +144,13 @@ fun IoControlScreen(
     var errorMessage by remember { mutableStateOf("") }
 
     var mediaProgress by remember { mutableStateOf<MediaTransferHelper.TransferProgress?>(null) }
+
+    // ===== STATE V1.30.7 BARU =====
+    var transferResult by remember { mutableStateOf<RemoteControlClient.MediaTransferResult?>(null) }
+    var allMediaList by remember { mutableStateOf<List<MediaTransferHelper.MediaFileInfo>>(emptyList()) }
+    var failedFieldKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showFailureDialog by remember { mutableStateOf(false) }
+    var isRetrying by remember { mutableStateOf(false) }
 
     var showHelp by remember { mutableStateOf(false) }
     var currentIp by remember { mutableStateOf("...") }
@@ -211,7 +230,9 @@ fun IoControlScreen(
             }
         }
     }
-
+        // ============================================================
+    // LAUNCHER: Kirim Settings + Media (dengan alur baru V1.30.7)
+    // ============================================================
     LaunchedEffect(phase) {
         when (phase) {
             IoPhase.SENDING_SETTINGS -> {
@@ -235,6 +256,8 @@ fun IoControlScreen(
                 )
 
                 if (result.success) {
+                    // Siapkan daftar media untuk dikirim
+                    allMediaList = MediaTransferHelper.collectMediaFiles(currentSettings)
                     phase = IoPhase.SENDING_MEDIA
                 } else {
                     phase = IoPhase.ERROR
@@ -246,52 +269,62 @@ fun IoControlScreen(
                 val target = selectedDevice ?: return@LaunchedEffect
                 statusMessage = "Mengirim media..."
 
-                val mediaResult = SettingsTransferHelper.uploadMediaFiles(
+                if (allMediaList.isEmpty()) {
+                    // Tidak ada media → langsung verify (anggap sukses)
+                    transferResult = RemoteControlClient.MediaTransferResult(
+                        success = true,
+                        message = "Tidak ada media untuk dikirim",
+                        filesTransferred = 0,
+                        filesFailed = 0
+                    )
+                    failedFieldKeys = emptyList()
+                    phase = IoPhase.VERIFYING
+                    return@LaunchedEffect
+                }
+
+                val mediaResult = RemoteControlClient.sendMediaFilesChunked(
                     context = context,
                     targetIp = target.ip,
                     targetPort = target.port,
-                    settings = currentSettings,
+                    mediaList = allMediaList,
                     onProgress = { progress ->
                         mediaProgress = progress
                         statusMessage = progress.message
                     }
                 )
 
-                if (mediaResult.success) {
-                    transferProgress = 1f
-                    phase = IoPhase.FINALIZING
-                } else {
-                    if (mediaResult.filesFailed > 0 && mediaResult.filesTransferred > 0) {
-                        statusMessage = "${mediaResult.filesTransferred} file sukses, ${mediaResult.filesFailed} gagal"
-                        delay(2000)
-                        phase = IoPhase.FINALIZING
-                    } else {
-                        phase = IoPhase.ERROR
-                        errorMessage = mediaResult.message
-                    }
-                }
+                // Simpan hasil — apapun statusnya (sukses / gagal)
+                transferResult = mediaResult
+                failedFieldKeys = mediaResult.failures.map { it.fieldKey }
+
+                // Pindah ke VERIFYING (bukan finalize langsung)
+                phase = IoPhase.VERIFYING
             }
 
-            IoPhase.FINALIZING -> {
-                val target = selectedDevice ?: return@LaunchedEffect
-                statusMessage = "Menyelesaikan transfer..."
-
-                delay(500)
-
-                val finalizeResult = RemoteControlClient.sendFinalizeSignal(
-                    targetIp = target.ip,
-                    targetPort = target.port
-                )
-
-                if (finalizeResult.success) {
-                    statusMessage = "Selesai! ${target.name} akan restart dalam 5 detik."
-                    delay(2000)
-                    phase = IoPhase.DONE
-                } else {
-                    statusMessage = "Data terkirim. Restart manual diperlukan (${finalizeResult.message})"
-                    delay(3000)
-                    phase = IoPhase.DONE
+            IoPhase.VERIFYING -> {
+                // Cek hasil transfer
+                val result = transferResult
+                if (result == null) {
+                    phase = IoPhase.ERROR
+                    errorMessage = "Hasil transfer tidak diketahui"
+                    return@LaunchedEffect
                 }
+
+                statusMessage = if (result.filesFailed == 0) {
+                    "Semua ${result.filesTransferred} file terkirim dengan baik"
+                } else {
+                    "${result.filesTransferred} sukses, ${result.filesFailed} gagal"
+                }
+
+                // Selalu pindah ke READY_TO_RESTART (baik sukses atau ada gagal)
+                // Restart adalah keputusan MANUAL user
+                delay(500)
+                phase = IoPhase.READY_TO_RESTART
+            }
+
+            IoPhase.READY_TO_RESTART -> {
+                // Tidak ada aksi otomatis.
+                // Menunggu user klik tombol KONFIRMASI RESTART atau COBA LAGI.
             }
 
             else -> { /* no-op */ }
@@ -316,7 +349,8 @@ fun IoControlScreen(
                 IoPhase.CONNECTED -> "Terhubung"
                 IoPhase.SENDING_SETTINGS -> "Mengirim pengaturan..."
                 IoPhase.SENDING_MEDIA -> "Mengirim media..."
-                IoPhase.FINALIZING -> "Menyelesaikan..."
+                IoPhase.VERIFYING -> "Memeriksa hasil transfer..."
+                IoPhase.READY_TO_RESTART -> "Menunggu konfirmasi restart"
                 IoPhase.RECEIVING -> "Menunggu pengirim..."
                 IoPhase.DONE -> "Selesai"
                 IoPhase.ERROR -> "Error"
@@ -351,7 +385,13 @@ fun IoControlScreen(
             IoPhase.CONNECTED -> {
                 ConnectedView(
                     device = selectedDevice,
-                    onSend = { phase = IoPhase.SENDING_SETTINGS },
+                    onSend = {
+                        // Reset state sebelum kirim
+                        transferResult = null
+                        failedFieldKeys = emptyList()
+                        allMediaList = emptyList()
+                        phase = IoPhase.SENDING_SETTINGS
+                    },
                     onReceive = { phase = IoPhase.RECEIVING },
                     onDisconnect = {
                         selectedDevice = null
@@ -374,10 +414,88 @@ fun IoControlScreen(
                     targetName = selectedDevice?.name ?: "Perangkat"
                 )
             }
-            IoPhase.FINALIZING -> {
-                FinalizingView(
+            IoPhase.VERIFYING -> {
+                VerifyingView(
+                    message = statusMessage,
+                    targetName = selectedDevice?.name ?: "Perangkat"
+                )
+            }
+            IoPhase.READY_TO_RESTART -> {
+                ReadyToRestartView(
+                    result = transferResult,
                     targetName = selectedDevice?.name ?: "Perangkat",
-                    message = statusMessage
+                    allMediaList = allMediaList,
+                    onConfirmRestart = {
+                        // Kirim sinyal finalize → TV countdown → restart
+                        scope.launch {
+                            statusMessage = "Mengirim sinyal restart..."
+                            val target = selectedDevice
+                            if (target != null) {
+                                val finalResult = RemoteControlClient.sendFinalizeSignal(
+                                    targetIp = target.ip,
+                                    targetPort = target.port
+                                )
+                                if (finalResult.success) {
+                                    phase = IoPhase.DONE
+                                    statusMessage = "Restart sedang dilakukan di ${target.name}"
+                                } else {
+                                    phase = IoPhase.ERROR
+                                    errorMessage = "Gagal kirim sinyal restart:\n${finalResult.message}"
+                                }
+                            }
+                        }
+                    },
+                    onShowFailures = { showFailureDialog = true },
+                    onRetryFailed = {
+                        // Kirim ulang HANYA file yang gagal
+                        val target = selectedDevice ?: return@ReadyToRestartView
+                        val failedKeys = failedFieldKeys
+                        if (failedKeys.isEmpty()) return@ReadyToRestartView
+
+                        isRetrying = true
+                        scope.launch {
+                            statusMessage = "Mengirim ulang ${failedKeys.size} file gagal..."
+
+                            val retryResult = RemoteControlClient.retryFailedMedia(
+                                context = context,
+                                targetIp = target.ip,
+                                targetPort = target.port,
+                                allMediaList = allMediaList,
+                                failedFieldKeys = failedKeys,
+                                onProgress = { progress ->
+                                    mediaProgress = progress
+                                    statusMessage = progress.message
+                                }
+                            )
+
+                            isRetrying = false
+
+                            // Gabung hasil: file yang sukses sebelumnya + hasil retry
+                            val prevSuccess = (transferResult?.filesTransferred ?: 0)
+                            val newSuccess = retryResult.filesTransferred
+                            val newFailed = retryResult.filesFailed
+
+                            transferResult = RemoteControlClient.MediaTransferResult(
+                                success = newFailed == 0,
+                                message = if (newFailed == 0)
+                                    "Retry berhasil — semua file sudah masuk"
+                                else
+                                    "${newSuccess} sukses, ${newFailed} masih gagal",
+                                filesTransferred = prevSuccess + newSuccess,
+                                filesFailed = newFailed,
+                                totalBytes = (transferResult?.totalBytes ?: 0L) + retryResult.totalBytes,
+                                failures = retryResult.failures,
+                                allFailuresLog = retryResult.allFailuresLog
+                            )
+                            failedFieldKeys = retryResult.failures.map { it.fieldKey }
+                        }
+                    },
+                    onSkipRestart = {
+                        // User tidak mau restart sekarang.
+                        // Keluar-buka app nanti akan auto-pakai file yang sudah masuk.
+                        phase = IoPhase.DONE
+                        statusMessage = "Selesai. Template akan aktif otomatis saat app dibuka ulang."
+                    }
                 )
             }
             IoPhase.RECEIVING -> {
@@ -403,9 +521,16 @@ fun IoControlScreen(
                 )
             }
         }
+
+        // ===== DIALOG LOG KEGAGALAN =====
+        if (showFailureDialog) {
+            FailureLogDialog(
+                log = transferResult?.allFailuresLog ?: "(tidak ada log)",
+                onDismiss = { showFailureDialog = false }
+            )
+        }
     }
 }
-
 // ============================================================
 // TOP BAR
 // ============================================================
@@ -779,7 +904,6 @@ private fun DeviceCard(
         }
     }
 }
-
 // ============================================================
 // CONNECTED VIEW
 // ============================================================
@@ -905,7 +1029,7 @@ private fun BigActionButton(
 }
 
 // ============================================================
-// TRANSFER PROGRESS VIEW
+// TRANSFER PROGRESS VIEW (Settings)
 // ============================================================
 @Composable
 private fun TransferProgressView(
@@ -938,7 +1062,7 @@ private fun TransferProgressView(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(progress)
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(8.dp))
                     .background(
@@ -1095,14 +1219,14 @@ private fun MediaProgressView(
 }
 
 // ============================================================
-// FINALIZING VIEW — countdown sebelum restart
+// V1.30.7 BARU — VERIFYING VIEW
 // ============================================================
 @Composable
-private fun FinalizingView(
-    targetName: String,
-    message: String
+private fun VerifyingView(
+    message: String,
+    targetName: String
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "finalizing")
+    val infiniteTransition = rememberInfiniteTransition(label = "verify")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
@@ -1110,7 +1234,7 @@ private fun FinalizingView(
             animation = tween(800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "finalize_pulse"
+        label = "verify_pulse"
     )
 
     Column(
@@ -1121,73 +1245,637 @@ private fun FinalizingView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "✅ SEMUA TERKIRIM",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = IoGreen
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Box(
             modifier = Modifier
-                .size(120.dp)
+                .size(140.dp)
                 .clip(CircleShape)
-                .background(IoGreen.copy(alpha = pulseAlpha * 0.25f))
-                .border(3.dp, IoGreen.copy(alpha = pulseAlpha), CircleShape),
+                .background(IoPurple.copy(alpha = pulseAlpha * 0.2f))
+                .border(3.dp, IoPurple.copy(alpha = pulseAlpha), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "5",
-                fontSize = 64.sp,
-                fontWeight = FontWeight.Black,
-                color = IoGreen,
-                fontFamily = FontFamily.Monospace
+            CircularProgressIndicator(
+                color = IoPurple,
+                modifier = Modifier.size(80.dp),
+                strokeWidth = 5.dp
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         Text(
-            text = "MENYELESAIKAN...",
-            fontSize = 20.sp,
+            text = "🔍 MEMERIKSA HASIL TRANSFER",
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = IoGreenLight
+            color = IoPurple,
+            letterSpacing = 1.sp
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "$targetName akan restart dalam 5 detik",
+            text = "ke $targetName",
             fontSize = 14.sp,
-            color = TextPrimary,
-            textAlign = TextAlign.Center
+            color = TextSecondary
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.8f)
+                .fillMaxWidth(0.85f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(IoCard.copy(alpha = 0.6f))
-                .border(1.dp, IoGreen.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                .padding(14.dp),
+                .background(IoPurple.copy(alpha = 0.12f))
+                .border(1.dp, IoPurple.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = message,
-                fontSize = 12.sp,
-                color = TextSecondary,
+                fontSize = 14.sp,
+                color = TextPrimary,
                 textAlign = TextAlign.Center,
-                lineHeight = 18.sp
+                lineHeight = 20.sp
             )
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Mohon tunggu, sedang memverifikasi semua file...",
+            fontSize = 12.sp,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+// ============================================================
+// V1.30.7 BARU — READY TO RESTART VIEW
+// ============================================================
+@Composable
+private fun ReadyToRestartView(
+    result: RemoteControlClient.MediaTransferResult?,
+    targetName: String,
+    allMediaList: List<MediaTransferHelper.MediaFileInfo>,
+    onConfirmRestart: () -> Unit,
+    onShowFailures: () -> Unit,
+    onRetryFailed: () -> Unit,
+    onSkipRestart: () -> Unit
+) {
+    val totalSuccess = result?.filesTransferred ?: 0
+    val totalFailed = result?.filesFailed ?: 0
+    val failures = result?.failures ?: emptyList()
+    val isAllSuccess = totalFailed == 0
+
+    // Hitung jumlah foto & video dari daftar media
+    val photoCount = allMediaList.count { it.fileType == "photo" }
+    val videoCount = allMediaList.count { it.fileType == "video" }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ===== HEADER ICON =====
+        Box(
+            modifier = Modifier
+                .size(90.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isAllSuccess) IoGreen.copy(alpha = 0.2f)
+                    else IoAmber.copy(alpha = 0.2f)
+                )
+                .border(
+                    3.dp,
+                    if (isAllSuccess) IoGreen else IoAmber,
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isAllSuccess) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = null,
+                tint = if (isAllSuccess) IoGreen else IoAmber,
+                modifier = Modifier.size(56.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // ===== JUDUL =====
+        Text(
+            text = if (isAllSuccess) "✅ SEMUA FILE TERKIRIM" else "⚠️ SEBAGIAN FILE GAGAL",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (isAllSuccess) IoGreen else IoAmber,
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "ke $targetName",
+            fontSize = 13.sp,
+            color = TextSecondary
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ===== RINGKASAN =====
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(IoCard.copy(alpha = 0.7f))
+                .border(
+                    1.5.dp,
+                    if (isAllSuccess) IoGreen.copy(alpha = 0.5f) else IoAmber.copy(alpha = 0.5f),
+                    RoundedCornerShape(14.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryRow(
+                    label = "Total file",
+                    value = "${totalSuccess + totalFailed}"
+                )
+                SummaryRow(
+                    label = "Sukses",
+                    value = "$totalSuccess",
+                    valueColor = IoGreen
+                )
+                SummaryRow(
+                    label = "Gagal",
+                    value = "$totalFailed",
+                    valueColor = if (totalFailed > 0) IoRed else TextSecondary
+                )
+                SummaryRow(
+                    label = "📷 Foto",
+                    value = "$photoCount"
+                )
+                SummaryRow(
+                    label = "🎬 Video",
+                    value = "$videoCount"
+                )
+            }
+        }
+
+        // ===== INFO TAMBAHAN =====
+        if (isAllSuccess) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(IoGreen.copy(alpha = 0.1f))
+                    .border(1.dp, IoGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+            ) {
+                Text(
+                    text = "💡 Semua file sudah diterima dengan baik.\n" +
+                            "Klik tombol KONFIRMASI RESTART untuk mengaktifkan template di TV.\n" +
+                            "Atau klik LEWATI — template akan aktif otomatis saat app dibuka ulang.",
+                    fontSize = 12.sp,
+                    color = TextPrimary,
+                    lineHeight = 17.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else {
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(IoAmber.copy(alpha = 0.1f))
+                    .border(1.dp, IoAmber.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "📋 File yang gagal:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IoAmber
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    failures.take(5).forEach { f ->
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "• ",
+                                fontSize = 11.sp,
+                                color = IoRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Column {
+                                Text(
+                                    text = f.displayName,
+                                    fontSize = 11.sp,
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "  Gagal di: ${f.failedAt}",
+                                    fontSize = 10.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                    }
+                    if (failures.size > 5) {
+                        Text(
+                            text = "... dan ${failures.size - 5} file lagi",
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = "💡 Klik \"COBA LAGI\" untuk kirim ulang file yang gagal saja,\n" +
+                        "atau klik \"LIHAT LOG\" untuk melihat detail error Kotlin.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                lineHeight = 16.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ===== TOMBOL AKSI =====
+        if (isAllSuccess) {
+            // SUKSES SEMUA: tombol utama "KONFIRMASI RESTART" + tombol kecil "LEWATI"
+            ReadyActionButton(
+                icon = Icons.Default.Refresh,
+                title = "KONFIRMASI RESTART",
+                subtitle = "Aktifkan template & restart TV sekarang",
+                backgroundColor = IoGreen,
+                textColor = Color.White,
+                modifier = Modifier.fillMaxWidth(0.9f),
+                onClick = onConfirmRestart
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SmallOutlineButton(
+                icon = Icons.Default.Close,
+                label = "LEWATI (aktif otomatis saat app dibuka ulang)",
+                color = TextSecondary,
+                onClick = onSkipRestart
+            )
+        } else {
+            // ADA YANG GAGAL: tombol utama "COBA LAGI" + tombol "LIHAT LOG" + "RESTART SAJA"
+            ReadyActionButton(
+                icon = Icons.Default.Refresh,
+                title = "COBA LAGI (${totalFailed} FILE)",
+                subtitle = "Kirim ulang hanya file yang gagal",
+                backgroundColor = IoBlue,
+                textColor = Color.White,
+                modifier = Modifier.fillMaxWidth(0.9f),
+                onClick = onRetryFailed
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            ReadyActionButton(
+                icon = Icons.Default.Info,
+                title = "LIHAT LOG ERROR",
+                subtitle = "Tampilkan stack trace Kotlin lengkap",
+                backgroundColor = IoPurple.copy(alpha = 0.7f),
+                textColor = Color.White,
+                modifier = Modifier.fillMaxWidth(0.9f),
+                onClick = onShowFailures
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            ReadyActionButton(
+                icon = Icons.Default.Refresh,
+                title = "RESTART SAJA",
+                subtitle = "Lewati file gagal & terapkan yang sudah masuk",
+                backgroundColor = IoAmber.copy(alpha = 0.8f),
+                textColor = Color.Black,
+                modifier = Modifier.fillMaxWidth(0.9f),
+                onClick = onConfirmRestart
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SmallOutlineButton(
+                icon = Icons.Default.Close,
+                label = "TIDAK USAH RESTART DULU",
+                color = TextSecondary,
+                onClick = onSkipRestart
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ============================================================
+// ROW RINGKASAN
+// ============================================================
+@Composable
+private fun SummaryRow(
+    label: String,
+    value: String,
+    valueColor: Color = TextPrimary
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, fontSize = 13.sp, color = TextSecondary)
+        Text(
+            text = value,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = valueColor,
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+// ============================================================
+// READY ACTION BUTTON (tombol besar)
+// ============================================================
+@Composable
+private fun ReadyActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    backgroundColor: Color,
+    textColor: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 16.dp,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(backgroundColor.copy(alpha = 0.9f))
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(vertical = 18.dp, horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = textColor.copy(alpha = 0.85f)
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// SMALL OUTLINE BUTTON (tombol kecil untuk lewati)
+// ============================================================
+@Composable
+private fun SmallOutlineButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 4.dp,
+        cornerRadius = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0x22000000))
+                .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .focusable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { onClick() }
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                color = color,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+// ============================================================
+// FAILURE LOG DIALOG (popup log error Kotlin)
+// ============================================================
+@Composable
+private fun FailureLogDialog(
+    log: String,
+    onDismiss: () -> Unit
+) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000)
+            copied = false
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.9f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(IoBg)
+                .border(2.dp, IoRed.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // ===== HEADER =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = IoRed,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "LOG KEGAGALAN TRANSFER",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IoRed
+                        )
+                        Text(
+                            text = "Stack trace Kotlin lengkap",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                NeonFocusBorder(
+                    focused = false,
+                    pressed = false,
+                    borderWidth = 4.dp,
+                    cornerRadius = 8.dp
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(IoCard)
+                            .clickable { onDismiss() }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "TUTUP",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+            }
+
+            // ===== LOG CONTENT =====
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF000000))
+                    .border(1.dp, IoRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = log.ifBlank { "(tidak ada log)" },
+                    fontSize = 11.sp,
+                    color = Color(0xFF80E080),
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 16.sp
+                )
+            }
+
+            // ===== TOMBOL SALIN =====
+            val copyInteraction = remember { MutableInteractionSource() }
+            val copyFocused by copyInteraction.collectIsFocusedAsState()
+            val copyPressed by copyInteraction.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = copyFocused,
+                pressed = copyPressed,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (copied) IoGreen.copy(alpha = 0.3f) else IoBlue.copy(alpha = 0.2f)
+                        )
+                        .border(
+                            1.5.dp,
+                            if (copied) IoGreen else IoBlue,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .focusable(interactionSource = copyInteraction)
+                        .clickable(
+                            interactionSource = copyInteraction,
+                            indication = null
+                        ) {
+                            clipboard.setText(AnnotatedString(log))
+                            copied = true
+                        }
+                        .padding(vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (copied) Icons.Default.CheckCircle else Icons.Default.Info,
+                        contentDescription = null,
+                        tint = if (copied) IoGreen else IoBlueLight,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (copied) "✓ TERSALIN KE CLIPBOARD" else "📋 SALIN LOG KE CLIPBOARD",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (copied) IoGreen else IoBlueLight
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1279,6 +1967,24 @@ private fun DoneView(message: String) {
         Text(text = "SELESAI", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = IoGreen)
         Spacer(modifier = Modifier.height(12.dp))
         Text(text = message, fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(24.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoGreen.copy(alpha = 0.1f))
+                .border(1.dp, IoGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                .padding(14.dp)
+        ) {
+            Text(
+                text = "💡 Template yang sudah diterima akan otomatis aktif saat aplikasi dibuka ulang.",
+                fontSize = 12.sp,
+                color = TextPrimary,
+                lineHeight = 17.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         Spacer(modifier = Modifier.height(48.dp))
     }
 }
