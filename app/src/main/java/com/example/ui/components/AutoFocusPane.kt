@@ -1,35 +1,22 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.focusRestorer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 /**
  * AutoFocusPane — Wrapper untuk container pane di Settings.
  *
- * V1.30.7: Ganti logika ke `focusRestorer()`.
+ * V1.30.7 (revisi): Pakai focusGroup() (kompatibel Compose lama).
  *
- * SEBELUMNYA (V1.30.5):
- *   - Pakai LaunchedEffect + delay + requestFocus()
- *   - Bikin fokus tarik-menarik dengan sistem
- *   - Efek: fokus "bolak-balik" ke tombol Kembali
+ * Prinsip:
+ *   - focusGroup(): grup elemen fokus di dalam pane
+ *   - TIDAK panggil requestFocus() otomatis (bikin chaos)
+ *   - Biarkan sistem Compose yang atur navigasi dalam group
  *
- * SEKARANG:
- *   - Pakai focusRestorer() sesuai referensi Android
- *   - Fokus diingat posisi terakhir
- *   - Tidak panggil requestFocus() otomatis
- *   - Tidak pakai delay
- *
- * CARA KERJA:
- *   - Saat user masuk ke pane → Compose pilih elemen pertama
- *   - Saat user navigasi → posisi diingat
- *   - Saat user keluar-masuk pane → fokus balik ke posisi terakhir
- *   - Tidak ada tarik-menarik dengan sidebar atau TopBar
- *
- * @param paneKey Kunci untuk reset state saat pane berubah (opsional)
+ * @param paneKey Kunci untuk reset state (kompatibilitas)
  * @param modifier Modifier dari pemanggil
  * @param content Konten pane
  */
@@ -42,7 +29,7 @@ fun AutoFocusPane(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .focusRestorer()  // ← KUNCI: ingat posisi fokus terakhir
+            .focusGroup()  // ← grup fokus (kompatibel Compose lama)
     ) {
         content()
     }
