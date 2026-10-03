@@ -56,7 +56,6 @@ jobs:
         run: |
           if [ ! -f debug.keystore ]; then
             echo "❌ debug.keystore tidak ada di repo!"
-            echo "Jalankan workflow 'Setup Keystore' dulu."
             exit 1
           fi
           echo "✅ Keystore ditemukan: $(wc -c < debug.keystore) bytes"
@@ -134,6 +133,86 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "✅ Detected version from APK: $VERSION"
 
+      # ============================================================
+      # V1.30.6 BARU — Extract Changelog dari UpdateHistory.kt
+      # ============================================================
+      - name: Extract Changelog
+        id: changelog
+        run: |
+          echo "📝 Extract changelog dari UpdateHistory.kt..."
+
+          HISTORY_FILE="app/src/main/java/com/example/data/UpdateHistory.kt"
+          NOTES_FILE="release_notes.txt"
+
+          if [ ! -f "$HISTORY_FILE" ]; then
+            echo "⚠️ UpdateHistory.kt tidak ditemukan"
+            echo "notes=📋 Update tersedia. Lihat detail di GitHub Release." >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Ambil versi dari APK, contoh: V1.03.374
+          # Konversi ke format UpdateHistory, contoh: V1.30.6
+          # UpdateHistory pakai format V1.XX.Y, jadi ambil manual
+          # Ambil entry PERTAMA (paling atas) dari UpdateHistory
+
+          # Ambil baris pertama updateEntry (paling baru)
+          FIRST_VERSION=$(grep -m 1 'version = "V' "$HISTORY_FILE" | sed 's/.*"\(V[^"]*\)".*/\1/')
+          FIRST_DATE=$(grep -m 1 'date = "' "$HISTORY_FILE" | sed 's/.*"\([^"]*\)".*/\1/')
+          FIRST_TITLE=$(grep -m 1 'title = "' "$HISTORY_FILE" | sed 's/.*"\([^"]*\)".*/\1/')
+
+          echo "✅ Versi terbaru di UpdateHistory: $FIRST_VERSION"
+          echo "✅ Judul: $FIRST_TITLE"
+
+          # Extract features (semua baris "- ..." di dalam entry pertama)
+          # Batasi sampai entry berikutnya (find 2nd "UpdateEntry(")
+          awk '
+            BEGIN { entry_count = 0; in_features = 0 }
+            /UpdateEntry\(/ { entry_count++; if (entry_count > 1) exit }
+            entry_count == 1 && /features = listOf\(/ { in_features = 1; next }
+            entry_count == 1 && in_features && /^\s*\)\s*$/ { in_features = 0 }
+            entry_count == 1 && in_features {
+              gsub(/^\s*"/, "", $0)
+              gsub(/",?\s*$/, "", $0)
+              if (length($0) > 0) print "- " $0
+            }
+          ' "$HISTORY_FILE" > features.txt
+
+          FEATURE_COUNT=$(wc -l < features.txt)
+          echo "📊 Total fitur: $FEATURE_COUNT"
+
+          # Buat release notes
+          {
+            echo "## 🎉 MASJID.IO $FIRST_VERSION"
+            echo ""
+            echo "**$FIRST_TITLE**"
+            echo ""
+            echo "📅 Tanggal: $FIRST_DATE"
+            echo ""
+            echo "### 📋 Yang Baru & Diperbaiki:"
+            echo ""
+            cat features.txt
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 📦 Cara Install"
+            echo ""
+            echo "1. Download APK di bawah (di assets)"
+            echo "2. Install di Android TV / HP"
+            echo "3. Selesai — data lama tetap tersimpan"
+            echo ""
+            echo "### 🔧 Detail Build"
+            echo ""
+            echo "- Build otomatis dari commit \`${{ github.sha }}\`"
+            echo "- Workflow run #${{ github.run_number }}"
+            echo "- Versi aplikasi: \`${{ steps.version.outputs.VERSION }}\`"
+          } > "$NOTES_FILE"
+
+          echo "✅ Release notes tersimpan:"
+          head -20 "$NOTES_FILE"
+
+          # Simpan path file ke output
+          echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
+
       - name: Upload APK as Artifact
         if: success()
         uses: actions/upload-artifact@v4
@@ -149,6 +228,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
+          NOTES_FILE="${{ steps.changelog.outputs.notes_file }}"
+
           echo "🚀 Membuat release untuk tag: $VERSION"
 
           if gh release view "$VERSION" >/dev/null 2>&1; then
@@ -157,9 +238,16 @@ jobs:
             sleep 2
           fi
 
-          gh release create "$VERSION" \
-            --title "MASJID.IO $VERSION" \
-            --notes "## Update MASJID.IO $VERSION
+          if [ -f "$NOTES_FILE" ]; then
+            gh release create "$VERSION" \
+              --title "MASJID.IO $VERSION" \
+              --notes-file "$NOTES_FILE" \
+              app/build/outputs/apk/debug/*.apk
+          else
+            echo "⚠️ Release notes file tidak ditemukan, pakai default..."
+            gh release create "$VERSION" \
+              --title "MASJID.IO $VERSION" \
+              --notes "## Update MASJID.IO $VERSION
 
           Build otomatis dari commit ${{ github.sha }}
 
@@ -167,6 +255,7 @@ jobs:
           1. Download APK di bawah
           2. Install di Android TV / HP
           3. Selesai" \
-            app/build/outputs/apk/debug/*.apk
+              app/build/outputs/apk/debug/*.apk
+          fi
 
           echo "✅ Release $VERSION berhasil dibuat!"
