@@ -7,14 +7,23 @@ import com.example.data.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 /**
  * RemoteControlClient — HTTP client untuk kirim settings + media via iO Control.
  *
- * V1.30.5: Tambah sendFinalizeSignal() untuk trigger countdown restart di TV.
+ * V1.30.7: Verifikasi + error detail + retry file gagal
+ *   - Setiap catch simpan stack trace lengkap (Kotlin asli)
+ *   - MediaTransferResult berisi daftar failures + log lengkap
+ *   - Tambah retryFailedMedia() untuk kirim ulang file gagal saja
+ *   - Tambah queryServerMediaStatus() untuk cek status di server TV
  */
 object RemoteControlClient {
 
@@ -23,10 +32,23 @@ object RemoteControlClient {
     private const val MEDIA_TIMEOUT_MS = 60000
     private const val MAX_RETRY = 3
 
+    // ============================================================
+    // DATA CLASS
+    // ============================================================
     data class TransferResult(
         val success: Boolean,
         val message: String,
         val bytesSent: Int = 0
+    )
+
+    data class MediaFileFailure(
+        val fieldKey: String,
+        val displayName: String,
+        val exceptionClass: String,
+        val exceptionMessage: String,
+        val fullStackTrace: String,
+        val failedAt: String,
+        val timestamp: String
     )
 
     data class MediaTransferResult(
@@ -34,8 +56,63 @@ object RemoteControlClient {
         val message: String,
         val filesTransferred: Int = 0,
         val filesFailed: Int = 0,
-        val totalBytes: Long = 0L
+        val totalBytes: Long = 0L,
+        val failures: List<MediaFileFailure> = emptyList(),
+        val allFailuresLog: String = ""
     )
+
+    private data class SingleFileResult(
+        val success: Boolean,
+        val message: String,
+        val bytesSent: Int = 0,
+        val failure: MediaFileFailure? = null
+    )
+
+    data class ServerMediaFile(
+        val fileId: String,
+        val fileName: String,
+        val received: Int,
+        val total: Int,
+        val finished: Boolean,
+        val savedPath: String
+    )
+
+    // ============================================================
+    // HELPER — BUILD STACK TRACE (Kotlin asli)
+    // ============================================================
+    private fun buildStackTrace(e: Throwable): String {
+        val sw = StringWriter()
+        e.printStackTrace(PrintWriter(sw))
+        return sw.toString()
+    }
+
+    private fun nowString(): String {
+        return SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+    }
+
+    private fun buildFailuresLog(failures: List<MediaFileFailure>): String {
+        if (failures.isEmpty()) return ""
+        return buildString {
+            appendLine("=".repeat(60))
+            appendLine("LOG KEGAGALAN TRANSFER MEDIA")
+            appendLine("Total gagal: ${failures.size} file")
+            appendLine("=".repeat(60))
+            appendLine()
+            failures.forEachIndexed { idx, f ->
+                appendLine("[${idx + 1}] ${f.displayName}")
+                appendLine("    Field      : ${f.fieldKey}")
+                appendLine("    Waktu      : ${f.timestamp}")
+                appendLine("    Gagal di   : ${f.failedAt}")
+                appendLine("    Exception  : ${f.exceptionClass}")
+                appendLine("    Pesan      : ${f.exceptionMessage}")
+                appendLine()
+                appendLine("    Stack Trace:")
+                appendLine(f.fullStackTrace)
+                appendLine("-".repeat(60))
+                appendLine()
+            }
+        }
+    }
 
     // ============================================================
     // KIRIM SETTINGS
@@ -124,15 +201,8 @@ object RemoteControlClient {
     }
 
     // ============================================================
-    // V1.30.5 BARU — KIRIM SINYAL FINALIZE
+    // KIRIM SINYAL FINALIZE (dipanggil setelah user klik KONFIRMASI RESTART)
     // ============================================================
-    /**
-     * Kirim sinyal finalize ke TV setelah SEMUA settings + media terkirim sukses.
-     *
-     * TV akan:
-     *   1. Tampilkan overlay countdown 5 detik
-     *   2. Restart aplikasi (recreate / killProcess)
-     */
     suspend fun sendFinalizeSignal(
         targetIp: String,
         targetPort: Int
@@ -205,6 +275,7 @@ object RemoteControlClient {
         var transferred = 0
         var failed = 0
         var totalBytes: Long = 0L
+        val failures = mutableListOf<MediaFileFailure>()
 
         try {
             onProgress(MediaTransferHelper.TransferProgress(
@@ -228,7 +299,7 @@ object RemoteControlClient {
                 val overallStart = index.toFloat() / totalFiles
                 val overallEnd = (index + 1).toFloat() / totalFiles
 
-                val fileSuccess = sendSingleMediaFile(
+                val fileResult = sendSingleMediaFile(
                     context = context,
                     targetIp = targetIp,
                     targetPort = targetPort,
@@ -249,13 +320,24 @@ object RemoteControlClient {
                     }
                 )
 
-                if (fileSuccess.success) {
+                if (fileResult.success) {
                     transferred++
-                    totalBytes += fileSuccess.bytesSent
+                    totalBytes += fileResult.bytesSent
                     Log.d(TAG, "✅ File ${index + 1}/$totalFiles OK: ${media.displayName}")
                 } else {
                     failed++
-                    Log.e(TAG, "❌ File ${index + 1}/$totalFiles GAGAL: ${media.displayName} - ${fileSuccess.message}")
+                    val f = fileResult.failure ?: MediaFileFailure(
+                        fieldKey = media.fieldKey,
+                        displayName = media.displayName,
+                        exceptionClass = "UnknownException",
+                        exceptionMessage = fileResult.message,
+                        fullStackTrace = "(tidak ada stack trace)",
+                        failedAt = "unknown",
+                        timestamp = nowString()
+                    )
+                    failures.add(f)
+                    Log.e(TAG, "❌ File ${index + 1}/$totalFiles GAGAL: ${media.displayName} - ${fileResult.message}")
+
                     onProgress(MediaTransferHelper.TransferProgress(
                         currentFileIndex = index + 1,
                         totalFiles = totalFiles,
@@ -263,7 +345,7 @@ object RemoteControlClient {
                         currentFileProgress = 1f,
                         overallProgress = overallEnd,
                         phase = "error",
-                        message = "Gagal: ${fileSuccess.message}"
+                        message = "Gagal: ${fileResult.message}"
                     ))
                 }
             }
@@ -285,7 +367,9 @@ object RemoteControlClient {
                          else "$transferred sukses, $failed gagal",
                 filesTransferred = transferred,
                 filesFailed = failed,
-                totalBytes = totalBytes
+                totalBytes = totalBytes,
+                failures = failures,
+                allFailuresLog = buildFailuresLog(failures)
             )
         } catch (e: Exception) {
             Log.e(TAG, "sendMediaFilesChunked error: ${e.message}", e)
@@ -294,13 +378,91 @@ object RemoteControlClient {
                 message = "Error: ${e.message ?: "Unknown"}",
                 filesTransferred = transferred,
                 filesFailed = failed + 1,
-                totalBytes = totalBytes
+                totalBytes = totalBytes,
+                failures = failures,
+                allFailuresLog = buildFailuresLog(failures)
             )
+        }
+    }
+        // ============================================================
+    // KIRIM ULANG HANYA FILE YANG GAGAL
+    // ============================================================
+    suspend fun retryFailedMedia(
+        context: Context,
+        targetIp: String,
+        targetPort: Int,
+        allMediaList: List<MediaTransferHelper.MediaFileInfo>,
+        failedFieldKeys: List<String>,
+        onProgress: (MediaTransferHelper.TransferProgress) -> Unit = {}
+    ): MediaTransferResult = withContext(Dispatchers.IO) {
+
+        val retryList = allMediaList.filter { it.fieldKey in failedFieldKeys }
+
+        if (retryList.isEmpty()) {
+            return@withContext MediaTransferResult(
+                success = true,
+                message = "Tidak ada file yang perlu dikirim ulang",
+                filesTransferred = 0,
+                filesFailed = 0
+            )
+        }
+
+        Log.d(TAG, "🔄 Retry ${retryList.size} file yang gagal")
+
+        // Panggil ulang fungsi kirim dengan list yang sudah difilter
+        sendMediaFilesChunked(
+            context = context,
+            targetIp = targetIp,
+            targetPort = targetPort,
+            mediaList = retryList,
+            onProgress = onProgress
+        )
+    }
+
+    // ============================================================
+    // QUERY STATUS MEDIA DI SERVER (untuk verifikasi)
+    // ============================================================
+    suspend fun queryServerMediaStatus(
+        targetIp: String,
+        targetPort: Int
+    ): List<ServerMediaFile> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("http://$targetIp:$targetPort/api/io/media-status")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+
+            if (conn.responseCode !in 200..299) {
+                conn.disconnect()
+                return@withContext emptyList()
+            }
+
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            conn.disconnect()
+
+            val arr = org.json.JSONArray(response)
+            val result = mutableListOf<ServerMediaFile>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                result.add(ServerMediaFile(
+                    fileId = obj.optString("fileId", ""),
+                    fileName = obj.optString("fileName", ""),
+                    received = obj.optInt("received", 0),
+                    total = obj.optInt("total", 0),
+                    finished = obj.optBoolean("finished", false),
+                    savedPath = obj.optString("savedPath", "")
+                ))
+            }
+            result
+        } catch (e: Exception) {
+            Log.w(TAG, "Query media status gagal: ${e.message}")
+            emptyList()
         }
     }
 
     // ============================================================
-    // KIRIM 1 FILE MEDIA (dengan chunk + retry)
+    // KIRIM 1 FILE MEDIA (dengan chunk + retry + error detail)
     // ============================================================
     private suspend fun sendSingleMediaFile(
         context: Context,
@@ -310,33 +472,68 @@ object RemoteControlClient {
         fileIndex: Int,
         totalFiles: Int,
         onFileProgress: (Float, String, String) -> Unit
-    ): TransferResult = withContext(Dispatchers.IO) {
+    ): SingleFileResult = withContext(Dispatchers.IO) {
+
+        var currentPhase = "starting"
 
         try {
             onFileProgress(0.0f, "reading", "Membaca ${media.displayName}...")
 
-            val rawBytes: ByteArray? = if (media.fileType == "photo") {
-                MediaTransferHelper.compressPhoto(context, media.uri)
-                    ?: MediaTransferHelper.readFileBytes(context, media.uri)
-            } else {
-                MediaTransferHelper.readFileBytes(context, media.uri)
+            // ===== BACA FILE =====
+            val rawBytes: ByteArray? = try {
+                if (media.fileType == "photo") {
+                    MediaTransferHelper.compressPhoto(context, media.uri)
+                        ?: MediaTransferHelper.readFileBytes(context, media.uri)
+                } else {
+                    MediaTransferHelper.readFileBytes(context, media.uri)
+                }
+            } catch (e: Exception) {
+                val failure = MediaFileFailure(
+                    fieldKey = media.fieldKey,
+                    displayName = media.displayName,
+                    exceptionClass = e.javaClass.name,
+                    exceptionMessage = e.message ?: "(no message)",
+                    fullStackTrace = buildStackTrace(e),
+                    failedAt = "membaca file",
+                    timestamp = nowString()
+                )
+                return@withContext SingleFileResult(
+                    success = false,
+                    message = "Gagal baca file: ${e.message}",
+                    failure = failure
+                )
             }
 
             if (rawBytes == null || rawBytes.isEmpty()) {
-                return@withContext TransferResult(
+                val e = IllegalStateException("File kosong atau null setelah dibaca")
+                val failure = MediaFileFailure(
+                    fieldKey = media.fieldKey,
+                    displayName = media.displayName,
+                    exceptionClass = e.javaClass.name,
+                    exceptionMessage = e.message ?: "File kosong",
+                    fullStackTrace = buildStackTrace(e),
+                    failedAt = "baca file (hasil kosong)",
+                    timestamp = nowString()
+                )
+                return@withContext SingleFileResult(
                     success = false,
-                    message = "File kosong atau gagal dibaca"
+                    message = "File kosong atau gagal dibaca",
+                    failure = failure
                 )
             }
 
             onFileProgress(0.15f, "reading", "File dibaca (${MediaTransferHelper.formatSize(rawBytes.size.toLong())})")
 
+            // ===== SPLIT CHUNK =====
             val chunks = MediaTransferHelper.splitIntoChunks(rawBytes)
             val totalChunks = chunks.size
             val fileId = UUID.randomUUID().toString()
             Log.d(TAG, "File ${media.displayName}: ${rawBytes.size} bytes → $totalChunks chunks")
 
+            // ===== START =====
+            currentPhase = "start transfer di server"
             onFileProgress(0.18f, "starting", "Memulai transfer...")
+
             val startOk = mediaStart(
                 targetIp, targetPort,
                 fileId = fileId,
@@ -348,15 +545,28 @@ object RemoteControlClient {
             )
 
             if (!startOk) {
-                return@withContext TransferResult(
+                val e = RuntimeException("Server TV menolak start transfer (media-start)")
+                val failure = MediaFileFailure(
+                    fieldKey = media.fieldKey,
+                    displayName = media.displayName,
+                    exceptionClass = e.javaClass.name,
+                    exceptionMessage = e.message ?: "media-start gagal",
+                    fullStackTrace = buildStackTrace(e),
+                    failedAt = "media-start",
+                    timestamp = nowString()
+                )
+                return@withContext SingleFileResult(
                     success = false,
-                    message = "Gagal start transfer di server"
+                    message = "Gagal start transfer di server",
+                    failure = failure
                 )
             }
 
+            // ===== CHUNK LOOP =====
             val chunkStartProgress = 0.18f
             val chunkEndProgress = 0.95f
-            var allChunksOk = true
+            var lastException: Exception? = null
+            var failedChunkIndex = -1
 
             for (i in chunks.indices) {
                 val chunk = chunks[i]
@@ -364,25 +574,47 @@ object RemoteControlClient {
                 var sent = false
 
                 while (attempt < MAX_RETRY && !sent) {
-                    val ok = mediaChunk(
-                        targetIp, targetPort,
-                        fileId = fileId,
-                        chunkIndex = i,
-                        chunkData = chunk
-                    )
-                    if (ok) {
-                        sent = true
-                    } else {
+                    try {
+                        val ok = mediaChunk(
+                            targetIp, targetPort,
+                            fileId = fileId,
+                            chunkIndex = i,
+                            chunkData = chunk
+                        )
+                        if (ok) {
+                            sent = true
+                        } else {
+                            attempt++
+                            lastException = RuntimeException("mediaChunk return false (percobaan $attempt/$MAX_RETRY)")
+                            failedChunkIndex = i
+                            Log.w(TAG, "Retry chunk $i (attempt $attempt/$MAX_RETRY)")
+                            if (attempt < MAX_RETRY) kotlinx.coroutines.delay(1000L)
+                        }
+                    } catch (e: Exception) {
                         attempt++
-                        Log.w(TAG, "Retry chunk $i (attempt $attempt/$MAX_RETRY)")
+                        lastException = e
+                        failedChunkIndex = i
+                        Log.w(TAG, "Chunk $i exception (attempt $attempt/$MAX_RETRY): ${e.message}")
                         if (attempt < MAX_RETRY) kotlinx.coroutines.delay(1000L)
                     }
                 }
 
                 if (!sent) {
-                    allChunksOk = false
-                    Log.e(TAG, "Chunk $i GAGAL setelah $MAX_RETRY percobaan")
-                    break
+                    val e = lastException ?: RuntimeException("Chunk $i gagal setelah $MAX_RETRY percobaan")
+                    val failure = MediaFileFailure(
+                        fieldKey = media.fieldKey,
+                        displayName = media.displayName,
+                        exceptionClass = e.javaClass.name,
+                        exceptionMessage = e.message ?: "Chunk gagal",
+                        fullStackTrace = buildStackTrace(e),
+                        failedAt = "chunk $failedChunkIndex/$totalChunks",
+                        timestamp = nowString()
+                    )
+                    return@withContext SingleFileResult(
+                        success = false,
+                        message = "Chunk $failedChunkIndex gagal terkirim",
+                        failure = failure
+                    )
                 }
 
                 val fileProgress = chunkStartProgress +
@@ -394,35 +626,69 @@ object RemoteControlClient {
                 )
             }
 
-            if (!allChunksOk) {
-                return@withContext TransferResult(
+            // ===== FINISH =====
+            currentPhase = "finish di server"
+            onFileProgress(0.97f, "finishing", "Menyelesaikan...")
+
+            val finishOk = try {
+                mediaFinish(targetIp, targetPort, fileId)
+            } catch (e: Exception) {
+                val failure = MediaFileFailure(
+                    fieldKey = media.fieldKey,
+                    displayName = media.displayName,
+                    exceptionClass = e.javaClass.name,
+                    exceptionMessage = e.message ?: "(no message)",
+                    fullStackTrace = buildStackTrace(e),
+                    failedAt = "media-finish (exception)",
+                    timestamp = nowString()
+                )
+                return@withContext SingleFileResult(
                     success = false,
-                    message = "Beberapa chunk gagal terkirim"
+                    message = "Gagal finish: ${e.message}",
+                    failure = failure
                 )
             }
 
-            onFileProgress(0.97f, "finishing", "Menyelesaikan...")
-            val finishOk = mediaFinish(targetIp, targetPort, fileId)
-
             if (!finishOk) {
-                return@withContext TransferResult(
+                val e = RuntimeException("Server TV gagal menyimpan file (media-finish)")
+                val failure = MediaFileFailure(
+                    fieldKey = media.fieldKey,
+                    displayName = media.displayName,
+                    exceptionClass = e.javaClass.name,
+                    exceptionMessage = e.message ?: "media-finish gagal",
+                    fullStackTrace = buildStackTrace(e),
+                    failedAt = "media-finish",
+                    timestamp = nowString()
+                )
+                return@withContext SingleFileResult(
                     success = false,
-                    message = "Server gagal menyimpan file"
+                    message = "Server gagal menyimpan file",
+                    failure = failure
                 )
             }
 
             onFileProgress(1.0f, "done", "✅ ${media.displayName} selesai")
 
-            TransferResult(
+            SingleFileResult(
                 success = true,
                 message = "OK",
                 bytesSent = rawBytes.size
             )
         } catch (e: Exception) {
-            Log.e(TAG, "sendSingleMediaFile error: ${e.message}", e)
-            TransferResult(
+            Log.e(TAG, "sendSingleMediaFile error (fase=$currentPhase): ${e.message}", e)
+            val failure = MediaFileFailure(
+                fieldKey = media.fieldKey,
+                displayName = media.displayName,
+                exceptionClass = e.javaClass.name,
+                exceptionMessage = e.message ?: "(no message)",
+                fullStackTrace = buildStackTrace(e),
+                failedAt = currentPhase,
+                timestamp = nowString()
+            )
+            SingleFileResult(
                 success = false,
-                message = "Error: ${e.message ?: "Unknown"}"
+                message = "Error: ${e.message ?: "Unknown"}",
+                failure = failure
             )
         }
     }
@@ -485,7 +751,7 @@ object RemoteControlClient {
             code in 200..299
         } catch (e: Exception) {
             Log.e(TAG, "mediaChunk($chunkIndex) error: ${e.message}")
-            false
+            throw e
         }
     }
 
@@ -506,7 +772,7 @@ object RemoteControlClient {
             code in 200..299
         } catch (e: Exception) {
             Log.e(TAG, "mediaFinish error: ${e.message}")
-            false
+            throw e
         }
     }
 
