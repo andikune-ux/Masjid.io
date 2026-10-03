@@ -103,6 +103,7 @@ enum class IoPhase {
     CONNECTED,
     SENDING_SETTINGS,
     SENDING_MEDIA,
+    FINALIZING,
     RECEIVING,
     DONE,
     ERROR
@@ -130,7 +131,6 @@ fun IoControlScreen(
     var statusMessage by remember { mutableStateOf("Mencari perangkat...") }
     var errorMessage by remember { mutableStateOf("") }
 
-    // Media transfer state (V1.30.4)
     var mediaProgress by remember { mutableStateOf<MediaTransferHelper.TransferProgress?>(null) }
 
     var showHelp by remember { mutableStateOf(false) }
@@ -140,7 +140,6 @@ fun IoControlScreen(
     val scanButtonFocusRequester = remember { FocusRequester() }
     val firstDeviceFocusRequester = remember { FocusRequester() }
 
-    // Deteksi IP & WiFi
     LaunchedEffect(Unit) {
         while (true) {
             currentIp = NetworkHelper.getWiFiIp(context) ?: "Tidak terdeteksi"
@@ -149,7 +148,6 @@ fun IoControlScreen(
         }
     }
 
-    // Mulai scan saat dibuka
     LaunchedEffect(Unit) {
         val deviceUniqueId = try {
             android.provider.Settings.Secure.getString(
@@ -183,7 +181,6 @@ fun IoControlScreen(
         onDispose { DeviceDiscovery.stopScan() }
     }
 
-    // Auto-connect
     LaunchedEffect(selectedDevice, phase) {
         if (phase == IoPhase.CONNECTING && selectedDevice != null) {
             val target = selectedDevice!!
@@ -215,7 +212,6 @@ fun IoControlScreen(
         }
     }
 
-    // REAL SEND — Settings + Media (V1.30.4)
     LaunchedEffect(phase) {
         when (phase) {
             IoPhase.SENDING_SETTINGS -> {
@@ -263,18 +259,38 @@ fun IoControlScreen(
 
                 if (mediaResult.success) {
                     transferProgress = 1f
-                    statusMessage = "Semua terkirim! ${target.name} akan restart."
-                    delay(3000)
-                    phase = IoPhase.DONE
+                    phase = IoPhase.FINALIZING
                 } else {
                     if (mediaResult.filesFailed > 0 && mediaResult.filesTransferred > 0) {
-                        statusMessage = "${mediaResult.filesTransferred} file sukses, ${mediaResult.filesFailed} gagal. ${target.name} akan restart."
-                        delay(4000)
-                        phase = IoPhase.DONE
+                        statusMessage = "${mediaResult.filesTransferred} file sukses, ${mediaResult.filesFailed} gagal"
+                        delay(2000)
+                        phase = IoPhase.FINALIZING
                     } else {
                         phase = IoPhase.ERROR
                         errorMessage = mediaResult.message
                     }
+                }
+            }
+
+            IoPhase.FINALIZING -> {
+                val target = selectedDevice ?: return@LaunchedEffect
+                statusMessage = "Menyelesaikan transfer..."
+
+                delay(500)
+
+                val finalizeResult = RemoteControlClient.sendFinalizeSignal(
+                    targetIp = target.ip,
+                    targetPort = target.port
+                )
+
+                if (finalizeResult.success) {
+                    statusMessage = "Selesai! ${target.name} akan restart dalam 5 detik."
+                    delay(2000)
+                    phase = IoPhase.DONE
+                } else {
+                    statusMessage = "Data terkirim. Restart manual diperlukan (${finalizeResult.message})"
+                    delay(3000)
+                    phase = IoPhase.DONE
                 }
             }
 
@@ -300,6 +316,7 @@ fun IoControlScreen(
                 IoPhase.CONNECTED -> "Terhubung"
                 IoPhase.SENDING_SETTINGS -> "Mengirim pengaturan..."
                 IoPhase.SENDING_MEDIA -> "Mengirim media..."
+                IoPhase.FINALIZING -> "Menyelesaikan..."
                 IoPhase.RECEIVING -> "Menunggu pengirim..."
                 IoPhase.DONE -> "Selesai"
                 IoPhase.ERROR -> "Error"
@@ -357,6 +374,12 @@ fun IoControlScreen(
                     targetName = selectedDevice?.name ?: "Perangkat"
                 )
             }
+            IoPhase.FINALIZING -> {
+                FinalizingView(
+                    targetName = selectedDevice?.name ?: "Perangkat",
+                    message = statusMessage
+                )
+            }
             IoPhase.RECEIVING -> {
                 WaitingReceiveView(
                     deviceName = selectedDevice?.name ?: "Pengirim",
@@ -393,6 +416,14 @@ private fun IoTopBar(
     onBack: () -> Unit,
     onHelp: () -> Unit
 ) {
+    val interactionSourceBack = remember { MutableInteractionSource() }
+    val isFocusedBack by interactionSourceBack.collectIsFocusedAsState()
+    val isPressedBack by interactionSourceBack.collectIsPressedAsState()
+
+    val interactionSourceHelp = remember { MutableInteractionSource() }
+    val isFocusedHelp by interactionSourceHelp.collectIsFocusedAsState()
+    val isPressedHelp by interactionSourceHelp.collectIsPressedAsState()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -402,20 +433,32 @@ private fun IoTopBar(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IoCard)
-                    .clickable { onBack() },
-                contentAlignment = Alignment.Center
+            NeonFocusBorder(
+                focused = isFocusedBack,
+                pressed = isPressedBack,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp,
+                modifier = Modifier.size(48.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Kembali",
-                    tint = IoBlueLight,
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(IoCard)
+                        .focusable(interactionSource = interactionSourceBack)
+                        .clickable(
+                            interactionSource = interactionSourceBack,
+                            indication = null
+                        ) { onBack() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Kembali",
+                        tint = IoBlueLight,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
@@ -424,15 +467,24 @@ private fun IoTopBar(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(IoBlue.copy(alpha = 0.2f))
-                .border(1.5.dp, IoBlue, RoundedCornerShape(10.dp))
-                .clickable { onHelp() }
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+        NeonFocusBorder(
+            focused = isFocusedHelp,
+            pressed = isPressedHelp,
+            borderWidth = 5.dp,
+            cornerRadius = 10.dp
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(IoBlue.copy(alpha = 0.2f))
+                    .focusable(interactionSource = interactionSourceHelp)
+                    .clickable(
+                        interactionSource = interactionSourceHelp,
+                        indication = null
+                    ) { onHelp() }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = "Panduan",
@@ -683,7 +735,13 @@ private fun DeviceCard(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp, modifier = Modifier.fillMaxWidth()) {
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -777,13 +835,21 @@ private fun ConnectedView(
     }
 }
 
+// ============================================================
+// DISCONNECT BUTTON
+// ============================================================
 @Composable
 private fun DisconnectButton(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp) {
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 12.dp
+    ) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
@@ -797,6 +863,9 @@ private fun DisconnectButton(onClick: () -> Unit) {
     }
 }
 
+// ============================================================
+// BIG ACTION BUTTON
+// ============================================================
 @Composable
 private fun BigActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -810,7 +879,13 @@ private fun BigActionButton(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 20.dp, modifier = modifier) {
+    NeonFocusBorder(
+        focused = isFocused,
+        pressed = isPressed,
+        borderWidth = 5.dp,
+        cornerRadius = 20.dp,
+        modifier = modifier
+    ) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
@@ -830,7 +905,7 @@ private fun BigActionButton(
 }
 
 // ============================================================
-// TRANSFER PROGRESS VIEW (Settings)
+// TRANSFER PROGRESS VIEW
 // ============================================================
 @Composable
 private fun TransferProgressView(
@@ -892,7 +967,7 @@ private fun TransferProgressView(
 }
 
 // ============================================================
-// MEDIA PROGRESS VIEW (BARU V1.30.4)
+// MEDIA PROGRESS VIEW
 // ============================================================
 @Composable
 private fun MediaProgressView(
@@ -942,19 +1017,10 @@ private fun MediaProgressView(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Text(
-                text = "File ini:",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Text(text = "File ini:", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(6.dp))
             Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF1A2E44))
+                modifier = Modifier.fillMaxWidth(0.85f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A2E44))
             ) {
                 Box(
                     modifier = Modifier
@@ -974,19 +1040,10 @@ private fun MediaProgressView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Total keseluruhan:",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Text(text = "Total keseluruhan:", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(6.dp))
             Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1A2E44))
+                modifier = Modifier.fillMaxWidth(0.85f).height(16.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1A2E44))
             ) {
                 Box(
                     modifier = Modifier
@@ -1038,6 +1095,103 @@ private fun MediaProgressView(
 }
 
 // ============================================================
+// FINALIZING VIEW — countdown sebelum restart
+// ============================================================
+@Composable
+private fun FinalizingView(
+    targetName: String,
+    message: String
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "finalizing")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "finalize_pulse"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "✅ SEMUA TERKIRIM",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoGreen
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(IoGreen.copy(alpha = pulseAlpha * 0.25f))
+                .border(3.dp, IoGreen.copy(alpha = pulseAlpha), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "5",
+                fontSize = 64.sp,
+                fontWeight = FontWeight.Black,
+                color = IoGreen,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "MENYELESAIKAN...",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = IoGreenLight
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "$targetName akan restart dalam 5 detik",
+            fontSize = 14.sp,
+            color = TextPrimary,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(IoCard.copy(alpha = 0.6f))
+                .border(1.dp, IoGreen.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .padding(14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = message,
+                fontSize = 12.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+// ============================================================
 // WAITING RECEIVE VIEW
 // ============================================================
 @Composable
@@ -1076,22 +1230,34 @@ private fun WaitingReceiveView(deviceName: String, onCancel: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Perangkat ini siap menerima pengaturan.\nSetelah data diterima, aplikasi akan otomatis restart.",
+            text = "Perangkat ini siap menerima pengaturan.\nSetelah semua data diterima, akan ada countdown 5 detik sebelum restart.",
             fontSize = 12.sp,
             color = TextSecondary.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
             lineHeight = 18.sp
         )
         Spacer(modifier = Modifier.height(48.dp))
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0x33FF5252))
-                .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
-                .clickable { onCancel() }
-                .padding(horizontal = 32.dp, vertical = 14.dp)
+
+        val interactionSource = remember { MutableInteractionSource() }
+        val isFocused by interactionSource.collectIsFocusedAsState()
+        val isPressed by interactionSource.collectIsPressedAsState()
+
+        NeonFocusBorder(
+            focused = isFocused,
+            pressed = isPressed,
+            borderWidth = 5.dp,
+            cornerRadius = 12.dp
         ) {
-            Text(text = "BATAL", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33FF5252))
+                    .focusable(interactionSource = interactionSource)
+                    .clickable(interactionSource = interactionSource, indication = null) { onCancel() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text(text = "BATAL", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
+            }
         }
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -1180,25 +1346,48 @@ private fun ErrorView(message: String, onRetry: () -> Unit, onBackToScan: () -> 
         Spacer(modifier = Modifier.height(48.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(IoBlue.copy(alpha = 0.15f))
-                    .border(1.5.dp, IoBlue, RoundedCornerShape(12.dp))
-                    .clickable { onRetry() }
-                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            val retryInteraction = remember { MutableInteractionSource() }
+            val retryFocused by retryInteraction.collectIsFocusedAsState()
+            val retryPressed by retryInteraction.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = retryFocused,
+                pressed = retryPressed,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp
             ) {
-                Text(text = "COBA LAGI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(IoBlue.copy(alpha = 0.15f))
+                        .focusable(interactionSource = retryInteraction)
+                        .clickable(interactionSource = retryInteraction, indication = null) { onRetry() }
+                        .padding(horizontal = 32.dp, vertical = 14.dp)
+                ) {
+                    Text(text = "COBA LAGI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
+                }
             }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x33FF5252))
-                    .border(1.5.dp, IoRed, RoundedCornerShape(12.dp))
-                    .clickable { onBackToScan() }
-                    .padding(horizontal = 32.dp, vertical = 14.dp)
+
+            val scanInteraction = remember { MutableInteractionSource() }
+            val scanFocused by scanInteraction.collectIsFocusedAsState()
+            val scanPressed by scanInteraction.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = scanFocused,
+                pressed = scanPressed,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp
             ) {
-                Text(text = "SCAN ULANG", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x33FF5252))
+                        .focusable(interactionSource = scanInteraction)
+                        .clickable(interactionSource = scanInteraction, indication = null) { onBackToScan() }
+                        .padding(horizontal = 32.dp, vertical = 14.dp)
+                ) {
+                    Text(text = "SCAN ULANG", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
+                }
             }
         }
 
