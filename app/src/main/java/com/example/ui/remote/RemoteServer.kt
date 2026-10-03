@@ -855,7 +855,59 @@ private fun applyMediaPathToSettings(fieldKey: String, localPath: String) {
         Log.e(TAG, "applyMediaPathToSettings error: ${e.message}")
     }
 }
+// ============================================================
+// FIX V1.30.6 — UPDATE SETTINGS SETELAH MEDIA MASUK
+// Ganti path lama (dari HP) dengan path lokal (di TV)
+// ============================================================
+private fun applyMediaPathToSettings(fieldKey: String, localPath: String) {
+    try {
+        val current = settingsRepository.settingsFlow.value
+        var updated = current
 
+        when {
+            fieldKey == "qrisPhotoUri" -> {
+                updated = current.copy(qrisPhotoUri = localPath)
+                Log.d(TAG, "✅ qrisPhotoUri updated: $localPath")
+            }
+            fieldKey == "officerPhotoUri" -> {
+                updated = current.copy(officerPhotoUri = localPath)
+                Log.d(TAG, "✅ officerPhotoUri updated: $localPath")
+            }
+            fieldKey == "customBackgroundUri" -> {
+                updated = current.copy(customBackgroundUri = localPath)
+                Log.d(TAG, "✅ customBackgroundUri updated: $localPath")
+            }
+            fieldKey == "prayerCardPhotoUri" -> {
+                updated = current.copy(prayerCardPhotoUri = localPath)
+                Log.d(TAG, "✅ prayerCardPhotoUri updated: $localPath")
+            }
+            fieldKey == "videoUri" -> {
+                updated = current.copy(videoUri = localPath)
+                Log.d(TAG, "✅ videoUri updated: $localPath")
+            }
+            fieldKey.startsWith("photoSlideshowUris[") -> {
+                val indexStr = fieldKey.substringAfter("[").substringBefore("]")
+                val index = indexStr.toIntOrNull()
+                if (index != null && index >= 0) {
+                    val list = current.photoSlideshowUris.toMutableList()
+                    while (list.size <= index) list.add("")
+                    list[index] = localPath
+                    updated = current.copy(photoSlideshowUris = list)
+                    Log.d(TAG, "✅ photoSlideshowUris[$index] updated: $localPath")
+                }
+            }
+            else -> {
+                Log.w(TAG, "⚠️ fieldKey tidak dikenal: $fieldKey")
+                return
+            }
+        }
+
+        settingsRepository.updateSettings(updated)
+        Log.d(TAG, "🎉 Settings TV berhasil diupdate dengan path lokal")
+    } catch (e: Exception) {
+        Log.e(TAG, "applyMediaPathToSettings error: ${e.message}")
+    }
+}
 // ============================================================
 // JSON STATUS
 // ============================================================
