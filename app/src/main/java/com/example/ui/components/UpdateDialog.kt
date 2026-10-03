@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SkipNext
@@ -53,31 +53,10 @@ import com.example.ui.theme.UrgentRed
 /**
  * UpdateDialog — Dialog update aplikasi.
  *
- * MODE NORMAL (forceUpdate=false):
- *   ┌─────────────────────────────────────┐
- *   │  [Isi info update + changelog]      │
- *   ├─────────────────────────────────────┤
- *   │  [Skip]              [Nanti] [Update]│
- *   └─────────────────────────────────────┘
- *
- * MODE FORCE (forceUpdate=true):
- *   ┌─────────────────────────────────────┐
- *   │  [Isi info update + changelog]      │
- *   ├─────────────────────────────────────┤
- *   │  [Tidak]                    [Update]│
- *   └─────────────────────────────────────┘
- *
- * @param currentVersion Versi saat ini
- * @param latestVersion Versi terbaru
- * @param releaseNotes Catatan rilis dari GitHub
- * @param forceUpdate Kalau true → mode wajib update (2 tombol)
- * @param downloadProgress Progress download (0f..1f). Null = belum mulai.
- * @param isDownloading Sedang download?
- * @param isInstalling Sedang install?
- * @param onUpdateClick Klik UPDATE SEKARANG
- * @param onLaterClick Klik NANTI (muncul lagi di buka berikutnya)
- * @param onSkipClick Klik SKIP (tidak muncul sampai versi lebih tinggi)
- * @param onTidakClick Klik TIDAK (mode force) — app akan keluar
+ * V1.30.6: Fix tampilan supaya tombol SELALU terlihat.
+ * - Dialog maksimal 92% tinggi layar
+ * - Changelog ambil sisa ruang (weight 1f) + scroll
+ * - Tombol fixed di bawah
  */
 @Composable
 fun UpdateDialog(
@@ -97,73 +76,74 @@ fun UpdateDialog(
 
     Dialog(
         onDismissRequest = {
-            // Saat force update atau sedang download/install → tidak bisa dismiss
             if (!forceUpdate && !isLocked) onLaterClick()
         },
         properties = DialogProperties(
             dismissOnBackPress = !forceUpdate && !isLocked,
-            dismissOnClickOutside = false
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
         )
     ) {
         Column(
             modifier = Modifier
-                .width(600.dp)
+                .width(680.dp)
+                .fillMaxHeight(0.92f)  // ← FIX: maksimal 92% tinggi layar TV
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xFF0B1720))
                 .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-                .padding(28.dp),
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // ============================================================
-            // HEADER
+            // HEADER (fixed di atas)
             // ============================================================
             Icon(
                 imageVector = Icons.Default.SystemUpdate,
                 contentDescription = null,
                 tint = IslamicGold,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(48.dp)
             )
 
             Text(
                 text = "UPDATE TERSEDIA",
-                fontSize = 24.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = IslamicGoldLight
             )
 
             Text(
                 text = "Versi baru MASJID.IO sudah tersedia",
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 color = TextSecondary,
                 textAlign = TextAlign.Center
             )
 
             // ============================================================
-            // VERSI
+            // INFO VERSI (fixed)
             // ============================================================
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0x22000000), RoundedCornerShape(10.dp))
                     .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
-                    .padding(14.dp),
+                    .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Versi Saat Ini", fontSize = 11.sp, color = TextSecondary)
+                    Text("Versi Saat Ini", fontSize = 10.sp, color = TextSecondary)
                     Text(
                         currentVersion,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Versi Terbaru", fontSize = 11.sp, color = TextSecondary)
+                    Text("Versi Terbaru", fontSize = 10.sp, color = TextSecondary)
                     Text(
                         latestVersion,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = IslamicGreen
                     )
@@ -171,63 +151,70 @@ fun UpdateDialog(
             }
 
             // ============================================================
-            // CHANGELOG
+            // CHANGELOG (weight 1f — ambil sisa ruang, scrollable)
             // ============================================================
-            if (!releaseNotes.isNullOrBlank()) {
-                Column(
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)  // ← FIX: ambil sisa ruang, tidak overflow
+                    .background(Color(0x22000000), RoundedCornerShape(10.dp))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "📋 Yang Baru di Versi $latestVersion:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IslamicGoldLight
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val notesText = if (releaseNotes.isNullOrBlank()) {
+                    "(Tidak ada catatan rilis)"
+                } else {
+                    releaseNotes
+                }
+
+                // Area scroll untuk changelog
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0x22000000), RoundedCornerShape(10.dp))
-                        .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                        .padding(14.dp)
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = "📋 Yang Baru di Versi $latestVersion:",
+                        text = notesText,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGoldLight
+                        color = TextPrimary,
+                        lineHeight = 20.sp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            text = releaseNotes,
-                            fontSize = 13.sp,
-                            color = TextPrimary,
-                            lineHeight = 20.sp
-                        )
-                    }
                 }
             }
 
             // ============================================================
-            // PROGRESS BAR
+            // PROGRESS BAR (muncul hanya saat download)
             // ============================================================
             if (isDownloading && downloadProgress != null) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "⬇️ Mengunduh update... ${(downloadProgress * 100).toInt()}%",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = IslamicGoldLight,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
                             .background(Color(0x33FFFFFF))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(downloadProgress)
-                                .height(12.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(5.dp))
                                 .background(IslamicGold)
                         )
                     }
@@ -241,25 +228,23 @@ fun UpdateDialog(
                         .clip(RoundedCornerShape(10.dp))
                         .background(IslamicGreen.copy(alpha = 0.15f))
                         .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                        .padding(12.dp),
+                        .padding(10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "📦 Menginstall update...",
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         color = IslamicGreen,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             // ============================================================
-            // TOMBOL — 2 MODE
+            // TOMBOL (fixed di bawah — SELALU terlihat)
             // ============================================================
             if (forceUpdate) {
-                // ===== MODE FORCE: 2 TOMBOL =====
+                // Mode FORCE: 2 tombol
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -288,19 +273,18 @@ fun UpdateDialog(
 
                 Text(
                     text = "⚠️ Update ini WAJIB. Aplikasi tidak dapat digunakan sebelum update selesai.",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = UrgentRed,
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Bold
                 )
             } else {
-                // ===== MODE NORMAL: 3 TOMBOL (Skip kiri, Nanti+Update kanan) =====
+                // Mode NORMAL: 3 tombol
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // [Skip] — kiri
                     Box(modifier = Modifier.weight(1f)) {
                         DialogButton(
                             icon = Icons.Default.SkipNext,
@@ -311,11 +295,6 @@ fun UpdateDialog(
                             onClick = onSkipClick
                         )
                     }
-
-                    // Spacer pemisah
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    // [Nanti] — kanan
                     Box(modifier = Modifier.weight(1f)) {
                         DialogButton(
                             icon = Icons.Default.Schedule,
@@ -326,8 +305,6 @@ fun UpdateDialog(
                             onClick = onLaterClick
                         )
                     }
-
-                    // [Update] — kanan
                     Box(modifier = Modifier.weight(1f)) {
                         DialogButton(
                             icon = Icons.Default.Download,
@@ -342,10 +319,10 @@ fun UpdateDialog(
 
                 Text(
                     text = "Nanti: muncul lagi saat app dibuka.\nSkip: tidak muncul sampai versi lebih tinggi.",
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     color = TextSecondary,
                     textAlign = TextAlign.Center,
-                    lineHeight = 16.sp
+                    lineHeight = 14.sp
                 )
             }
         }
@@ -381,7 +358,7 @@ private fun DialogButton(
             .onFocusChanged { isFocused = it.isFocused }
             .focusable(enabled)
             .clickable(enabled) { onClick() }
-            .padding(vertical = 14.dp, horizontal = 12.dp),
+            .padding(vertical = 12.dp, horizontal = 10.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -391,10 +368,10 @@ private fun DialogButton(
             tint = textColor,
             modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = text,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             color = textColor
         )
