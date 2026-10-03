@@ -50,8 +50,9 @@ app/src/main/java/com/example/
 │   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
 │   ├── SettingsTransferHelper.kt      -> Serialize + upload media (V1.30.4)
-│   ├── RemoteControlClient.kt         -> HTTP client iO Control (V1.30.4)
+│   ├── RemoteControlClient.kt         -> HTTP client iO Control (V1.30.7)
 │   ├── MediaTransferHelper.kt         -> Chunk + kompres media (V1.30.4)
+│   ├── IoBundleHelper.kt              -> Bundle .iO (V1.30.7 BARU)
 │   ├── FonnteHelper.kt                -> Token & Group ID Fonnte
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
@@ -74,9 +75,9 @@ app/src/main/java/com/example/
     │   ├── RemoteDashboard.kt         -> Info akses remote
     │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
     │   ├── NetworkHelper.kt           -> Helper deteksi IP WiFi
-    │   ├── IoControlScreen.kt         -> UI radar iO Control + media progress
+    │   ├── IoControlScreen.kt         -> UI radar + konfirmasi restart (V1.30.7)
     │   ├── IoControlHelpSheet.kt      -> Panduan iO Control
-    │   └── RestartCountdownOverlay.kt -> Overlay countdown restart (V1.30.5)
+    │   └── RestartCountdownOverlay.kt -> Overlay countdown restart
     ├── settings/
     │   ├── SettingsScreen.kt          -> Menu utama (20 kategori)
     │   ├── DeveloperSettingsPane.kt   -> Opsi Developer
@@ -84,7 +85,8 @@ app/src/main/java/com/example/
     │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
     │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
-    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah
+    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah (V1.30.7)
+    │   ├── IoBundleListSection.kt     -> Daftar file template .iO (V1.30.7 BARU)
     │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif (V1.30.3)
     │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
@@ -131,8 +133,7 @@ app/src/main/java/com/example/
     │   └── WisdomCardCarousel.kt      -> Karusel kartu nasihat
     └── theme/                          -> Warna & tipografi
     """.trimIndent()
-
-    val APP_FEATURES = """
+        val APP_FEATURES = """
 1. JADWAL SHOLAT
    - 6 waktu: Subuh, Syuruq, Dzuhur, Ashar, Maghrib, Isya
    - Countdown + progress bar visual
@@ -158,7 +159,7 @@ app/src/main/java/com/example/
    - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
    - Menu baru: Tampilan TV (kategori ke-20)
 
-5. NAVIGASI D-PAD (V1.30.5 + V1.30.6) — BARU
+5. NAVIGASI D-PAD (V1.30.5 + V1.30.6)
    - Auto-focus ke elemen pertama pane (AutoFocusPane.kt)
    - Border fokus berputar (NeonFocusBorder.kt)
    - Fokus pindah INSTANT, animasi scale smooth 150ms
@@ -179,7 +180,7 @@ app/src/main/java/com/example/
 9. CCTV MASJID
    - Widget PiP (RTSP + HTTP)
 
-10. iO CONTROL (V1.30.1 + V1.30.4)
+10. iO CONTROL (V1.30.1 + V1.30.4 + V1.30.7)
     - HP sebagai remote TV via WiFi
     - Auto-discovery UDP + UI radar
     - Transfer semua pengaturan antar device
@@ -189,7 +190,8 @@ app/src/main/java/com/example/
     - Progress bar per-file + total
     - Retry otomatis 3x per chunk
     - UPDATE PATH LOKAL setelah media masuk TV (V1.30.6)
-    - Auto-restart penerima setelah transfer selesai
+    - VERIFIKASI transfer sebelum restart (V1.30.7)
+    - Konfirmasi restart MANUAL via tombol (V1.30.7)
 
 11. REMOTE CONTROL WEB
     - HTTP server + dashboard browser HP
@@ -236,13 +238,39 @@ app/src/main/java/com/example/
     - Retry otomatis
     - Notifikasi status (sukses/gagal/berjalan)
 
-28. FIX MEDIA PATH (V1.30.6) — BARU
+28. FIX MEDIA PATH (V1.30.6)
     - Update settings TV dengan path lokal setelah media masuk
     - Foto/video langsung muncul di TV setelah transfer
     - Support: QRIS, Logo, Background, Kartu Sholat, Video, Slideshow
+
+29. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL (V1.30.7) — BARU
+    - Cek semua file benar-benar terkirim sebelum restart
+    - Restart MANUAL via tombol konfirmasi (bukan auto)
+    - Tombol COBA LAGI untuk kirim ulang file gagal saja
+    - Tombol LIHAT LOG untuk stack trace Kotlin asli
+    - Tombol RESTART SAJA kalau ada file gagal
+    - Tombol LEWATI → template aktif otomatis saat app dibuka ulang
+
+30. FILE TEMPLATE .iO (V1.30.7) — BARU
+    - Setiap transfer sukses → auto-bikin file .iO
+    - File .iO = ZIP (settings.json + metadata.json + media/)
+    - Nama file: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
+    - Lokasi: /sdcard/masjid.io/Terima/
+    - Daftar file template di menu Tampilan & Background
+    - Tombol GUNAKAN / INFO / HAPUS per file
+    - File TIDAK dihapus otomatis (kecuali user hapus manual)
+    - Apply template → media lama DITAMBAH (bukan ditimpa)
     """.trimIndent()
-    
+
     val UPDATE_HISTORY = """
+V1.30.7 (03 Oktober 2026)
+- Verifikasi transfer + konfirmasi restart manual + file template .iO
+- Setiap transfer sukses → auto-bikin file .iO (bundle ZIP)
+- Daftar file template di menu Tampilan & Background
+- Tombol GUNAKAN / INFO / HAPUS untuk tiap file
+- Retry otomatis hanya file yang gagal
+- Error detail: stack trace Kotlin asli
+
 V1.30.6 (03 Oktober 2026)
 - Fix fokus D-pad TV + fix transfer media iO Control
 - Foto/video tidak muncul di TV (fix path lokal)
@@ -303,8 +331,7 @@ V1.28.1 (28 September 2026)
 V1.28.0 (27 September 2026)
 - Versi dasar: jadwal sholat, mode fokus, kiosk, dll
     """.trimIndent()
-
-    val KNOWN_ISSUES = """
+        val KNOWN_ISSUES = """
 === SUDAH DIPERBAIKI ===
 1. Foto ustadz tidak tampil → normalisasi nama hari
 2. Suara beep terlalu pendek → TONE_CDMA_ALERT_CALL_GUARD
@@ -334,6 +361,8 @@ V1.28.0 (27 September 2026)
 26. Border fokus tidak terlihat (tertutup solid) → tipis dim gold (V1.30.6)
 27. Icon celengan babi di Laporan Keuangan → dompet (V1.30.6)
 28. Tombol UpdateDialog tidak terlihat → fillMaxHeight 0.92f (V1.30.6)
+29. Restart otomatis padahal file belum semua terkirim → verifikasi + restart manual (V1.30.7)
+30. Error transfer tidak jelas penyebabnya → simpan stack trace Kotlin asli (V1.30.7)
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -349,6 +378,16 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[03-10-2026] - V1.30.7
+Error: File CustomBackgroundPane.kt refer ke IoBundleListSection yang belum ada
+File: app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
+Solusi: Buat IoBundleListSection.kt dulu (BATCH 5B) sebelum commit CustomBackgroundPane.kt
+
+[03-10-2026] - V1.30.7
+Error: RemoteControlClient.kt mediaChunk() dan mediaFinish() swallow exception
+File: app/src/main/java/com/example/util/RemoteControlClient.kt
+Solusi: Ganti return false jadi throw e — biar stack trace lengkap tersimpan
 
 [03-10-2026] - V1.30.6
 Error: Fungsi applyMediaPathToSettings tidak ditemukan
@@ -405,8 +444,7 @@ Error: IllegalStateException Vertically scrollable infinity
 File: SettingsScreen.kt
 Solusi: Ganti Crossfade ke Box + key() + alpha fade
     """.trimIndent()
-
-    val WORKFLOW_INSTRUCTION = """
+        val WORKFLOW_INSTRUCTION = """
 PRINSIP UTAMA:
 - KERJAKAN PER BATCH
 - JANGAN BUKA FILE YANG SAMA BERKALI-KALI
@@ -455,7 +493,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.30.6
+- Versi saat ini : V1.30.7
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -533,10 +571,9 @@ PENANGANAN BUILD ERROR:
 5. Commit ulang
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.30.6)
+- Tidak ada (semua fitur selesai per V1.30.7)
     """.trimIndent()
-  
-    val MEMORY_KNOWLEDGE = """
+        val MEMORY_KNOWLEDGE = """
 ============================================================
 MEMORY KNOWLEDGE & INSTRUCTION — MASJID.IO
 Untuk AI baru yang membaca backup ini
@@ -607,7 +644,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.30.6
+  Versi saat ini : V1.30.7
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -729,6 +766,7 @@ FOLDER KUNCI:
 - app/src/main/java/com/example/util/SettingsTransferHelper.kt
 - app/src/main/java/com/example/util/RemoteControlClient.kt
 - app/src/main/java/com/example/util/MediaTransferHelper.kt
+- app/src/main/java/com/example/util/IoBundleHelper.kt
 - app/src/main/java/com/example/data/AppKnowledge.kt
 - app/src/main/java/com/example/data/UpdateHistory.kt
 - app/src/main/java/com/example/data/local/SettingsRepository.kt
@@ -737,6 +775,8 @@ FOLDER KUNCI:
 - app/src/main/java/com/example/ui/settings/SettingsScreen.kt
 - app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
 - app/src/main/java/com/example/ui/settings/TvDisplaySettingsPane.kt
+- app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
+- app/src/main/java/com/example/ui/settings/IoBundleListSection.kt
 - app/src/main/java/com/example/ui/remote/RemoteServer.kt
 - app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
 - app/src/main/java/com/example/ui/remote/IoControlScreen.kt
@@ -820,6 +860,34 @@ FOLDER KUNCI:
 - Changelog pakai weight(1f) + verticalScroll
 - Tombol SKIP / NANTI / UPDATE selalu terlihat
 - build.yml: extract changelog dari UpdateHistory.kt
+
+=== BAGIAN 25 — FITUR VERIFIKASI + RESTART MANUAL (V1.30.7) ===
+
+- Transfer dianggap selesai kalau ada hasil verifikasi
+- Phase baru: VERIFYING + READY_TO_RESTART
+- Restart MANUAL via tombol KONFIRMASI RESTART
+- Tombol COBA LAGI: retry HANYA file yang gagal
+- Tombol LIHAT LOG: popup stack trace Kotlin asli
+- Tombol RESTART SAJA: kalau ada gagal, tetap bisa restart
+- Tombol LEWATI: template aktif otomatis saat app dibuka ulang
+- Stack trace disimpan dari setiap catch — bukan kode singkatan
+- FailureLogDialog: tombol SALIN LOG ke clipboard
+
+=== BAGIAN 26 — FITUR FILE TEMPLATE .iO (V1.30.7) ===
+
+- Format .iO = ZIP (settings.json + metadata.json + media/)
+- Auto-bikin setiap transfer selesai (sukses/gagal)
+- Nama file: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
+- Lokasi: /sdcard/masjid.io/Terima/
+- File TIDAK dihapus otomatis (kecuali user hapus manual)
+- Daftar file template di menu Tampilan & Background
+- 3 tombol per file: GUNAKAN / INFO / HAPUS
+- Title kecil: "8 sukses · 2 gagal · 📷 12 foto · 🎬 1 video"
+- Apply template → media lama DITAMBAH (bukan ditimpa)
+- Setelah apply → dialog konfirmasi restart 5 detik
+- File baru: IoBundleHelper.kt
+- File baru: IoBundleListSection.kt
+- Endpoint baru: /api/io/list-bundles, /api/io/delete-bundle, /api/io/restore-bundle
 
 ============================================================
 END OF MEMORY KNOWLEDGE
