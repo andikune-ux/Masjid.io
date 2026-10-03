@@ -14,6 +14,34 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.30.7",
+            date = "03 Oktober 2026",
+            title = "Verifikasi Transfer + Konfirmasi Restart Manual + File Template .iO",
+            features = listOf(
+                "Fitur BARU: verifikasi transfer sebelum restart — pastikan semua file terkirim",
+                "Fitur BARU: konfirmasi restart manual via tombol (bukan auto restart)",
+                "Fitur BARU: file template .iO (bundle ZIP berisi settings + media)",
+                "Fitur BARU: daftar file template di menu Tampilan & Background",
+                "Tombol GUNAKAN untuk apply template .iO (settings + media)",
+                "Tombol INFO untuk lihat log stack trace Kotlin lengkap",
+                "Tombol HAPUS untuk buang file template",
+                "Tombol SALIN LOG untuk copy log ke clipboard",
+                "File template disimpan otomatis di /sdcard/masjid.io/Terima/",
+                "Nama file otomatis: {Merk HP}-{dd-MM-yyyy HH.mm}.iO",
+                "File .iO TIDAK dihapus otomatis (kecuali user hapus manual)",
+                "Retry otomatis hanya file yang gagal (bukan semua)",
+                "Error detail: setiap kegagalan simpan stack trace Kotlin asli",
+                "Kalau user tidak klik restart → keluar-buka app → template aktif otomatis",
+                "File baru: IoBundleHelper.kt (create/read/list/delete bundle)",
+                "File baru: IoBundleListSection.kt (UI daftar file template)",
+                "RemoteControlClient.kt: tambah MediaFileFailure + retryFailedMedia()",
+                "IoControlScreen.kt: tambah phase VERIFYING + READY_TO_RESTART",
+                "RemoteServer.kt: auto-bikin bundle saat transfer selesai",
+                "RemoteServer.kt: 3 endpoint baru (list-bundles, delete-bundle, restore-bundle)",
+                "CustomBackgroundPane.kt: tambah section file template .iO"
+            )
+        ),
+        UpdateEntry(
             version = "V1.30.6",
             date = "03 Oktober 2026",
             title = "Fix Fokus D-pad TV + Fix Transfer Media iO Control",
@@ -88,7 +116,8 @@ object UpdateHistory {
                 "File IoControlScreen.kt: MediaProgressView + enum SENDING_MEDIA",
                 "Auto-save media di folder internal TV: filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}"
             )
-        ),
+        )
+                ,
         UpdateEntry(
             version = "V1.30.3",
             date = "02 Oktober 2026",
@@ -163,7 +192,6 @@ object UpdateHistory {
                 "Fix: build.yml tag release pakai versi asli via aapt"
             )
         ),
-        
         UpdateEntry(
             version = "V1.29.3",
             date = "29 September 2026",
