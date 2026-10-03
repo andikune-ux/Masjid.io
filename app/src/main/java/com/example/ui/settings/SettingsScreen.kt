@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusRestorer
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -134,6 +135,11 @@ fun SettingsScreen(
     var isInitialLoad by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
+
+    // ============================================================
+    // FOKUS — V1.30.7
+    // ============================================================
+    // FocusRequester untuk pane kanan (tujuan auto-pindah)
     val paneFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(selectedCategory) {
@@ -191,14 +197,17 @@ fun SettingsScreen(
 
         // BODY
         Row(modifier = Modifier.fillMaxSize()) {
-            // SIDEBAR
+            // ============================================================
+            // SIDEBAR — V1.30.7: tambah focusRestorer()
+            // ============================================================
             Column(
                 modifier = Modifier
                     .weight(0.32f)
                     .fillMaxHeight()
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
-                    .padding(vertical = 16.dp, horizontal = 16.dp),
+                    .padding(vertical = 16.dp, horizontal = 16.dp)
+                    .focusRestorer(),  // ← BARU: ingat posisi sidebar terakhir
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SettingsCategory.values().forEach { cat ->
@@ -210,32 +219,34 @@ fun SettingsScreen(
                                 if (SettingsNavState.isDeveloperUnlocked) {
                                     selectedCategory = cat
                                     previewCategory = cat
+                                    // Auto-pindah fokus ke pane
+                                    scope.launch {
+                                        delay(200)
+                                        runCatching { paneFocusRequester.requestFocus() }
+                                    }
                                 } else {
                                     showDeveloperPinDialog = true
                                 }
                             } else {
                                 selectedCategory = cat
                                 previewCategory = cat
-                            }
-                        },
-                        onFocusChange = { isFocused ->
-                            if (isFocused) {
+                                // Auto-pindah fokus ke pane
                                 scope.launch {
-                                    delay(100)
-                                    if (cat != SettingsCategory.DEVELOPER ||
-                                        SettingsNavState.isDeveloperUnlocked
-                                    ) {
-                                        previewCategory = cat
-                                    }
+                                    delay(200)
+                                    runCatching { paneFocusRequester.requestFocus() }
                                 }
                             }
                         },
+                        // V1.30.7: HAPUS onFocusChange — tidak lagi auto-ganti pane saat hover
+                        onFocusChange = { /* no-op */ },
                         rightFocusRequester = paneFocusRequester
                     )
                 }
             }
 
-            // PANE KANAN — dibungkus AutoFocusPane
+            // ============================================================
+            // PANE KANAN — V1.30.7: tambah focusProperties { left = ... }
+            // ============================================================
             Box(
                 modifier = Modifier
                     .weight(0.68f)
@@ -254,9 +265,9 @@ fun SettingsScreen(
                         label = "pane_fade"
                     )
 
+                    // AutoFocusPane — sekarang hanya focusRestorer (tidak panggil requestFocus)
                     AutoFocusPane(
                         paneKey = previewCategory,
-                        focusDelayMs = 150L,
                         modifier = Modifier
                             .fillMaxSize()
                             .alpha(alpha)
@@ -460,6 +471,7 @@ private fun SidebarItem(
                 .clip(RoundedCornerShape(12.dp))
                 .background(bgColor)
                 .focusProperties {
+                    // V1.30.7: tekan Kanan dari sidebar → masuk ke pane
                     right = rightFocusRequester
                 }
                 .focusable(interactionSource = interactionSource)
