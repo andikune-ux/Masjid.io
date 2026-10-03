@@ -37,17 +37,14 @@ private enum class BorderPhase {
 /**
  * NeonFocusBorder — Border neon dengan animasi glow berputar.
  *
- * PRINSIP BARU (V1.30.5):
- *   - Fokus pindah = INSTANT (border tebal muncul langsung)
- *   - Scale = smooth 150ms menyusul
- *   - Glow blur = tetap ada, animasi menyusul
+ * V1.30.6: Kembalikan animasi border berputar yang sempat tertutup
+ *          oleh border solid di V1.30.5.
  *
- * @param focused Status fokus saat ini
- * @param pressed Status tombol OK ditekan
- * @param borderWidth Lebar border (default 4dp)
- * @param cornerRadius Sudut lengkung (default 12dp)
- * @param glowRadius Radius glow blur (default 8dp)
- * @param content Konten di dalam border
+ * Prinsip:
+ *   - Border tipis (dim gold) sebagai kerangka
+ *   - Glow berputar 2-kutub (putih + emas) dengan ekor
+ *   - Blur tetap ada
+ *   - Scale smooth 150ms
  */
 @Composable
 fun NeonFocusBorder(
@@ -59,9 +56,6 @@ fun NeonFocusBorder(
     glowRadius: Dp = 8.dp,
     content: @Composable () -> Unit
 ) {
-    // ============================================================
-    // SCALE — smooth 150ms MENYUSUL setelah fokus
-    // ============================================================
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.05f else 1f,
         animationSpec = tween(
@@ -75,7 +69,7 @@ fun NeonFocusBorder(
     var currentPhase by remember { mutableStateOf(BorderPhase.HIDDEN) }
 
     // ============================================================
-    // FOKUS → langsung loop 2 warna
+    // Fokus → langsung loop 2 warna
     // ============================================================
     LaunchedEffect(focused) {
         if (!focused) {
@@ -91,7 +85,7 @@ fun NeonFocusBorder(
     }
 
     // ============================================================
-    // PRESSED → kedip ON/OFF tegas (100ms on, 100ms off)
+    // Pressed → kedip ON/OFF tegas (100ms on, 100ms off)
     // ============================================================
     val flashAlpha = remember { Animatable(1f) }
     LaunchedEffect(pressed) {
@@ -108,19 +102,6 @@ fun NeonFocusBorder(
     Box(modifier = modifier.scale(scale)) {
         if (focused) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                // ============================================================
-                // DRAW INSTANT BORDER — tidak animasi, langsung muncul
-                // ============================================================
-                drawInstantBorder(
-                    strokePx = borderWidth.toPx(),
-                    radiusPx = cornerRadius.toPx(),
-                    isPressed = pressed,
-                    flash = flashAlpha.value
-                )
-
-                // ============================================================
-                // DRAW GLOW — blur tetap, animasi menyusul
-                // ============================================================
                 drawGlowBorder(
                     canvasSize = size,
                     strokePx = borderWidth.toPx(),
@@ -137,43 +118,7 @@ fun NeonFocusBorder(
 }
 
 // ============================================================
-// DRAW INSTANT BORDER — border tebal langsung muncul
-// ============================================================
-private fun DrawScope.drawInstantBorder(
-    strokePx: Float,
-    radiusPx: Float,
-    isPressed: Boolean,
-    flash: Float
-) {
-    drawIntoCanvas { canvas ->
-        val native = canvas.nativeCanvas
-        val inset = strokePx / 2f
-        val rect = RectF(
-            inset,
-            inset,
-            size.width - inset,
-            size.height - inset
-        )
-
-        val paint = AndroidPaint().apply {
-            isAntiAlias = true
-            style = AndroidPaint.Style.STROKE
-            strokeWidth = strokePx
-            color = if (isPressed) {
-                // Saat pressed: emas terang dengan flash alpha
-                val a = (flash * 255).toInt().coerceIn(0, 255)
-                (0xFFFFD700.toInt() and 0x00FFFFFF) or (a shl 24)
-            } else {
-                // Fokus normal: emas full opacity (INSTANT)
-                0xFFFFD700.toInt()
-            }
-        }
-        native.drawRoundRect(rect, radiusPx, radiusPx, paint)
-    }
-}
-
-// ============================================================
-// DRAW GLOW BORDER — blur tetap, dot glow berputar
+// CORE DRAW — Border tipis + Glow berputar
 // ============================================================
 private fun DrawScope.drawGlowBorder(
     canvasSize: Size,
@@ -187,7 +132,35 @@ private fun DrawScope.drawGlowBorder(
     drawIntoCanvas { canvas ->
         val native = canvas.nativeCanvas
 
-        // ============ GLOW TAIL ============
+        // ============================================================
+        // 1. CORE BORDER — tipis, warna dim gold (kerangka)
+        //    Saat pressed → berubah jadi emas terang
+        // ============================================================
+        val coreInset = strokePx / 2f
+        val coreRect = RectF(
+            coreInset,
+            coreInset,
+            canvasSize.width - coreInset,
+            canvasSize.height - coreInset
+        )
+        val corePaint = AndroidPaint().apply {
+            isAntiAlias = true
+            style = AndroidPaint.Style.STROKE
+            strokeWidth = strokePx
+            color = if (isPressed) {
+                // Saat pressed: emas terang (flash)
+                val a = (flash * 255).toInt().coerceIn(0, 255)
+                (0xFFFFD700.toInt() and 0x00FFFFFF) or (a shl 24)
+            } else {
+                // Fokus normal: emas DIM (20% opacity) — biar glow berputar tetap kelihatan
+                0x33FFD700.toInt()
+            }
+        }
+        native.drawRoundRect(coreRect, radiusPx, radiusPx, corePaint)
+
+        // ============================================================
+        // 2. GLOW TAIL — 48 dot dengan blur, berputar mengelilingi border
+        // ============================================================
         val glowOutset = glowPx * 0.4f
         val glowRect = RectF(
             -glowOutset,
@@ -207,19 +180,20 @@ private fun DrawScope.drawGlowBorder(
         val pathMeasure = PathMeasure(glowPath, false)
         val pathLength = pathMeasure.length
 
-        // ============ WARNA ============
+        // Warna kepala: putih + emas (2 kutub)
         val headColors = if (isPressed) {
             listOf(0xFFFFD700.toInt())
         } else {
             listOf(0xFFFFFFFF.toInt(), 0xFFFFD700.toInt())
         }
 
-        val tailLenFraction = 0.30f
+        val tailLenFraction = 0.30f  // Ekor 30% dari total keliling
         val dotCount = 48
         val blurRadius = glowPx * 1.2f
 
         headColors.forEachIndexed { idx, color ->
             val baseT = rotationDeg / 360f
+            // Kepala ke-2 offset 180° saat fokus normal
             val headT = if (isPressed) baseT else (baseT + idx * 0.5f) % 1f
 
             for (i in 0 until dotCount) {
