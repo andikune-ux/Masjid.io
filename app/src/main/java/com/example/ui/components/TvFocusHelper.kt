@@ -6,7 +6,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,9 +19,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * Data class untuk style fokus yang konsisten.
@@ -53,23 +50,19 @@ fun Modifier.tvFocusablePro(
 ): Modifier = composed {
     var isFocused by remember { mutableStateOf(false) }
 
-    // Scale: animasi smooth 150ms (menyusul setelah fokus)
     val scale by animateFloatAsState(
         targetValue = if (isFocused && enabled) style.scaleOnFocus else 1f,
-        animationSpec = tween(
-            durationMillis = style.animationDurationMs
-        ),
+        animationSpec = tween(durationMillis = style.animationDurationMs),
         label = "tv_focus_scale"
     )
 
-    // Shadow: smooth menyusul
     val shadowElevation by animateDpAsState(
         targetValue = if (isFocused && enabled) style.shadowElevation else 0.dp,
         animationSpec = tween(style.animationDurationMs),
         label = "tv_focus_shadow"
     )
 
-    // ===== BORDER INSTANT — langsung pakai value, tidak animate =====
+    // BORDER INSTANT — tidak animate, langsung pakai value
     val borderWidth: Dp = if (isFocused && enabled) style.borderWidth else 0.dp
     val borderColor: Color = if (isFocused && enabled) style.focusedBorderColor else Color.Transparent
 
@@ -92,7 +85,6 @@ fun Modifier.tvFocusablePro(
 
 // ============================================================
 // TV FOCUSABLE SIMPLE
-// Border INSTANT + scale smooth (tanpa shadow)
 // ============================================================
 fun Modifier.tvFocusableSimple(
     borderWidth: Dp = 4.dp,
@@ -110,7 +102,6 @@ fun Modifier.tvFocusableSimple(
         label = "tv_focus_simple_scale"
     )
 
-    // Border INSTANT
     val currentBorderWidth: Dp = if (isFocused && enabled) borderWidth else 0.dp
     val currentBorderColor: Color = if (isFocused && enabled) focusedBorderColor else Color.Transparent
 
@@ -127,7 +118,6 @@ fun Modifier.tvFocusableSimple(
 
 // ============================================================
 // TV FOCUSABLE ICON
-// Border INSTANT + scale smooth (untuk icon button)
 // ============================================================
 fun Modifier.tvFocusableIcon(
     cornerRadius: Dp = 50.dp,
@@ -142,7 +132,6 @@ fun Modifier.tvFocusableIcon(
         label = "tv_focus_icon_scale"
     )
 
-    // Border INSTANT
     val currentBorderWidth: Dp = if (isFocused && enabled) 4.dp else 0.dp
     val currentBorderColor: Color = if (isFocused && enabled) Color(0xFFFFE44D) else Color.Transparent
 
@@ -159,7 +148,6 @@ fun Modifier.tvFocusableIcon(
 
 // ============================================================
 // TV FOCUSABLE CARD
-// Border INSTANT + scale smooth + shadow smooth
 // ============================================================
 fun Modifier.tvFocusableCard(
     cornerRadius: Dp = 16.dp,
@@ -180,7 +168,6 @@ fun Modifier.tvFocusableCard(
         label = "tv_focus_card_shadow"
     )
 
-    // Border INSTANT — langsung ada saat fokus
     val currentBorderWidth: Dp = if (isFocused && enabled) 4.dp else 1.dp
     val currentBorderColor: Color = if (isFocused && enabled) Color(0xFFFFE44D)
     else Color(0x33FFD700)
