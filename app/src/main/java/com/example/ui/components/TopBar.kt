@@ -1,16 +1,17 @@
 package com.example.ui.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,13 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -53,11 +51,12 @@ fun TopBar(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isSettingsFocused by remember { mutableStateOf(false) }
-    val settingsBorderColor by animateColorAsState(
-        targetValue = if (isSettingsFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.5f),
-        label = "settings_border"
-    )
+    // ============================================================
+    // FOKUS TOMBOL SETTINGS — pakai NeonFocusBorder
+    // ============================================================
+    val settingsInteractionSource = remember { MutableInteractionSource() }
+    val isSettingsFocused by settingsInteractionSource.collectIsFocusedAsState()
+    val isSettingsPressed by settingsInteractionSource.collectIsPressedAsState()
 
     Row(
         modifier = modifier
@@ -167,27 +166,33 @@ fun TopBar(
         Spacer(modifier = Modifier.width(24.dp))
 
         // ============ KANAN: TOMBOL SETTINGS ============
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(Color(0xCC091620))
-                .border(
-                    width = if (isSettingsFocused) 3.dp else 1.5.dp,
-                    color = settingsBorderColor,
-                    shape = CircleShape
-                )
-                .onFocusChanged { isSettingsFocused = it.isFocused }
-                .focusable()
-                .clickable { onSettingsClick() },
-            contentAlignment = Alignment.Center
+        // Pakai NeonFocusBorder agar border berputar muncul saat fokus
+        NeonFocusBorder(
+            focused = isSettingsFocused,
+            pressed = isSettingsPressed,
+            borderWidth = 5.dp,
+            cornerRadius = 26.dp,
+            modifier = Modifier.size(52.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Pengaturan",
-                tint = if (isSettingsFocused) IslamicGoldLight else IslamicGold,
-                modifier = Modifier.size(28.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xCC091620))
+                    .focusable(interactionSource = settingsInteractionSource)
+                    .clickable(
+                        interactionSource = settingsInteractionSource,
+                        indication = null
+                    ) { onSettingsClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Pengaturan",
+                    tint = if (isSettingsFocused) IslamicGoldLight else IslamicGold,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 }
