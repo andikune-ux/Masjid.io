@@ -14,6 +14,42 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.04.421",
+            date = "04 Oktober 2026",
+            title = "Alur Sholat Baru + Media Persistence + Fix Mode Fokus",
+            features = listOf(
+                "Fitur BARU: Alur sholat lengkap (Adzan → Himbauan HP → Niat Qobliyah → Mode Fokus)",
+                "Overlay Adzan fullscreen: 'ADZAN [waktu]' + 'Selamat menunaikan ibadah sholat [waktu]'",
+                "Overlay Himbauan HP fullscreen: 'HENINGKAN HP ANDA' + kata-kata bagus",
+                "Overlay Niat Qobliyah fullscreen: niat arab + latin + arti (5 waktu sholat)",
+                "Countdown Iqomah tampil di overlay Niat Qobliyah",
+                "Mode Fokus sekarang 2 fase: Niat Fardhu (arab + latin + arti) + Dzikir",
+                "Niat sholat fardhu standar NU (baku, sesuai ajaran mayoritas Indonesia)",
+                "Fase ADZAN & QOBLIYAH lama dihapus dari Mode Fokus (dipindah ke AdzanSequenceOverlay)",
+                "Tombol OK di Adzan Sequence = lanjut ke tahap berikutnya",
+                "Tombol BACK di Adzan Sequence = skip ke Mode Fokus",
+                "Tombol OK di Mode Fokus = skip ke fase berikutnya",
+                "Tombol BACK di Mode Fokus = keluar (kalau focusModeAllowExitWithRemote = true)",
+                "Semua durasi tahap bisa diatur user via Settings → Durasi & Hitungan Mundur",
+                "Fix: file foto/video hilang setelah app tutup/update (media persistence)",
+                "Media persistence: copy file ke filesDir/masjid_io/ (folder permanen)",
+                "File baru: MediaPersistenceHelper.kt (helper copy file)",
+                "File baru: AdzanSequenceOverlay.kt (3 tahap pembuka)",
+                "5 file settings diupdate pakai MediaPersistenceHelper",
+                "CustomBackgroundPane: copy background ke folder permanen",
+                "IdentitySettingsPane: copy logo ke folder permanen",
+                "QrisSettingsPane: copy QRIS ke folder permanen",
+                "VideoSettingsPane: copy video + foto ke folder permanen",
+                "WeeklyOfficersSettingsPane: copy semua foto petugas ke folder permanen",
+                "Hapus 2 radio lama di VideoSettingsPane (Split Screen + Smart Fullscreen)",
+                "Digantikan oleh Auto-Switch Mode + Ukuran Frame",
+                "CountdownSettingsPane: tambah 5 slider durasi alur sholat baru",
+                "Fix: Mode Fokus tidak lagi tampilkan slide QRIS/Laporan/Kajian",
+                "Fix: FocusRequester di Mode Fokus terima tombol remote",
+                "Perbaikan: import lengkap di HomeScreen (ClockAndDate, MosqueHeader, QRISFocusOverlay, SlideManager)"
+            )
+        ),
+        UpdateEntry(
             version = "V1.04.420",
             date = "04 Oktober 2026",
             title = "Layout Opsi H + Auto-Switch Mode + Ukuran Frame",
@@ -64,7 +100,8 @@ object UpdateHistory {
                 "RemoteServer: hapus fonnteToken & fonnteGroupId dari web dashboard",
                 "Tambah info-box di tab Sistem: token hanya bisa diatur via Opsi Developer"
             )
-        ),
+        )
+                ,
         UpdateEntry(
             version = "V1.30.7",
             date = "03 Oktober 2026",
@@ -117,8 +154,7 @@ object UpdateHistory {
                 "Icon dompet lebih cocok untuk konteks masjid",
                 "Konsisten border berputar di seluruh halaman Settings, iO Control, HomeScreen"
             )
-        )
-                ,
+        ),
         UpdateEntry(
             version = "V1.30.5",
             date = "03 Oktober 2026",
