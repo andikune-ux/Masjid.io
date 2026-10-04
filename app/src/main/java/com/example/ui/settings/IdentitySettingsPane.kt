@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,10 @@ import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun IdentitySettingsPane(
@@ -64,11 +70,36 @@ fun IdentitySettingsPane(
     onUpdate: (AppSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // ============================================================
+    // V1.04.421: Copy logo ke folder permanen
+    // ============================================================
     val logoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            onUpdate(settings.copy(officerPhotoUri = uri.toString()))
+            scope.launch {
+                val localPath = withContext(Dispatchers.IO) {
+                    MediaPersistenceHelper.copyToPermanent(
+                        context = context,
+                        sourceUri = uri.toString(),
+                        folder = MediaPersistenceHelper.FOLDER_LOGO,
+                        fileNamePrefix = "logo"
+                    )
+                }
+                if (localPath != null) {
+                    // Hapus logo lama
+                    settings.officerPhotoUri?.let { old ->
+                        if (old != localPath) MediaPersistenceHelper.deleteFile(old)
+                    }
+                    onUpdate(settings.copy(officerPhotoUri = localPath))
+                } else {
+                    // Fallback
+                    onUpdate(settings.copy(officerPhotoUri = uri.toString()))
+                }
+            }
         }
     }
 
@@ -187,7 +218,12 @@ fun IdentitySettingsPane(
                             backgroundColor = Color.Transparent,
                             textColor = UrgentRed,
                             isOutlined = true,
-                            onClick = { onUpdate(settings.copy(officerPhotoUri = null)) }
+                            onClick = {
+                                settings.officerPhotoUri?.let { old ->
+                                    MediaPersistenceHelper.deleteFile(old)
+                                }
+                                onUpdate(settings.copy(officerPhotoUri = null))
+                            }
                         )
                     }
                 }
@@ -233,7 +269,6 @@ fun IdentitySettingsPane(
         )
     }
 }
-
 // ============================================================
 // KOMPONEN PENDUKUNG
 // ============================================================
