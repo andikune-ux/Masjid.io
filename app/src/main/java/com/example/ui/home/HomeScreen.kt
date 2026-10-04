@@ -127,7 +127,7 @@ private fun HomeScreenContent(
     screenInfo: ScreenInfo,
     modifier: Modifier = Modifier
 ) {
-    // ===== V1.04.420 — AUTO-SWITCH STATE =====
+    // ===== AUTO-SWITCH STATE =====
     var currentMode by remember { mutableStateOf("VIDEO") }
     var videoFinishedOnce by remember { mutableStateOf(false) }
 
@@ -269,7 +269,7 @@ private fun HomeScreenContent(
     }
 }
 // ============================================================
-// MODE VIDEO (Opsi H) — V1.04.420
+// MODE VIDEO (Opsi H) — V1.04.422 FIX
 // ============================================================
 @Composable
 private fun VideoModeLayout(
@@ -336,12 +336,16 @@ private fun VideoModeLayout(
                     )
                 }
 
-                // Overlay wisdom di bawah video
+                // Overlay wisdom di bawah video (dengan batas bawah untuk running text)
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 60.dp, start = 16.dp, end = 16.dp)
+                        .padding(
+                            bottom = 60.dp,  // ruang untuk running text
+                            start = 16.dp,
+                            end = 16.dp
+                        )
                 ) {
                     WisdomCardCarousel(
                         upcomingEvent = null,
@@ -362,11 +366,15 @@ private fun VideoModeLayout(
             }
         }
 
-        // Running text full width di bawah
+        // ============================================================
+        // Running text full width di bawah — V1.04.422 FIX
+        // Kasih height tetap biar TIDAK fullscreen
+        // ============================================================
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .height(52.dp)  // ← FIX: height tetap, tidak fillMaxSize
         ) {
             RunningTextMarquee(
                 text = settings.runningText,
@@ -824,7 +832,7 @@ private fun NormalModeLayout(
 }
 
 // ============================================================
-// KONTEN ROTASI (dipertahankan)
+// KONTEN ROTASI
 // ============================================================
 @Composable
 private fun ContentRotationCard(
