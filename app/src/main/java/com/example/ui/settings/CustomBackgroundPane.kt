@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,44 +75,50 @@ fun CustomBackgroundPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // ============================================================
-    // V1.04.421: Copy background ke folder permanen
-    // ============================================================
-    val bgPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                val localPath = withContext(Dispatchers.IO) {
-                    MediaPersistenceHelper.copyToPermanent(
-                        context = context,
-                        sourceUri = uri.toString(),
-                        folder = MediaPersistenceHelper.FOLDER_BACKGROUND,
-                        fileNamePrefix = "background"
-                    )
+    // Helper: proses URI background
+    fun processBgUri(uri: Uri) {
+        scope.launch {
+            val localPath = withContext(Dispatchers.IO) {
+                MediaPersistenceHelper.copyToPermanent(
+                    context = context,
+                    sourceUri = uri.toString(),
+                    folder = MediaPersistenceHelper.FOLDER_BACKGROUND,
+                    fileNamePrefix = "background"
+                )
+            }
+            if (localPath != null) {
+                settings.customBackgroundUri?.let { old ->
+                    if (old != localPath) MediaPersistenceHelper.deleteFile(old)
                 }
-                if (localPath != null) {
-                    // Hapus background lama
-                    settings.customBackgroundUri?.let { old ->
-                        if (old != localPath) MediaPersistenceHelper.deleteFile(old)
-                    }
-                    onUpdate(
-                        settings.copy(
-                            customBackgroundUri = localPath,
-                            backgroundMode = BackgroundMode.CUSTOM
-                        )
+                onUpdate(
+                    settings.copy(
+                        customBackgroundUri = localPath,
+                        backgroundMode = BackgroundMode.CUSTOM
                     )
-                } else {
-                    // Fallback: pakai URI asli kalau copy gagal
-                    onUpdate(
-                        settings.copy(
-                            customBackgroundUri = uri.toString(),
-                            backgroundMode = BackgroundMode.CUSTOM
-                        )
+                )
+            } else {
+                onUpdate(
+                    settings.copy(
+                        customBackgroundUri = uri.toString(),
+                        backgroundMode = BackgroundMode.CUSTOM
                     )
-                }
+                )
             }
         }
+    }
+
+    // TOMBOL 1: GALERI
+    val bgGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) processBgUri(uri)
+    }
+
+    // TOMBOL 2: FILE MANAGER
+    val bgFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) processBgUri(uri)
     }
 
     Column(
@@ -185,12 +192,18 @@ fun CustomBackgroundPane(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TvActionButton(
                             icon = Icons.Default.AddPhotoAlternate,
-                            label = "PILIH DARI GALERI",
+                            label = "GALERI",
                             backgroundColor = IslamicGold,
                             textColor = Color(0xFF09141D),
-                            onClick = { bgPickerLauncher.launch("image/*") }
+                            onClick = { bgGalleryLauncher.launch("image/*") }
                         )
-
+                        TvActionButton(
+                            icon = Icons.Default.FolderOpen,
+                            label = "FILE",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            onClick = { bgFileLauncher.launch(arrayOf("image/*")) }
+                        )
                         if (!settings.customBackgroundUri.isNullOrBlank()) {
                             TvActionButton(
                                 icon = Icons.Default.Delete,
@@ -212,6 +225,12 @@ fun CustomBackgroundPane(
                             )
                         }
                     }
+
+                    Text(
+                        text = "💡 Kalau GALERI tidak bisa pilih di TV, coba FILE.",
+                        fontSize = 10.sp,
+                        color = TextSecondary.copy(alpha = 0.8f)
+                    )
                 }
             }
         }
@@ -356,19 +375,19 @@ private fun TvActionButton(
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = textColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = textColor
         )
