@@ -1,5 +1,6 @@
 package com.example.ui.settings
 
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -7,7 +8,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +71,10 @@ import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun VideoSettingsPane(
@@ -76,32 +82,70 @@ fun VideoSettingsPane(
     onUpdate: (AppSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Picker Video (single)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // ============================================================
+    // VIDEO PICKER — V1.04.421 copy file ke folder permanen
+    // ============================================================
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            onUpdate(
-                settings.copy(
-                    videoUri = uri.toString(),
-                    videoEnabled = true
-                )
-            )
+            scope.launch {
+                val localPath = withContext(Dispatchers.IO) {
+                    MediaPersistenceHelper.copyVideoToPermanent(context, uri.toString())
+                }
+                if (localPath != null) {
+                    // Cleanup video lama (sisakan 3 terbaru)
+                    MediaPersistenceHelper.cleanupFolder(context, MediaPersistenceHelper.FOLDER_VIDEO, 3)
+                    onUpdate(
+                        settings.copy(
+                            videoUri = localPath,
+                            videoEnabled = true
+                        )
+                    )
+                } else {
+                    // Fallback: pakai URI asli kalau copy gagal
+                    onUpdate(
+                        settings.copy(
+                            videoUri = uri.toString(),
+                            videoEnabled = true
+                        )
+                    )
+                }
+            }
         }
     }
 
-    // Picker Foto (multiple) untuk slideshow
+    // ============================================================
+    // PHOTO PICKER — V1.04.421 copy file ke folder permanen
+    // ============================================================
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            val newUris = settings.photoSlideshowUris + uris.map { it.toString() }
-            onUpdate(
-                settings.copy(
-                    photoSlideshowUris = newUris,
-                    photoSlideshowEnabled = true
-                )
-            )
+            scope.launch {
+                val localPaths = withContext(Dispatchers.IO) {
+                    uris.mapNotNull { uri ->
+                        MediaPersistenceHelper.copyToPermanent(
+                            context = context,
+                            sourceUri = uri.toString(),
+                            folder = MediaPersistenceHelper.FOLDER_SLIDESHOW,
+                            fileNamePrefix = "foto"
+                        )
+                    }
+                }
+                if (localPaths.isNotEmpty()) {
+                    val newUris = settings.photoSlideshowUris + localPaths
+                    onUpdate(
+                        settings.copy(
+                            photoSlideshowUris = newUris,
+                            photoSlideshowEnabled = true
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -212,7 +256,7 @@ fun VideoSettingsPane(
                 ) {
                     Text(
                         text = if (!settings.videoUri.isNullOrBlank())
-                            "Video terpilih"
+                            "Video terpilih (tersimpan permanen)"
                         else "Belum ada file video yang dipilih.",
                         fontSize = 12.sp,
                         color = if (!settings.videoUri.isNullOrBlank()) IslamicGreen else TextSecondary
@@ -235,6 +279,7 @@ fun VideoSettingsPane(
                                 textColor = UrgentRed,
                                 isOutlined = true,
                                 onClick = {
+                                    settings.videoUri?.let { MediaPersistenceHelper.deleteFile(it) }
                                     onUpdate(settings.copy(videoUri = null, videoEnabled = false))
                                 }
                             )
@@ -244,43 +289,12 @@ fun VideoSettingsPane(
             }
         }
         // ============================================================
-// 3. MODE TAMPILAN (Split / Smart Fullscreen)
+// 3. HAPUS DULU: Mode Panel Kanan (Split) + Mode Cerdas
+//    → Digantikan oleh Auto-Switch Mode + Ukuran Frame
 // ============================================================
-Column(
-    modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(14.dp))
-        .background(Color(0xFF091620))
-        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-        .padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(10.dp)
-) {
-    Text(
-        text = "Pilihan Tata Letak Video di Layar TV:",
-        fontSize = 15.sp,
-        fontWeight = FontWeight.Bold,
-        color = IslamicGoldLight
-    )
-
-    val isSplit = !settings.videoSmartFullscreen
-    RadioOption(
-        title = "Mode Panel Kanan (Split Screen)",
-        description = "Video tayang di sisi kanan area tengah. Jam digital menyesuaikan tata letak.",
-        isSelected = isSplit,
-        onClick = { onUpdate(settings.copy(videoSmartFullscreen = false)) }
-    )
-
-    val isSmartFullscreen = settings.videoSmartFullscreen
-    RadioOption(
-        title = "Mode Cerdas Layar Penuh",
-        description = "Video otomatis layar penuh saat waktu sholat masih >30 menit. Mendekati sholat, layar kembali ke tampilan masjid.",
-        isSelected = isSmartFullscreen,
-        onClick = { onUpdate(settings.copy(videoSmartFullscreen = true)) }
-    )
-}
 
 // ============================================================
-// 4. V1.04.420 BARU — PENGATURAN UKURAN FRAME
+// 4. PENGATURAN UKURAN FRAME
 // ============================================================
 Column(
     modifier = Modifier
@@ -350,7 +364,7 @@ Column(
 
     FrameModeOption(
         title = "FIT (Stretch / Paksa Sesuaikan)",
-        description = "Video/foto ditarik & dipaksa memenuhi frame (bisa distorsi). Untuk video/foto dimensi aneh.",
+        description = "Video/foto ditarik & dipaksa memenuhi frame (bisa distorsi). Untuk dimensi aneh.",
         emojiLabel = "📐",
         isSelected = settings.videoFrameScale == "FIT",
         onClick = { onUpdate(settings.copy(videoFrameScale = "FIT")) }
@@ -358,7 +372,7 @@ Column(
 }
 
 // ============================================================
-// 5. V1.04.420 BARU — AUTO-SWITCH MODE
+// 5. AUTO-SWITCH MODE
 // ============================================================
 Column(
     modifier = Modifier
@@ -386,7 +400,7 @@ Column(
             )
             Text(
                 text = "Otomatis bolak-balik antara Mode Video dan Mode Normal lengkap. " +
-                        "Berjalan 24 jam, tidak mengganggu Mode Fokus Sholat & Slide Fullscreen.",
+                        "Jeda otomatis saat Mode Fokus / Slide Fullscreen / Ramadhan aktif.",
                 fontSize = 11.sp,
                 color = TextSecondary,
                 lineHeight = 15.sp
@@ -437,7 +451,6 @@ Column(
             onToggle = { onUpdate(settings.copy(waitVideoFinishBeforeSwitch = it)) }
         )
 
-        // Info box
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -468,7 +481,6 @@ Column(
             }
         }
 
-        // WARNING kalau belum ada media
         if (settings.videoUri.isNullOrBlank() && settings.photoSlideshowUris.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -533,7 +545,6 @@ Column(
             )
         }
 
-        // Kelola Foto
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -561,7 +572,12 @@ Column(
                         backgroundColor = Color.Transparent,
                         textColor = UrgentRed,
                         isOutlined = true,
-                        onClick = { onUpdate(settings.copy(photoSlideshowUris = emptyList())) }
+                        onClick = {
+                            settings.photoSlideshowUris.forEach { path ->
+                                MediaPersistenceHelper.deleteFile(path)
+                            }
+                            onUpdate(settings.copy(photoSlideshowUris = emptyList()))
+                        }
                     )
                 }
             }
@@ -610,7 +626,8 @@ Column(
                                     .background(UrgentRed)
                                     .clickable {
                                         val newList = settings.photoSlideshowUris.toMutableList()
-                                        newList.removeAt(index)
+                                        val removed = newList.removeAt(index)
+                                        MediaPersistenceHelper.deleteFile(removed)
                                         onUpdate(settings.copy(photoSlideshowUris = newList))
                                     },
                                 contentAlignment = Alignment.Center
@@ -652,7 +669,6 @@ Column(
             )
         }
 
-        // Interval Ganti Foto
         TvSlider(
             label = "Interval Ganti Foto",
             value = settings.photoSlideshowIntervalSeconds.toFloat(),
@@ -664,7 +680,6 @@ Column(
             unit = " detik"
         )
 
-        // Info
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -681,10 +696,8 @@ Column(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Foto slideshow akan tampil otomatis di posisi video (kanan atas layar) ketika:\n" +
-                            "• Video TIDAK aktif\n" +
-                            "• Foto slideshow AKTIF\n" +
-                            "• Minimal ada 1 foto yang di-upload",
+                    text = "Foto & video otomatis disalin ke folder permanen aplikasi. " +
+                            "Aman meski app ditutup, di-update, atau HP di-reboot.",
                     fontSize = 12.sp,
                     color = TextPrimary,
                     lineHeight = 18.sp
@@ -697,94 +710,6 @@ Column(
 // ============================================================
 // KOMPONEN PENDUKUNG
 // ============================================================
-
-@Composable
-private fun RadioOption(
-    title: String,
-    description: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    val borderWidth by animateDpAsState(
-        targetValue = if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp,
-        animationSpec = tween(200),
-        label = "radio_border_width"
-    )
-
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.02f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
-        label = "radio_scale"
-    )
-
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isFocused) 10.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "radio_shadow"
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(10.dp),
-                ambientColor = Color(0x66FFD700),
-                spotColor = Color(0x66FFD700)
-            )
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                when {
-                    isSelected -> Color(0x33FFD700)
-                    isFocused -> Color(0x22FFD700)
-                    else -> Color(0x22000000)
-                }
-            )
-            .border(
-                width = borderWidth,
-                color = when {
-                    isFocused -> Color(0xFFFFE44D)
-                    isSelected -> IslamicGold
-                    else -> Color(0x22FFFFFF)
-                },
-                shape = RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable { onClick() }
-            .padding(14.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(selectedColor = IslamicGold)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        isSelected -> IslamicGoldLight
-                        isFocused -> Color(0xFFFFE44D)
-                        else -> TextPrimary
-                    }
-                )
-                Text(
-                    text = description,
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    lineHeight = 16.sp
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun FrameModeOption(
