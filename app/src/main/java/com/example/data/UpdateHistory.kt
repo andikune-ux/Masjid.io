@@ -14,6 +14,58 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.04.420",
+            date = "04 Oktober 2026",
+            title = "Layout Opsi H + Auto-Switch Mode + Ukuran Frame",
+            features = listOf(
+                "Fitur BARU: Layout Opsi H untuk mode video/foto",
+                "Panel kiri 24%: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar",
+                "Panel kanan 76%: video/foto dengan lock frame",
+                "List sholat vertikal 6 baris (Subuh → Isya) dengan highlight NEXT (pulse emas)",
+                "Kotak gabungan: jam 32sp ExtraBold + garis pemisah + hijriah + masehi",
+                "Overlay wisdom card di bawah video (rotate: wisdom → ayat → hadits → asmaul husna)",
+                "Tombol Settings jadi overlay mengambang sudut kanan atas",
+                "Running text full width di bawah",
+                "Layout NORMAL tetap lengkap seperti sebelumnya",
+                "Fitur BARU: Auto-Switch Mode — bolak-balik Mode Video ↔ Mode Normal",
+                "Tunggu video loop 1x selesai sebelum switch (video tidak terpotong)",
+                "Pengaturan: toggle ON/OFF, interval video (1-60 menit), durasi normal (1-30 menit)",
+                "Kalau belum ada video/foto → mode normal permanen",
+                "Fitur BARU: Pengaturan Ukuran Frame — 5 mode",
+                "POTONG (Crop) seperti Instagram Reels",
+                "PAS (Fit/Letterbox) seperti Netflix",
+                "ZOOM (Fill) seperti TikTok",
+                "FULL (Fullscreen) panel kiri hilang",
+                "FIT (Stretch) paksa video/foto sesuaikan frame",
+                "Frame video/foto LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)",
+                "Icon sholat pakai Material Icon (bukan emoji) — hemat tempat",
+                "Auto-switch JEDA saat Mode Fokus Sholat / Slide Fullscreen / Ramadhan aktif",
+                "File baru: AppSettings 5 field baru (autoSwitchEnabled, videoModeIntervalMinutes, normalModeDurationMinutes, videoFrameScale, waitVideoFinishBeforeSwitch)",
+                "SettingsRepository: load/save 5 field baru + exportSummary section AUTO-SWITCH MODE",
+                "VideoSettingsPane: 2 section baru (Ukuran Frame + Auto-Switch Mode)",
+                "HomeScreen: VideoModeLayout + NormalModeLayout + auto-switch logic",
+                "MasjidVideoPlayer: parameter contentScale + onVideoEnded callback",
+                "PhotoSlideshow: parameter contentScale"
+            )
+        ),
+        UpdateEntry(
+            version = "V1.04.418",
+            date = "04 Oktober 2026",
+            title = "Storage Permission Dialog + Fix Download Check",
+            features = listOf(
+                "Fitur BARU: StoragePermissionDialog muncul otomatis saat pertama buka",
+                "Dialog berisi: penjelasan + 4 manfaat + cara aktivasi + tombol BERI IZIN / NANTI",
+                "Tombol BERI IZIN buka halaman Manage All Files Access (izin kelola semua file)",
+                "Auto-detect: kalau izin baru diberikan, dialog hilang otomatis (LifecycleObserver ON_RESUME)",
+                "Fix: startDownload() cek permission dulu sebelum download update",
+                "Kalau izin belum ada → tampilkan dialog + Toast peringatan",
+                "Fix: Back button diblokir saat dialog izin aktif",
+                "RunningTextMarquee: perlambat speed 1 dari 7.0x → 40.0x",
+                "RemoteServer: hapus fonnteToken & fonnteGroupId dari web dashboard",
+                "Tambah info-box di tab Sistem: token hanya bisa diatur via Opsi Developer"
+            )
+        ),
+        UpdateEntry(
             version = "V1.30.7",
             date = "03 Oktober 2026",
             title = "Verifikasi Transfer + Konfirmasi Restart Manual + File Template .iO",
@@ -65,7 +117,8 @@ object UpdateHistory {
                 "Icon dompet lebih cocok untuk konteks masjid",
                 "Konsisten border berputar di seluruh halaman Settings, iO Control, HomeScreen"
             )
-        ),
+        )
+                ,
         UpdateEntry(
             version = "V1.30.5",
             date = "03 Oktober 2026",
@@ -116,8 +169,7 @@ object UpdateHistory {
                 "File IoControlScreen.kt: MediaProgressView + enum SENDING_MEDIA",
                 "Auto-save media di folder internal TV: filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}"
             )
-        )
-                ,
+        ),
         UpdateEntry(
             version = "V1.30.3",
             date = "02 Oktober 2026",
