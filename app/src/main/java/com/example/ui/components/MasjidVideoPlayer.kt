@@ -28,32 +28,65 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.TextSecondary
 
+/**
+ * MasjidVideoPlayer — Pemutar video kegiatan masjid.
+ *
+ * V1.04.420: Tambah parameter contentScale + onVideoEnded
+ *   - contentScale: cara video menyesuaikan frame (PAS/POTONG/ZOOM/FULL/FIT)
+ *   - onVideoEnded: callback saat video selesai loop 1x (untuk auto-switch)
+ */
 @Composable
 fun MasjidVideoPlayer(
     videoUriString: String?,
     isFullscreen: Boolean = false,
+    contentScale: ContentScale = ContentScale.Crop,
+    onVideoEnded: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
     val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
 
+    // Mapping ContentScale ke AspectRatioFrameLayout resizeMode
+    val resizeMode = when (contentScale) {
+        ContentScale.Fit -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        ContentScale.Crop -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        ContentScale.FillBounds -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+    }
+
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             repeatMode = ExoPlayer.REPEAT_MODE_ALL
             volume = 0f
             playWhenReady = true
+        }
+    }
+
+    DisposableEffect(onVideoEnded) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    onVideoEnded?.invoke()
+                }
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
         }
     }
 
@@ -108,7 +141,7 @@ fun MasjidVideoPlayer(
 
                         val playerView = PlayerView(ctx).apply {
                             useController = false
-                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            this.resizeMode = @Suppress("NAME_SHADOWING") resizeMode
                             layoutParams = FrameLayout.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
