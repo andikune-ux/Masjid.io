@@ -24,12 +24,8 @@ import com.example.ui.theme.TextPrimary
 /**
  * RunningTextMarquee — Teks berjalan di bawah layar utama.
  *
- * V1.04.418: Speed 1 dibuat JAUH LEBIH LAMBAT (40x multiplier)
- * biar teks panjang bisa dibaca pelan & tenang di TV masjid.
- *
- * @param text Teks yang akan berjalan
- * @param speed Kecepatan 1-10 (1 = PALING LAMBAT, 5 = normal, 10 = paling cepat)
- * @param fontSize Ukuran huruf dalam sp
+ * V1.04.422 FIX: Ganti fillMaxSize() → fillMaxWidth() di Row.
+ * Bug: Row pakai fillMaxSize() bikin tinggi fullscreen → layar stuck.
  */
 @Composable
 fun RunningTextMarquee(
@@ -41,20 +37,7 @@ fun RunningTextMarquee(
     // GUARD: Kalau text kosong, jangan render
     if (text.isBlank()) return
 
-    // ============================================================
-    // V1.04.418 — KECEPATAN DIPERLAMBAT (formula baru)
-    // ============================================================
-    // Speed 1  = 40.0x (PALING LAMBAT — ±6-7 menit untuk teks panjang)
-    // Speed 2  = 30.0x (Sangat lambat — ±5 menit)
-    // Speed 3  = 22.0x (Lambat — ±3,5 menit)
-    // Speed 4  = 15.0x (Agak lambat — ±2,5 menit)
-    // Speed 5  = 8.0x  (Sedang — ±1,5 menit)
-    // Speed 6  = 4.5x  (Normal — ±50 detik)
-    // Speed 7  = 2.0x  (Agak cepat — ±25 detik)
-    // Speed 8  = 1.0x  (Cepat — ±12 detik)
-    // Speed 9  = 0.5x  (Sangat cepat — ±6 detik)
-    // Speed 10 = 0.25x (Paling cepat — ±3 detik)
-    // ============================================================
+    // Speed 1-10
     val safeSpeed = speed.coerceIn(1, 10)
     val speedMultiplier = when (safeSpeed) {
         1 -> 40.0f
@@ -70,8 +53,6 @@ fun RunningTextMarquee(
         else -> 8.0f
     }
 
-    // Durasi dasar: panjang teks × 100 ms × multiplier
-    // Minimal 3 detik (biar teks pendek tidak terlalu cepat)
     val baseDurationMs = (text.length * 100 * speedMultiplier)
         .toInt()
         .coerceAtLeast(3000)
@@ -90,6 +71,7 @@ fun RunningTextMarquee(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .height(48.dp)  // ← FIX: kasih height tetap biar tidak fullscreen
             .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
             .background(
                 Brush.horizontalGradient(
@@ -110,7 +92,9 @@ fun RunningTextMarquee(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxWidth()  // ← FIX: dari fillMaxSize() jadi fillMaxWidth()
+                .height(40.dp)   // ← FIX: batasi tinggi Row
         ) {
             // Gold Info Tag
             Box(
@@ -134,7 +118,9 @@ fun RunningTextMarquee(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clipToBounds()
+                    .fillMaxHeight()
+                    .clipToBounds(),
+                contentAlignment = Alignment.CenterStart
             ) {
                 Text(
                     text = text,
