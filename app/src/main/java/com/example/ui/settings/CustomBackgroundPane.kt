@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +59,10 @@ import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun CustomBackgroundPane(
@@ -65,16 +71,46 @@ fun CustomBackgroundPane(
     onRestart: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // ============================================================
+    // V1.04.421: Copy background ke folder permanen
+    // ============================================================
     val bgPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            onUpdate(
-                settings.copy(
-                    customBackgroundUri = uri.toString(),
-                    backgroundMode = BackgroundMode.CUSTOM
-                )
-            )
+            scope.launch {
+                val localPath = withContext(Dispatchers.IO) {
+                    MediaPersistenceHelper.copyToPermanent(
+                        context = context,
+                        sourceUri = uri.toString(),
+                        folder = MediaPersistenceHelper.FOLDER_BACKGROUND,
+                        fileNamePrefix = "background"
+                    )
+                }
+                if (localPath != null) {
+                    // Hapus background lama
+                    settings.customBackgroundUri?.let { old ->
+                        if (old != localPath) MediaPersistenceHelper.deleteFile(old)
+                    }
+                    onUpdate(
+                        settings.copy(
+                            customBackgroundUri = localPath,
+                            backgroundMode = BackgroundMode.CUSTOM
+                        )
+                    )
+                } else {
+                    // Fallback: pakai URI asli kalau copy gagal
+                    onUpdate(
+                        settings.copy(
+                            customBackgroundUri = uri.toString(),
+                            backgroundMode = BackgroundMode.CUSTOM
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -92,7 +128,7 @@ fun CustomBackgroundPane(
         )
 
         // ============================================================
-        // CUSTOM BACKGROUND PICKER (tetap)
+        // CUSTOM BACKGROUND PICKER
         // ============================================================
         Column(
             modifier = Modifier
@@ -163,6 +199,9 @@ fun CustomBackgroundPane(
                                 textColor = UrgentRed,
                                 isOutlined = true,
                                 onClick = {
+                                    settings.customBackgroundUri?.let { old ->
+                                        MediaPersistenceHelper.deleteFile(old)
+                                    }
                                     onUpdate(
                                         settings.copy(
                                             customBackgroundUri = null,
@@ -178,7 +217,7 @@ fun CustomBackgroundPane(
         }
 
         // ============================================================
-        // PRESET BACKGROUND THEMES (tetap)
+        // PRESET BACKGROUND THEMES
         // ============================================================
         Text(
             text = "Pilihan Tema Latar Bawaan:",
@@ -228,7 +267,7 @@ fun CustomBackgroundPane(
         }
 
         // ============================================================
-        // V1.30.7 BARU — DAFTAR FILE TEMPLATE .iO
+        // DAFTAR FILE TEMPLATE .iO
         // ============================================================
         Spacer(modifier = Modifier.height(8.dp))
 
