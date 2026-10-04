@@ -16,12 +16,12 @@ object AppKnowledge {
 
     val APP_STRUCTURE = """
 app/src/main/java/com/example/
-├── MainActivity.kt                    -> Activity utama (V1.04.418)
+├── MainActivity.kt                    -> Activity utama (V1.04.421)
 ├── audio/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
 │   ├── model/
-│   │   └── AppSettings.kt             -> Model pengaturan (120+ field)
+│   │   └── AppSettings.kt             -> Model pengaturan (130+ field)
 │   ├── local/
 │   │   ├── SettingsRepository.kt      -> Simpan/load setting + exportSummary
 │   │   ├── PrayerTimesCalculator.kt   -> Hitung jadwal sholat
@@ -50,8 +50,9 @@ app/src/main/java/com/example/
 │   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
 │   ├── SettingsTransferHelper.kt      -> Serialize + upload media
-│   ├── RemoteControlClient.kt         -> HTTP client iO Control (V1.30.7)
+│   ├── RemoteControlClient.kt         -> HTTP client iO Control
 │   ├── MediaTransferHelper.kt         -> Chunk + kompres media
+│   ├── MediaPersistenceHelper.kt      -> Copy file ke folder permanen (V1.04.421)
 │   ├── IoBundleHelper.kt              -> Bundle .iO (V1.30.7)
 │   ├── FonnteHelper.kt                -> Token & Group ID Fonnte
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
@@ -61,7 +62,8 @@ app/src/main/java/com/example/
 └── ui/
     ├── home/HomeScreen.kt             -> Tampilan utama (V1.04.420)
     ├── focus/
-    │   ├── PrayerFocusOverlay.kt      -> Mode fokus 4 fase
+    │   ├── AdzanSequenceOverlay.kt    -> 3 tahap alur sholat (V1.04.421)
+    │   ├── PrayerFocusOverlay.kt      -> Mode Fokus 2 fase (V1.04.421)
     │   └── QRISFocusOverlay.kt        -> Preview QRIS
     ├── slides/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
@@ -84,14 +86,14 @@ app/src/main/java/com/example/
     │   ├── DeveloperPinDialog.kt      -> PIN 140399
     │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
-    │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
-    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah + Bundle .iO
+    │   ├── CountdownSettingsPane.kt   -> Durasi & countdown (V1.04.421)
+    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah + Bundle .iO (V1.04.421)
     │   ├── IoBundleListSection.kt     -> Daftar file template .iO
     │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif
-    │   ├── IdentitySettingsPane.kt    -> Identitas + logo
+    │   ├── IdentitySettingsPane.kt    -> Identitas + logo (V1.04.421)
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
     │   ├── PowerSettingsPane.kt       -> Daya & Booting
-    │   ├── QrisSettingsPane.kt        -> Donasi QRIS
+    │   ├── QrisSettingsPane.kt        -> Donasi QRIS (V1.04.421)
     │   ├── RamadhanSettingsPane.kt    -> Mode Ramadhan
     │   ├── RunningTextSettingsPane.kt -> Running text
     │   ├── SecuritySettingsPane.kt    -> Keamanan
@@ -99,8 +101,8 @@ app/src/main/java/com/example/
     │   ├── CctvSettingsPane.kt        -> CCTV Masjid
     │   ├── RemoteSettingsPane.kt      -> iO Control + Remote Server
     │   ├── TimeSettingsPane.kt        -> Waktu manual
-    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame (V1.04.420)
-    │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan
+    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame (V1.04.421)
+    │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan (V1.04.421)
     │   ├── WisdomSettingsPane.kt      -> Kartu nasihat
     │   ├── MiniCalendarPickerModal.kt -> Kalender mini
     │   ├── PinDialog.kt               -> Dialog PIN
@@ -115,16 +117,16 @@ app/src/main/java/com/example/
     │   ├── TvFocusHelper.kt           -> Helper fokus D-pad
     │   ├── FocusHelper.kt             -> Helper fokus tambahan
     │   ├── NeonFocusBorder.kt         -> Border fokus berputar
-    │   ├── PhotoSlideshow.kt          -> Slideshow foto (V1.04.420)
-    │   ├── MasjidVideoPlayer.kt       -> Video player (V1.04.420)
+    │   ├── PhotoSlideshow.kt          -> Slideshow foto
+    │   ├── MasjidVideoPlayer.kt       -> Video player
     │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat
     │   ├── PrayerProgressBar.kt       -> Bar progres sholat
-    │   ├── RunningTextMarquee.kt      -> Running text (V1.04.418)
+    │   ├── RunningTextMarquee.kt      -> Running text
     │   ├── PinDialog.kt               -> Dialog PIN
     │   ├── ChangePinDialog.kt         -> Dialog ubah PIN
-    │   ├── TopBar.kt                  -> Top bar (V1.04.419)
+    │   ├── TopBar.kt                  -> Top bar
     │   ├── ClockAndDate.kt            -> Jam & tanggal
     │   ├── MosqueHeader.kt            -> Header nama masjid
     │   ├── ArabesquePattern.kt        -> Pola arabesque
@@ -166,23 +168,35 @@ app/src/main/java/com/example/
    - Fokus pindah INSTANT, animasi scale smooth 150ms
    - Blur glow tetap dipertahankan
    - Fokus tidak mendarat di tombol Kembali
-   - Konsisten di semua layar (Settings, iO Control, HomeScreen)
 
-6. MODE FOKUS SHOLAT (4 Fase)
-   - Adzan / Qobliyah / Fardhu / Dzikir
+6. ALUR SHOLAT BARU (V1.04.421) — BARU
+   - Beep bunyi saat waktu sholat tiba
+   - Tahap 1: Overlay Adzan fullscreen ('ADZAN [waktu]')
+   - Tahap 2: Overlay Himbauan HP fullscreen
+   - Tahap 3: Overlay Niat Qobliyah + Countdown Iqomah
+   - Tahap 4: Mode Fokus (Niat Fardhu → Dzikir)
+   - Semua durasi bisa diatur user
 
-7. AUDIO
+7. MODE FOKUS SHOLAT (V1.04.421)
+   - 2 fase baru: Niat Fardhu + Dzikir
+   - Fase ADZAN & QOBLIYAH dipindah ke AdzanSequenceOverlay
+   - Niat sholat fardhu (arab + latin + arti) - 5 waktu
+   - Tombol OK: skip ke fase berikutnya
+   - Tombol BACK: keluar dari Mode Fokus
+   - Tidak tampilkan slide QRIS/Laporan saat Mode Fokus aktif
+
+8. AUDIO
    - Mode Beep Only / Full Adzan / Silent
 
-8. SLIDE FULLSCREEN
+9. SLIDE FULLSCREEN
    - Slide QRIS / Laporan / Kajian auto-rotate
-   - Slide Laporan pakai icon dompet
    - FULLSCREEN — terpisah dari Mode Video
+   - Tidak muncul saat Mode Fokus aktif
 
-9. CCTV MASJID
-   - Widget PiP (RTSP + HTTP)
+10. CCTV MASJID
+    - Widget PiP (RTSP + HTTP)
 
-10. iO CONTROL (V1.30.1 + V1.30.4 + V1.30.7)
+11. iO CONTROL (V1.30.1 + V1.30.4 + V1.30.7)
     - HP sebagai remote TV via WiFi
     - Auto-discovery UDP + UI radar
     - Transfer semua pengaturan antar device
@@ -195,56 +209,55 @@ app/src/main/java/com/example/
     - VERIFIKASI transfer sebelum restart
     - Konfirmasi restart MANUAL via tombol
 
-11. REMOTE CONTROL WEB
+12. REMOTE CONTROL WEB
     - HTTP server + dashboard browser HP
     - Token Fonnte DISEMBUNYIKAN dari web (hanya di Opsi Developer)
 
-12. MODE RAMADHAN
+13. MODE RAMADHAN
     - Countdown Imsak/Iftar + Tarawih + Kultum
 
-13. KIOSK MODE
+14. KIOSK MODE
     - Lock task + Watchdog + Auto-start
 
-14. TENTANG APLIKASI
+15. TENTANG APLIKASI
     - Periksa Update + Riwayat + Install APK
     - Tap file APK = install, tombol merah = hapus
-    - Dialog update: tombol selalu terlihat
 
-15. OPSI DEVELOPER (PIN 140399)
+16. OPSI DEVELOPER (PIN 140399)
     - Backup Aman + Riwayat Crash + WhatsApp Fonnte
     - Token Fonnte hanya bisa diubah di sini
 
-16. VERSIONING OTOMATIS
+17. VERSIONING OTOMATIS
     - Format V{inti}.{tanggal}.{countHariIni}
 
-17. WHATSAPP REPORT (FONNTE)
+18. WHATSAPP REPORT (FONNTE)
     - Notifikasi crash otomatis ke grup admin
 
-18. FOTO SLIDESHOW + 19. KONTEN ROTASI
+19. FOTO SLIDESHOW + 20. KONTEN ROTASI
 
-20. DZIKIR SETELAH SHOLAT (8 dzikir)
+21. DZIKIR SETELAH SHOLAT (8 dzikir)
 
-21. AUTO-SHOW CRASH LOG
+22. AUTO-SHOW CRASH LOG
 
-22. FULL SOURCE CODE EXPORT
+23. FULL SOURCE CODE EXPORT
 
-23. FIX CRASH NESTED SCROLL + FADE ANIMASI
+24. FIX CRASH NESTED SCROLL + FADE ANIMASI
 
-24. SALIN URL OTOMATIS
+25. SALIN URL OTOMATIS
 
-25. APK INSTALL DARI FILE TERSIMPAN
+26. APK INSTALL DARI FILE TERSIMPAN
 
-26. TAMPILAN TV RESPONSIF
+27. TAMPILAN TV RESPONSIF
 
-27. TRANSFER MEDIA iO CONTROL
+28. TRANSFER MEDIA iO CONTROL
     - Foto & video ikut terkirim via chunk
     - Progress per-file + total
     - Retry otomatis
 
-28. FIX MEDIA PATH
+29. FIX MEDIA PATH
     - Update settings TV dengan path lokal setelah media masuk
 
-29. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL (V1.30.7)
+30. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL (V1.30.7)
     - Cek semua file benar-benar terkirim sebelum restart
     - Restart MANUAL via tombol konfirmasi
     - Tombol COBA LAGI untuk kirim ulang file gagal
@@ -252,7 +265,7 @@ app/src/main/java/com/example/
     - Tombol RESTART SAJA kalau ada file gagal
     - Tombol LEWATI → template aktif otomatis saat app dibuka ulang
 
-30. FILE TEMPLATE .iO (V1.30.7)
+31. FILE TEMPLATE .iO (V1.30.7)
     - Format .iO = ZIP (settings.json + metadata.json + media/)
     - Auto-bikin setiap transfer selesai
     - Nama file: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
@@ -263,14 +276,14 @@ app/src/main/java/com/example/
     - Apply template → media lama DITAMBAH
     - Setelah apply → dialog konfirmasi restart
 
-31. STORAGE PERMISSION DIALOG (V1.04.418) — BARU
+32. STORAGE PERMISSION DIALOG (V1.04.418)
     - Muncul otomatis saat pertama buka app
     - Dialog penjelasan izin akses file
     - Tombol BERI IZIN → buka Manage All Files Access
     - Auto-detect kalau izin sudah diberikan
     - Cek permission sebelum download update
 
-32. LAYOUT OPSI H — MODE VIDEO (V1.04.420) — BARU
+33. LAYOUT OPSI H — MODE VIDEO (V1.04.420)
     - Panel kiri 24%: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar
     - Panel kanan 76%: video/foto dengan lock frame
     - List sholat vertikal 6 baris (Subuh → Isya)
@@ -282,7 +295,7 @@ app/src/main/java/com/example/
     - Running text full width bawah
     - Mode NORMAL: layout lengkap seperti sebelumnya
 
-33. AUTO-SWITCH MODE (V1.04.420) — BARU
+34. AUTO-SWITCH MODE (V1.04.420)
     - Bolak-balik Mode Video ↔ Mode Normal otomatis
     - Interval video (1-60 menit)
     - Durasi normal (1-30 menit)
@@ -291,7 +304,7 @@ app/src/main/java/com/example/
     - JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
     - Berjalan 24 jam nonstop
 
-34. PENGATURAN UKURAN FRAME (V1.04.420) — BARU
+35. PENGATURAN UKURAN FRAME (V1.04.420)
     - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
     - POTONG (Crop) seperti Instagram Reels
     - PAS (Fit/Letterbox) seperti Netflix
@@ -299,13 +312,25 @@ app/src/main/java/com/example/
     - FULL (Fullscreen) panel kiri hilang
     - FIT (Stretch) paksa video/foto sesuaikan frame
     - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
-    - Referensi app ternama untuk mode masing-masing
+
+36. MEDIA PERSISTENCE (V1.04.421) — BARU
+    - File foto/video di-copy ke filesDir/masjid_io/ (folder permanen)
+    - Fix masalah file hilang setelah app tutup/update/reboot
+    - Support: QRIS, Logo, Background, Video, Foto Slideshow, Foto Petugas
+    - Hapus file lama otomatis saat user ganti/hapus
+    - File baru: MediaPersistenceHelper.kt
     """.trimIndent()
         val UPDATE_HISTORY = """
+V1.04.421 (04 Oktober 2026)
+- Alur Sholat Baru + Media Persistence + Fix Mode Fokus
+- Alur: Beep → Adzan → Himbauan HP → Niat Qobliyah → Mode Fokus
+- Mode Fokus: 2 fase (Niat Fardhu + Dzikir)
+- Fix: file foto/video hilang setelah app tutup/update
+- Media persistence: copy file ke folder permanen
+
 V1.04.420 (04 Oktober 2026)
 - Layout Opsi H + Auto-Switch Mode + Ukuran Frame
 - Panel kiri 24% + video 76% (mode video/foto)
-- Kotak gabungan jam + tanggal + list sholat vertikal
 - 5 mode ukuran frame: POTONG / PAS / ZOOM / FULL / FIT
 - Auto-switch Mode Video <-> Mode Normal otomatis
 
@@ -415,19 +440,24 @@ V1.28.0 (27 September 2026)
 28. Tombol UpdateDialog tidak terlihat → fillMaxHeight 0.92f
 29. Restart otomatis padahal file belum semua terkirim → verifikasi + restart manual
 30. Error transfer tidak jelas penyebabnya → simpan stack trace Kotlin asli
-31. Izin kelola file muncul tiap buka app → StoragePermissionDialog otomatis (V1.04.418)
-32. Download update gagal karena izin → cek permission dulu sebelum download (V1.04.418)
-33. Token Fonnte terlihat di web dashboard → hapus dari web (V1.04.418)
-34. Running text speed 1 masih ngebut → multiplier 40x (V1.04.418)
-35. Kotak cuaca di TopBar tidak center → layout 3-zona weight (V1.04.419)
-36. Layout video/foto berantakan → Opsi H (V1.04.420)
-37. Frame video tidak konsisten dimensi → 5 mode ukuran frame (V1.04.420)
+31. Izin kelola file muncul tiap buka app → StoragePermissionDialog otomatis
+32. Download update gagal karena izin → cek permission dulu sebelum download
+33. Token Fonnte terlihat di web dashboard → hapus dari web
+34. Running text speed 1 masih ngebut → multiplier 40x
+35. Kotak cuaca di TopBar tidak center → layout 3-zona weight
+36. Layout video/foto berantakan → Opsi H
+37. Frame video tidak konsisten dimensi → 5 mode ukuran frame
+38. File foto/video hilang setelah app tutup/update → media persistence
+39. Mode Fokus tidak bisa keluar → tombol OK/Back berfungsi
+40. Mode Fokus tampil slide QRIS/Laporan → dikondisikan tidak muncul saat fokus
+41. Niat sholat belum ada di Mode Fokus → tambah Niat Fardhu arab + latin + arti
+42. Import HomeScreen.kt kurang 4 file → tambah import
+43. MainActivity gagal commit (paste terpotong) → bagi jadi 7 BAGIAN lebih kecil
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
     """.trimIndent()
-
-    val BUILD_ERROR_HISTORY = """
+        val BUILD_ERROR_HISTORY = """
 FORMAT:
 ---
 [Tanggal] - [Versi]
@@ -437,6 +467,21 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[04-10-2026] - V1.04.421
+Error: MainActivity gagal commit (paste terpotong)
+File: app/src/main/java/com/example/MainActivity.kt
+Solusi: Bagi jadi 7 BAGIAN lebih kecil supaya tidak kepotong saat paste
+
+[04-10-2026] - V1.04.421
+Error: File foto/video hilang setelah app tutup/update
+File: 5 file settings (CustomBackground, Identity, Qris, Video, WeeklyOfficers)
+Solusi: Buat MediaPersistenceHelper.kt + copy file ke filesDir/masjid_io/
+
+[04-10-2026] - V1.04.421
+Error: Import HomeScreen.kt kurang 4 file
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Tambah import ClockAndDate, MosqueHeader, QRISFocusOverlay, SlideManager
 
 [04-10-2026] - V1.04.420
 Error: Import HomeScreen.kt kurang (ClockAndDate, MosqueHeader, QRISFocusOverlay, SlideManager)
@@ -547,15 +592,15 @@ ATURAN FORMAT (V1.04.418+):
 1. Visualisasi folder (emoji + indentasi)
 2. Path lengkap file
 3. Nama file
-4. URL edit (untuk file lama) atau URL new (untuk file baru)
+4. URL edit (file lama) atau URL new (file baru)
 5. Kode timpa full
 6. Pesan commit
 
 CATATAN FORMAT:
 - Elemen "2 opsi akses" TIDAK perlu lagi
 - Elemen "Bahasa Indonesia" TIDAK perlu lagi
-- Pakai code block (3 backtick) untuk path, URL, nama file
-- Biar muncul tombol Salin otomatis
+- Pakai code block (3 backtick) untuk path/URL/nama file
+- Kalau paste gagal → bagi jadi BAGIAN lebih kecil
 
 LARANGAN:
 - Jangan hapus fitur lama tanpa izin
@@ -581,7 +626,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.04.420
+- Versi saat ini : V1.04.421
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -594,6 +639,32 @@ ATURAN FORMAT:
 - Kode timpa full
 - Bahasa Indonesia simple
 - 1 chat = 1 fitur utuh kalau muat
+- Kalau paste gagal → bagi jadi BAGIAN lebih kecil (max 3-4 BAGIAN per file)
+
+=== ATURAN SIGNATURE / KEYSTORE (WAJIB) ===
+
+JANGAN PERNAH ubah file-file ini:
+1. debug.keystore (root repo)
+2. Blok signingConfigs di app/build.gradle.kts
+3. Bagian signing di .github/workflows/build.yml
+
+KALAU PAKAI AI STUDIO:
+- Tekankan di prompt: "JANGAN ubah debug.keystore,
+  JANGAN ubah signingConfigs, JANGAN ubah workflow signing."
+- AI Studio cuma boleh EDIT kode Kotlin/XML saja
+- Build tetap via GitHub Actions
+
+ATURAN INSTALL APK:
+- SELALU install dari GitHub Release
+- JANGAN install APK dari AI Studio
+- Alasan: signature beda → Android tolak → bentrok
+
+RIWAYAT KEJADIAN:
+- 04-10-2026: AI Studio ubah debug.keystore → bentrok
+- Solusi: restore debug.keystore dari commit lama
+
+FITUR YANG BELUM SELESAI:
+- Tidak ada (semua fitur selesai per V1.04.421)
     """.trimIndent()
 
     val MEMORY_INSTRUCTION = """
@@ -604,7 +675,9 @@ ATURAN FORMAT:
 - Kalau kode tidak muat 1 bubble → tulis "jangan commit dulu, masih ada sambungan"
 - JANGAN nolak buka link GitHub publik
 - JANGAN gabung link 1 file dengan lainnya — pisah per file
-- Pakai code block (3 backtick) untuk path/URL/nama file — biar ada tombol Salin
+- Pakai code block (3 backtick) untuk path/URL/nama file
+- Kalau file panjang (>300 baris) → bagi jadi 3-4 BAGIAN lebih kecil
+- Kalau paste gagal di HP → bagi jadi lebih banyak BAGIAN
 
 ATURAN KERJA:
 - Konfirmasi dulu sebelum eksekusi
@@ -617,7 +690,7 @@ ATURAN KERJA:
 STRUKTUR MENU SETTINGS (20 Kategori):
 1.  Lokasi & Waktu Sholat
 2.  Pengaturan Waktu
-3.  Durasi & Hitungan Mundur
+3.  Durasi & Hitungan Mundur (V1.04.421 - slider alur sholat baru)
 4.  Identitas Masjid
 5.  Jadwal Petugas & Foto
 6.  Donasi QRIS & Rekening
@@ -657,31 +730,6 @@ PENANGANAN BUILD ERROR:
 3. Perbaiki file yang error
 4. Update AppKnowledge.kt -> BUILD_ERROR_HISTORY
 5. Commit ulang
-
-=== ATURAN SIGNATURE / KEYSTORE (WAJIB) ===
-
-JANGAN PERNAH ubah file-file ini:
-1. debug.keystore (root repo)
-2. Blok signingConfigs di app/build.gradle.kts
-3. Bagian signing di .github/workflows/build.yml
-
-KALAU PAKAI AI STUDIO:
-- Tekankan di prompt: "JANGAN ubah file debug.keystore,
-  JANGAN ubah signingConfigs, JANGAN ubah workflow signing."
-- AI Studio cuma boleh EDIT kode Kotlin/XML saja
-- Build tetap via GitHub Actions
-
-ATURAN INSTALL APK:
-- SELALU install dari GitHub Release
-- JANGAN install APK dari AI Studio
-- Alasan: signature beda → Android tolak → "bentrok dengan paket yang sudah ada"
-
-RIWAYAT KEJADIAN:
-- 04-10-2026: AI Studio ubah debug.keystore → V1.04.415 bentrok dengan V1.03.395
-- Solusi: restore debug.keystore lama dari commit sebelum AI Studio ubah
-
-FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.04.420)
     """.trimIndent()
         val MEMORY_KNOWLEDGE = """
 ============================================================
@@ -702,7 +750,8 @@ Elemen wajib (V1.04.418+):
 CATATAN:
 - Elemen "2 opsi akses" TIDAK perlu lagi
 - Elemen "Bahasa Indonesia" TIDAK perlu lagi
-- Pakai code block untuk path/URL/nama file → tombol Salin otomatis
+- Pakai code block untuk path/URL/nama file
+- Kalau file >300 baris → bagi jadi 3-7 BAGIAN kecil
 
 === BAGIAN 1B — ATURAN ANTI-TRUNCATION ===
 
@@ -712,6 +761,7 @@ Kalau kode kepanjangan:
 3. Awal: "(sambungan dari BAGIAN sebelumnya)"
 4. JANGAN potong di tengah fungsi
 5. JANGAN bilang "kode dilanjut di chat berikutnya"
+6. Kalau paste gagal di HP → bagi jadi lebih banyak BAGIAN
 
 === BAGIAN 1C — ATURAN LINK GITHUB ===
 
@@ -743,7 +793,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.04.420
+  Versi saat ini : V1.04.421
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -885,7 +935,7 @@ https://github.com/andikune-ux/Masjid.io/new/main/{path}
 - Base 1920x1080 — auto-scale 0.6x s/d 2.5x
 - Safe Area Padding 0-10%
 - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
-- Menu: Tampilan TV (kategori ke-9)
+- Menu: Tampilan TV
 - Extension: .scaledDp() & .scaledSp() — JANGAN pakai .dp()/.sp()
 
 === BAGIAN 20 — FITUR TRANSFER MEDIA iO CONTROL ===
@@ -895,9 +945,7 @@ https://github.com/andikune-ux/Masjid.io/new/main/{path}
 - Kompres foto (1920px, 85%) + video (MediaMuxer)
 - Progress bar per-file + total
 - Retry otomatis 3x per chunk
-- Alur: settings -> media -> finalize
 - File di filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}
-- Endpoint media PUBLIC
 
 === BAGIAN 21 — FITUR AUTO-FOCUS D-PAD (V1.30.5) ===
 
@@ -941,8 +989,6 @@ https://github.com/andikune-ux/Masjid.io/new/main/{path}
 - Lokasi: /sdcard/masjid.io/Terima/
 - File TIDAK dihapus otomatis
 - 3 tombol per file: GUNAKAN / INFO / HAPUS
-- Title kecil: "8 sukses - 2 gagal - foto - video"
-- Apply template -> media lama DITAMBAH
 - File baru: IoBundleHelper.kt + IoBundleListSection.kt
 
 === BAGIAN 27 — ATURAN SIGNATURE / KEYSTORE (WAJIB) ===
@@ -973,7 +1019,6 @@ RIWAYAT KEJADIAN:
 - Tombol BERI IZIN -> buka Manage All Files Access
 - Auto-detect kalau izin sudah diberikan
 - Cek permission sebelum download update
-- Back button diblokir saat dialog aktif
 
 === BAGIAN 29 — FITUR LAYOUT OPSI H (V1.04.420) ===
 
@@ -1007,6 +1052,37 @@ RIWAYAT KEJADIAN:
 - FULL (Fullscreen) panel kiri hilang
 - FIT (Stretch) paksa video/foto sesuaikan frame
 - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
+
+=== BAGIAN 32 — ALUR SHOLAT BARU (V1.04.421) ===
+
+Alur saat waktu sholat tiba:
+1. Beep berbunyi
+2. Tahap 1: Overlay Adzan fullscreen ('ADZAN [waktu]')
+3. Tahap 2: Overlay Himbauan HP ('HENINGKAN HP ANDA')
+4. Tahap 3: Overlay Niat Qobliyah + Countdown Iqomah
+5. Tahap 4: Mode Fokus Sholat (Niat Fardhu -> Dzikir)
+
+File terkait:
+- AdzanSequenceOverlay.kt (3 tahap pembuka)
+- PrayerFocusOverlay.kt (2 fase Mode Fokus)
+
+Tombol remote:
+- OK di Adzan Sequence: lanjut tahap berikutnya
+- BACK di Adzan Sequence: skip ke Mode Fokus
+- OK di Mode Fokus: skip ke fase berikutnya
+- BACK di Mode Fokus: keluar (kalau diizinkan)
+
+Semua durasi bisa diatur user via Settings -> Durasi & Hitungan Mundur.
+
+=== BAGIAN 33 — FITUR MEDIA PERSISTENCE (V1.04.421) ===
+
+- File foto/video di-copy ke filesDir/masjid_io/ (folder permanen)
+- Fix masalah file hilang setelah app tutup/update/reboot
+- File baru: MediaPersistenceHelper.kt
+- Fungsi: copyToPermanent(), copyVideoToPermanent(), deleteFile(), cleanupFolder()
+- Support: QRIS, Logo, Background, Video, Foto Slideshow, Foto Petugas
+- Hapus file lama otomatis saat user ganti/hapus
+- Fallback ke URI asli kalau copy gagal
 
 ============================================================
 END OF MEMORY KNOWLEDGE
