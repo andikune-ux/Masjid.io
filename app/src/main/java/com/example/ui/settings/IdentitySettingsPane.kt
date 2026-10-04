@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -73,34 +74,40 @@ fun IdentitySettingsPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // ============================================================
-    // V1.04.421: Copy logo ke folder permanen
-    // ============================================================
-    val logoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                val localPath = withContext(Dispatchers.IO) {
-                    MediaPersistenceHelper.copyToPermanent(
-                        context = context,
-                        sourceUri = uri.toString(),
-                        folder = MediaPersistenceHelper.FOLDER_LOGO,
-                        fileNamePrefix = "logo"
-                    )
+    // Helper: proses URI hasil pilih file
+    fun processLogoUri(uri: Uri) {
+        scope.launch {
+            val localPath = withContext(Dispatchers.IO) {
+                MediaPersistenceHelper.copyToPermanent(
+                    context = context,
+                    sourceUri = uri.toString(),
+                    folder = MediaPersistenceHelper.FOLDER_LOGO,
+                    fileNamePrefix = "logo"
+                )
+            }
+            if (localPath != null) {
+                settings.officerPhotoUri?.let { old ->
+                    if (old != localPath) MediaPersistenceHelper.deleteFile(old)
                 }
-                if (localPath != null) {
-                    // Hapus logo lama
-                    settings.officerPhotoUri?.let { old ->
-                        if (old != localPath) MediaPersistenceHelper.deleteFile(old)
-                    }
-                    onUpdate(settings.copy(officerPhotoUri = localPath))
-                } else {
-                    // Fallback
-                    onUpdate(settings.copy(officerPhotoUri = uri.toString()))
-                }
+                onUpdate(settings.copy(officerPhotoUri = localPath))
+            } else {
+                onUpdate(settings.copy(officerPhotoUri = uri.toString()))
             }
         }
+    }
+
+    // TOMBOL 1: GALERI
+    val logoGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) processLogoUri(uri)
+    }
+
+    // TOMBOL 2: FILE MANAGER
+    val logoFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) processLogoUri(uri)
     }
 
     var mosqueNameText by remember { mutableStateOf(settings.mosqueName) }
@@ -201,15 +208,24 @@ fun IdentitySettingsPane(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TvActionButton(
-                        icon = Icons.Default.AddPhotoAlternate,
-                        label = "PILIH DARI GALERI",
-                        backgroundColor = IslamicGold,
-                        textColor = Color(0xFF09141D),
-                        onClick = { logoPickerLauncher.launch("image/*") }
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TvActionButton(
+                            icon = Icons.Default.AddPhotoAlternate,
+                            label = "GALERI",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            onClick = { logoGalleryLauncher.launch("image/*") }
+                        )
+                        TvActionButton(
+                            icon = Icons.Default.FolderOpen,
+                            label = "FILE",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            onClick = { logoFileLauncher.launch(arrayOf("image/*")) }
+                        )
+                    }
 
                     if (!settings.officerPhotoUri.isNullOrBlank()) {
                         TvActionButton(
@@ -226,6 +242,12 @@ fun IdentitySettingsPane(
                             }
                         )
                     }
+
+                    Text(
+                        text = "💡 Kalau GALERI tidak bisa pilih di TV, coba FILE.",
+                        fontSize = 10.sp,
+                        color = TextSecondary.copy(alpha = 0.8f)
+                    )
                 }
             }
         }
@@ -316,19 +338,19 @@ private fun TvActionButton(
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = textColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = textColor
         )
