@@ -155,13 +155,9 @@ data class AppSettings(
     val customBackgroundUri: String? = null,
     val animationsEnabled: Boolean = true,
     val showBirdsAnimation: Boolean = true,
-    // ============================================================
-    // RESPONSIVE LAYOUT (V1.30.3) — Auto-scale tampilan TV
-    // ============================================================
     val tvAutoScaleEnabled: Boolean = true,
     val tvSafeAreaPercent: Float = 3f,
     val tvLayoutPreset: String = "AUTO",
-    // ============================================================
     val qrisPhotoUri: String? = null,
     val qrisImageUri: String = "",
     val qrisIntervalMinutes: Int = 15,
@@ -182,6 +178,15 @@ data class AppSettings(
     val photoSlideshowEnabled: Boolean = false,
     val photoSlideshowUris: List<String> = emptyList(),
     val photoSlideshowIntervalSeconds: Int = 10,
+    // ============================================================
+    // V1.04.420 BARU — AUTO-SWITCH MODE & UKURAN FRAME
+    // ============================================================
+    val autoSwitchEnabled: Boolean = false,
+    val videoModeIntervalMinutes: Int = 5,
+    val normalModeDurationMinutes: Int = 2,
+    val videoFrameScale: String = "POTONG",
+    val waitVideoFinishBeforeSwitch: Boolean = true,
+    // ============================================================
     val slideEnabled: Boolean = false,
     val slideIntervalSeconds: Int = 15,
     val qrisSlideEnabled: Boolean = true,
