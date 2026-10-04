@@ -99,14 +99,22 @@ class SettingsRepository(context: Context) {
             photoSlideshowEnabled = prefs.getBoolean("photoSlideshowEnabled", false),
             photoSlideshowUris = loadStringList("photoSlideshowUris"),
             photoSlideshowIntervalSeconds = prefs.getInt("photoSlideshowIntervalSeconds", 10),
-            // ============================================================
-            // V1.04.420 BARU — AUTO-SWITCH & UKURAN FRAME
-            // ============================================================
             autoSwitchEnabled = prefs.getBoolean("autoSwitchEnabled", false),
             videoModeIntervalMinutes = prefs.getInt("videoModeIntervalMinutes", 5),
             normalModeDurationMinutes = prefs.getInt("normalModeDurationMinutes", 2),
             videoFrameScale = prefs.getString("videoFrameScale", "POTONG") ?: "POTONG",
             waitVideoFinishBeforeSwitch = prefs.getBoolean("waitVideoFinishBeforeSwitch", true),
+            // ============================================================
+            // V1.04.421 BARU — ALUR SHOLAT BARU
+            // ============================================================
+            adzanDisplayDurationSeconds = prefs.getInt("adzanDisplayDurationSeconds", 8),
+            silentPhoneDisplayDurationSeconds = prefs.getInt("silentPhoneDisplayDurationSeconds", 8),
+            qobliyahNiatDisplayDurationSeconds = prefs.getInt("qobliyahNiatDisplayDurationSeconds", 15),
+            fardhuNiatDisplayDurationSeconds = prefs.getInt("fardhuNiatDisplayDurationSeconds", 15),
+            dzikirDisplayDurationSeconds = prefs.getInt("dzikirDisplayDurationSeconds", 120),
+            focusModeAllowExitWithRemote = prefs.getBoolean("focusModeAllowExitWithRemote", true),
+            showDoaAfterAdzan = prefs.getBoolean("showDoaAfterAdzan", true),
+            showDoaAfterIqomah = prefs.getBoolean("showDoaAfterIqomah", true),
             // ============================================================
             slideEnabled = prefs.getBoolean("slideEnabled", false),
             slideIntervalSeconds = prefs.getInt("slideIntervalSeconds", 15),
@@ -231,14 +239,22 @@ class SettingsRepository(context: Context) {
             putBoolean("photoSlideshowEnabled", s.photoSlideshowEnabled)
             saveStringList("photoSlideshowUris", s.photoSlideshowUris)
             putInt("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
-            // ============================================================
-            // V1.04.420 BARU — AUTO-SWITCH & UKURAN FRAME
-            // ============================================================
             putBoolean("autoSwitchEnabled", s.autoSwitchEnabled)
             putInt("videoModeIntervalMinutes", s.videoModeIntervalMinutes)
             putInt("normalModeDurationMinutes", s.normalModeDurationMinutes)
             putString("videoFrameScale", s.videoFrameScale)
             putBoolean("waitVideoFinishBeforeSwitch", s.waitVideoFinishBeforeSwitch)
+            // ============================================================
+            // V1.04.421 BARU — ALUR SHOLAT BARU
+            // ============================================================
+            putInt("adzanDisplayDurationSeconds", s.adzanDisplayDurationSeconds)
+            putInt("silentPhoneDisplayDurationSeconds", s.silentPhoneDisplayDurationSeconds)
+            putInt("qobliyahNiatDisplayDurationSeconds", s.qobliyahNiatDisplayDurationSeconds)
+            putInt("fardhuNiatDisplayDurationSeconds", s.fardhuNiatDisplayDurationSeconds)
+            putInt("dzikirDisplayDurationSeconds", s.dzikirDisplayDurationSeconds)
+            putBoolean("focusModeAllowExitWithRemote", s.focusModeAllowExitWithRemote)
+            putBoolean("showDoaAfterAdzan", s.showDoaAfterAdzan)
+            putBoolean("showDoaAfterIqomah", s.showDoaAfterIqomah)
             // ============================================================
             putBoolean("slideEnabled", s.slideEnabled)
             putInt("slideIntervalSeconds", s.slideIntervalSeconds)
@@ -488,6 +504,14 @@ class SettingsRepository(context: Context) {
             appendLine("- Photo Slideshow   : ${s.photoSlideshowEnabled}")
             appendLine("- Interval Foto     : ${s.photoSlideshowIntervalSeconds} detik")
             appendLine("- Jumlah Foto       : ${s.photoSlideshowUris.size} foto")
+            appendLine()
+            appendLine("ALUR SHOLAT (V1.04.421)")
+            appendLine("- Durasi Overlay Adzan   : ${s.adzanDisplayDurationSeconds} detik")
+            appendLine("- Durasi Himbauan HP     : ${s.silentPhoneDisplayDurationSeconds} detik")
+            appendLine("- Durasi Niat Qobliyah   : ${s.qobliyahNiatDisplayDurationSeconds} detik")
+            appendLine("- Durasi Niat Fardhu     : ${s.fardhuNiatDisplayDurationSeconds} detik")
+            appendLine("- Durasi Dzikir          : ${s.dzikirDisplayDurationSeconds} detik")
+            appendLine("- Bisa Keluar via Remote : ${s.focusModeAllowExitWithRemote}")
             appendLine()
             appendLine("AUTO-SWITCH MODE")
             appendLine("- Auto Switch      : ${s.autoSwitchEnabled}")
