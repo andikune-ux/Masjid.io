@@ -30,6 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.VideoFile
@@ -60,6 +62,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.AppSettings
 import com.example.ui.components.MasjidVideoPlayer
 import com.example.ui.components.TvSlider
+import com.example.ui.components.TvToggle
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
@@ -116,7 +119,7 @@ fun VideoSettingsPane(
         )
 
         // ============================================================
-        // 1. VIDEO SECTION
+        // 1. VIDEO TOGGLE
         // ============================================================
         Row(
             modifier = Modifier
@@ -152,6 +155,9 @@ fun VideoSettingsPane(
             )
         }
 
+        // ============================================================
+        // 2. VIDEO PICKER
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -237,47 +243,254 @@ fun VideoSettingsPane(
                 }
             }
         }
-        
         // ============================================================
-        // 2. MODE TAMPILAN CERDAS
-        // ============================================================
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+// 3. MODE TAMPILAN (Split / Smart Fullscreen)
+// ============================================================
+Column(
+    modifier = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(14.dp))
+        .background(Color(0xFF091620))
+        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
+        .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp)
+) {
+    Text(
+        text = "Pilihan Tata Letak Video di Layar TV:",
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = IslamicGoldLight
+    )
+
+    val isSplit = !settings.videoSmartFullscreen
+    RadioOption(
+        title = "Mode Panel Kanan (Split Screen)",
+        description = "Video tayang di sisi kanan area tengah. Jam digital menyesuaikan tata letak.",
+        isSelected = isSplit,
+        onClick = { onUpdate(settings.copy(videoSmartFullscreen = false)) }
+    )
+
+    val isSmartFullscreen = settings.videoSmartFullscreen
+    RadioOption(
+        title = "Mode Cerdas Layar Penuh",
+        description = "Video otomatis layar penuh saat waktu sholat masih >30 menit. Mendekati sholat, layar kembali ke tampilan masjid.",
+        isSelected = isSmartFullscreen,
+        onClick = { onUpdate(settings.copy(videoSmartFullscreen = true)) }
+    )
+}
+
+// ============================================================
+// 4. V1.04.420 BARU — PENGATURAN UKURAN FRAME
+// ============================================================
+Column(
+    modifier = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(14.dp))
+        .background(Color(0xFF091620))
+        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
+        .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp)
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Default.AspectRatio,
+            contentDescription = null,
+            tint = IslamicGold,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
             Text(
-                text = "Pilihan Tata Letak Video di Layar TV:",
+                text = "PENGATURAN UKURAN FRAME",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = IslamicGoldLight
             )
-
-            // Opsi Split
-            val isSplit = !settings.videoSmartFullscreen
-            RadioOption(
-                title = "Mode Panel Kanan (Split Screen)",
-                description = "Video tayang di sisi kanan area tengah. Jam digital menyesuaikan tata letak.",
-                isSelected = isSplit,
-                onClick = { onUpdate(settings.copy(videoSmartFullscreen = false)) }
-            )
-
-            // Opsi Fullscreen
-            val isSmartFullscreen = settings.videoSmartFullscreen
-            RadioOption(
-                title = "Mode Cerdas Layar Penuh",
-                description = "Video otomatis layar penuh saat waktu sholat masih >30 menit. Mendekati sholat, layar kembali ke tampilan masjid.",
-                isSelected = isSmartFullscreen,
-                onClick = { onUpdate(settings.copy(videoSmartFullscreen = true)) }
+            Text(
+                text = "Cara video/foto menyesuaikan diri dengan frame. " +
+                        "Berlaku untuk video dan foto slideshow.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
             )
         }
+    }
 
+    FrameModeOption(
+        title = "POTONG (Crop)",
+        description = "Video/foto penuhi frame, sisi berlebih dipotong. Seperti Instagram Reels.",
+        emojiLabel = "✂️",
+        isSelected = settings.videoFrameScale == "POTONG",
+        onClick = { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
+    )
+
+    FrameModeOption(
+        title = "PAS (Fit / Letterbox)",
+        description = "Video/foto tampil utuh, ada ruang hitam di sisi. Seperti Netflix.",
+        emojiLabel = "📺",
+        isSelected = settings.videoFrameScale == "PAS",
+        onClick = { onUpdate(settings.copy(videoFrameScale = "PAS")) }
+    )
+
+    FrameModeOption(
+        title = "ZOOM (Fill)",
+        description = "Video/foto diperbesar penuhi frame, tengah fokus. Seperti TikTok.",
+        emojiLabel = "🔍",
+        isSelected = settings.videoFrameScale == "ZOOM",
+        onClick = { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
+    )
+
+    FrameModeOption(
+        title = "FULL (Fullscreen)",
+        description = "Video/foto menutupi seluruh layar. Panel kiri (jam & jadwal) disembunyikan.",
+        emojiLabel = "🖥️",
+        isSelected = settings.videoFrameScale == "FULL",
+        onClick = { onUpdate(settings.copy(videoFrameScale = "FULL")) }
+    )
+
+    FrameModeOption(
+        title = "FIT (Stretch / Paksa Sesuaikan)",
+        description = "Video/foto ditarik & dipaksa memenuhi frame (bisa distorsi). Untuk video/foto dimensi aneh.",
+        emojiLabel = "📐",
+        isSelected = settings.videoFrameScale == "FIT",
+        onClick = { onUpdate(settings.copy(videoFrameScale = "FIT")) }
+    )
+}
+
+// ============================================================
+// 5. V1.04.420 BARU — AUTO-SWITCH MODE
+// ============================================================
+Column(
+    modifier = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(14.dp))
+        .background(Color(0xFF091620))
+        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
+        .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp)
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Default.Autorenew,
+            contentDescription = null,
+            tint = IslamicGold,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
+            Text(
+                text = "AUTO-SWITCH MODE",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight
+            )
+            Text(
+                text = "Otomatis bolak-balik antara Mode Video dan Mode Normal lengkap. " +
+                        "Berjalan 24 jam, tidak mengganggu Mode Fokus Sholat & Slide Fullscreen.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+        }
+    }
+
+    TvToggle(
+        label = "Aktifkan Auto-Switch",
+        description = if (settings.autoSwitchEnabled)
+            "Mode akan otomatis berganti sesuai interval di bawah"
+        else
+            "Mode Video tampil terus (tidak berganti)",
+        isChecked = settings.autoSwitchEnabled,
+        onToggle = { onUpdate(settings.copy(autoSwitchEnabled = it)) }
+    )
+
+    if (settings.autoSwitchEnabled) {
+        TvSlider(
+            label = "Interval Mode Video",
+            value = settings.videoModeIntervalMinutes.toFloat(),
+            onValueChange = {
+                onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt()))
+            },
+            valueRange = 1f..60f,
+            steps = 58,
+            unit = " menit"
+        )
+
+        TvSlider(
+            label = "Durasi Mode Normal",
+            value = settings.normalModeDurationMinutes.toFloat(),
+            onValueChange = {
+                onUpdate(settings.copy(normalModeDurationMinutes = it.toInt()))
+            },
+            valueRange = 1f..30f,
+            steps = 28,
+            unit = " menit"
+        )
+
+        TvToggle(
+            label = "Tunggu Video Selesai",
+            description = if (settings.waitVideoFinishBeforeSwitch)
+                "Switch ke Mode Normal menunggu video selesai loop 1x (video tidak terpotong)"
+            else
+                "Switch langsung saat interval habis (video bisa terpotong)",
+            isChecked = settings.waitVideoFinishBeforeSwitch,
+            onToggle = { onUpdate(settings.copy(waitVideoFinishBeforeSwitch = it)) }
+        )
+
+        // Info box
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0x22FFD700))
+                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .padding(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "📋 Cara Kerja:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IslamicGoldLight
+                )
+                Text(
+                    text = "• Mode Video tampil ${settings.videoModeIntervalMinutes} menit\n" +
+                            "• Lalu switch ke Mode Normal ${settings.normalModeDurationMinutes} menit\n" +
+                            "• Balik lagi ke Mode Video, dan seterusnya\n" +
+                            "• Otomatis JEDA saat:\n" +
+                            "  - Mode Fokus Sholat aktif\n" +
+                            "  - Slide Fullscreen tampil\n" +
+                            "  - Mode Ramadhan aktif",
+                    fontSize = 11.sp,
+                    color = TextPrimary,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        // WARNING kalau belum ada media
+        if (settings.videoUri.isNullOrBlank() && settings.photoSlideshowUris.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x33FF5252))
+                    .border(1.dp, UrgentRed.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "⚠️ Belum ada video / foto yang di-upload. " +
+                            "Auto-switch tidak akan jalan sampai ada video atau foto.",
+                    fontSize = 11.sp,
+                    color = Color(0xFFFF8A80),
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
         // ============================================================
-        // 3. FOTO SLIDESHOW
+        // 6. FOTO SLIDESHOW
         // ============================================================
         Text(
             text = "Foto Kegiatan Masjid (Slideshow)",
@@ -569,6 +782,107 @@ private fun RadioOption(
                     lineHeight = 16.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun FrameModeOption(
+    title: String,
+    description: String,
+    emojiLabel: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "frame_border_width"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.02f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
+        label = "frame_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isFocused) 10.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "frame_shadow"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(10.dp),
+                ambientColor = Color(0x66FFD700),
+                spotColor = Color(0x66FFD700)
+            )
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                when {
+                    isSelected -> Color(0x33FFD700)
+                    isFocused -> Color(0x22FFD700)
+                    else -> Color(0x22000000)
+                }
+            )
+            .border(
+                width = borderWidth,
+                color = when {
+                    isFocused -> Color(0xFFFFE44D)
+                    isSelected -> IslamicGold
+                    else -> Color(0x22FFFFFF)
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable { onClick() }
+            .padding(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (isSelected) IslamicGold.copy(alpha = 0.25f)
+                        else Color(0x22FFFFFF)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = emojiLabel, fontSize = 18.sp)
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        isSelected -> IslamicGoldLight
+                        isFocused -> Color(0xFFFFE44D)
+                        else -> TextPrimary
+                    }
+                )
+                Text(
+                    text = description,
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    lineHeight = 15.sp
+                )
+            }
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = IslamicGold)
+            )
         }
     }
 }
