@@ -30,11 +30,7 @@ class SettingsRepository(context: Context) {
         _settings.value = newSettings
     }
 
-    // ============================================================
-    // LOAD SETTINGS + MIGRASI PORT
-    // ============================================================
     private fun loadSettings(): AppSettings {
-        // Migrasi port lama (8080) → baru (14039)
         val savedPort = prefs.getInt("remoteServerPort", -1)
         val migratedPort = if (savedPort == -1 || savedPort == 8080) 14039 else savedPort
         if (savedPort != migratedPort) {
@@ -80,13 +76,9 @@ class SettingsRepository(context: Context) {
             customBackgroundUri = prefs.getString("customBackgroundUri", null),
             animationsEnabled = prefs.getBoolean("animationsEnabled", true),
             showBirdsAnimation = prefs.getBoolean("showBirdsAnimation", true),
-            // ============================================================
-            // RESPONSIVE LAYOUT (V1.30.3)
-            // ============================================================
             tvAutoScaleEnabled = prefs.getBoolean("tvAutoScaleEnabled", true),
             tvSafeAreaPercent = prefs.getFloat("tvSafeAreaPercent", 3f),
             tvLayoutPreset = prefs.getString("tvLayoutPreset", "AUTO") ?: "AUTO",
-            // ============================================================
             qrisPhotoUri = prefs.getString("qrisPhotoUri", null),
             qrisImageUri = prefs.getString("qrisImageUri", "") ?: "",
             qrisIntervalMinutes = prefs.getInt("qrisIntervalMinutes", 15),
@@ -96,12 +88,26 @@ class SettingsRepository(context: Context) {
             bankAccountHolder = prefs.getString("bankAccountHolder", "DKM MASJID AL-IKHLAS") ?: "",
             wisdomCardAnimation = prefs.getString("wisdomCardAnimation", "Fade") ?: "Fade",
             wisdomCardIntervalSeconds = prefs.getInt("wisdomCardIntervalSeconds", 12),
+            showAsmaulHusna = prefs.getBoolean("showAsmaulHusna", true),
+            showHaditsHarian = prefs.getBoolean("showHaditsHarian", true),
+            showAyatQuran = prefs.getBoolean("showAyatQuran", true),
+            showDoaHarian = prefs.getBoolean("showDoaHarian", true),
+            showSunnahReminder = prefs.getBoolean("showSunnahReminder", true),
             videoEnabled = prefs.getBoolean("videoEnabled", false),
             videoUri = prefs.getString("videoUri", null),
             videoSmartFullscreen = prefs.getBoolean("videoSmartFullscreen", true),
             photoSlideshowEnabled = prefs.getBoolean("photoSlideshowEnabled", false),
             photoSlideshowUris = loadStringList("photoSlideshowUris"),
             photoSlideshowIntervalSeconds = prefs.getInt("photoSlideshowIntervalSeconds", 10),
+            // ============================================================
+            // V1.04.420 BARU — AUTO-SWITCH & UKURAN FRAME
+            // ============================================================
+            autoSwitchEnabled = prefs.getBoolean("autoSwitchEnabled", false),
+            videoModeIntervalMinutes = prefs.getInt("videoModeIntervalMinutes", 5),
+            normalModeDurationMinutes = prefs.getInt("normalModeDurationMinutes", 2),
+            videoFrameScale = prefs.getString("videoFrameScale", "POTONG") ?: "POTONG",
+            waitVideoFinishBeforeSwitch = prefs.getBoolean("waitVideoFinishBeforeSwitch", true),
+            // ============================================================
             slideEnabled = prefs.getBoolean("slideEnabled", false),
             slideIntervalSeconds = prefs.getInt("slideIntervalSeconds", 15),
             qrisSlideEnabled = prefs.getBoolean("qrisSlideEnabled", true),
@@ -166,9 +172,6 @@ class SettingsRepository(context: Context) {
         )
     }
 
-    // ============================================================
-    // SAVE SETTINGS
-    // ============================================================
     private fun saveSettings(s: AppSettings) {
         prefs.edit().apply {
             putString("mosqueName", s.mosqueName)
@@ -205,13 +208,9 @@ class SettingsRepository(context: Context) {
             putString("customBackgroundUri", s.customBackgroundUri)
             putBoolean("animationsEnabled", s.animationsEnabled)
             putBoolean("showBirdsAnimation", s.showBirdsAnimation)
-            // ============================================================
-            // RESPONSIVE LAYOUT (V1.30.3)
-            // ============================================================
             putBoolean("tvAutoScaleEnabled", s.tvAutoScaleEnabled)
             putFloat("tvSafeAreaPercent", s.tvSafeAreaPercent)
             putString("tvLayoutPreset", s.tvLayoutPreset)
-            // ============================================================
             putString("qrisPhotoUri", s.qrisPhotoUri)
             putString("qrisImageUri", s.qrisImageUri)
             putInt("qrisIntervalMinutes", s.qrisIntervalMinutes)
@@ -221,12 +220,26 @@ class SettingsRepository(context: Context) {
             putString("bankAccountHolder", s.bankAccountHolder)
             putString("wisdomCardAnimation", s.wisdomCardAnimation)
             putInt("wisdomCardIntervalSeconds", s.wisdomCardIntervalSeconds)
+            putBoolean("showAsmaulHusna", s.showAsmaulHusna)
+            putBoolean("showHaditsHarian", s.showHaditsHarian)
+            putBoolean("showAyatQuran", s.showAyatQuran)
+            putBoolean("showDoaHarian", s.showDoaHarian)
+            putBoolean("showSunnahReminder", s.showSunnahReminder)
             putBoolean("videoEnabled", s.videoEnabled)
             putString("videoUri", s.videoUri)
             putBoolean("videoSmartFullscreen", s.videoSmartFullscreen)
             putBoolean("photoSlideshowEnabled", s.photoSlideshowEnabled)
             saveStringList("photoSlideshowUris", s.photoSlideshowUris)
             putInt("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
+            // ============================================================
+            // V1.04.420 BARU — AUTO-SWITCH & UKURAN FRAME
+            // ============================================================
+            putBoolean("autoSwitchEnabled", s.autoSwitchEnabled)
+            putInt("videoModeIntervalMinutes", s.videoModeIntervalMinutes)
+            putInt("normalModeDurationMinutes", s.normalModeDurationMinutes)
+            putString("videoFrameScale", s.videoFrameScale)
+            putBoolean("waitVideoFinishBeforeSwitch", s.waitVideoFinishBeforeSwitch)
+            // ============================================================
             putBoolean("slideEnabled", s.slideEnabled)
             putInt("slideIntervalSeconds", s.slideIntervalSeconds)
             putBoolean("qrisSlideEnabled", s.qrisSlideEnabled)
@@ -288,8 +301,7 @@ class SettingsRepository(context: Context) {
             putBoolean("whatsappReportEnabled", s.whatsappReportEnabled)
         }.apply()
     }
-
-    private fun loadStringList(key: String): List<String> {
+        private fun loadStringList(key: String): List<String> {
         val raw = prefs.getString(key, null) ?: return emptyList()
         return runCatching {
             val arr = JSONArray(raw)
@@ -476,6 +488,13 @@ class SettingsRepository(context: Context) {
             appendLine("- Photo Slideshow   : ${s.photoSlideshowEnabled}")
             appendLine("- Interval Foto     : ${s.photoSlideshowIntervalSeconds} detik")
             appendLine("- Jumlah Foto       : ${s.photoSlideshowUris.size} foto")
+            appendLine()
+            appendLine("AUTO-SWITCH MODE")
+            appendLine("- Auto Switch      : ${s.autoSwitchEnabled}")
+            appendLine("- Interval Video   : ${s.videoModeIntervalMinutes} menit")
+            appendLine("- Durasi Normal    : ${s.normalModeDurationMinutes} menit")
+            appendLine("- Ukuran Frame     : ${s.videoFrameScale}")
+            appendLine("- Tunggu Video     : ${s.waitVideoFinishBeforeSwitch}")
             appendLine()
             appendLine("RUNNING TEXT")
             appendLine("- Isi Running Text : ${s.runningText}")
