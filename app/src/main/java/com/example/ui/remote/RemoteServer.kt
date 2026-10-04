@@ -1520,8 +1520,8 @@ async function saveFields(keys) {
 async function uploadFile(input, type) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('File terlalu besar (max 5MB)', true);
+    if (file.size > 50 * 1024 * 1024) {
+    showToast('⚠️ File ini ' + (file.size / 1024 / 1024).toFixed(1) + ' MB. Maksimal per file 50 MB. Untuk file lebih besar, pakai iO Control dari HP.', true);
         return;
     }
     showToast('Mengunggah...');
