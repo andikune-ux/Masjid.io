@@ -1,8 +1,11 @@
 package com.example.ui.home
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mosque
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,12 +38,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.R
 import com.example.data.content.ContentRotationStore
 import com.example.data.content.RotationType
 import com.example.data.local.DynamicSkyTheme
@@ -46,8 +52,8 @@ import com.example.data.local.IslamicEvent
 import com.example.data.model.AppSettings
 import com.example.data.model.BackgroundMode
 import com.example.data.model.PrayerId
+import com.example.data.model.PrayerItem
 import com.example.data.model.PrayerSchedule
-import com.example.ui.cctv.CctvWidget
 import com.example.ui.components.ArabesquePattern
 import com.example.ui.components.AspectType
 import com.example.ui.components.ClockAndDate
@@ -64,12 +70,11 @@ import com.example.ui.components.ScreenInfo
 import com.example.ui.components.TopBar
 import com.example.ui.components.WeatherAmbientOverlay
 import com.example.ui.components.WisdomCardCarousel
-import com.example.ui.components.scaledDp
-import com.example.ui.components.scaledSp
 import com.example.ui.focus.QRISFocusOverlay
 import com.example.ui.slides.SlideManager
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.IslamicGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
@@ -122,9 +127,542 @@ private fun HomeScreenContent(
     screenInfo: ScreenInfo,
     modifier: Modifier = Modifier
 ) {
+    // ===== V1.04.420 — AUTO-SWITCH STATE =====
+    var currentMode by remember { mutableStateOf("VIDEO") }
+    var videoFinishedOnce by remember { mutableStateOf(false) }
+
+    val hasVideo = settings.videoEnabled && !settings.videoUri.isNullOrBlank()
+    val hasPhotos = settings.photoSlideshowEnabled && settings.photoSlideshowUris.isNotEmpty()
+    val hasAnyMedia = hasVideo || hasPhotos
+
+    val effectiveMode = if (!hasAnyMedia) "NORMAL" else currentMode
+
+    // Auto-switch logic
+    LaunchedEffect(settings.autoSwitchEnabled, effectiveMode, hasAnyMedia) {
+        if (!settings.autoSwitchEnabled) return@LaunchedEffect
+        if (!hasAnyMedia) return@LaunchedEffect
+
+        val durationMin = if (effectiveMode == "VIDEO") {
+            settings.videoModeIntervalMinutes
+        } else {
+            settings.normalModeDurationMinutes
+        }
+        val durationMs = durationMin * 60 * 1000L
+
+        delay(durationMs)
+
+        if (effectiveMode == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
+            videoFinishedOnce = false
+            val maxWait = 300_000L
+            var waited = 0L
+            while (!videoFinishedOnce && waited < maxWait) {
+                delay(1000L)
+                waited += 1000L
+            }
+        }
+
+        currentMode = if (effectiveMode == "VIDEO") "NORMAL" else "VIDEO"
+    }
+
+    LaunchedEffect(effectiveMode) {
+        if (effectiveMode == "VIDEO") {
+            videoFinishedOnce = false
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF071219))
+    ) {
+        when (settings.backgroundMode) {
+            BackgroundMode.MAKKAH_DYNAMIC -> {
+                MakkahDynamicBackground(
+                    weatherCondition = weatherCondition,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            BackgroundMode.CUSTOM -> {
+                if (!settings.customBackgroundUri.isNullOrBlank()) {
+                    AsyncImage(
+                        model = settings.customBackgroundUri,
+                        contentDescription = "Background Kustom",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        alpha = 0.5f
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(DynamicSkyTheme.getSkyBrush(LocalTime.now()))
+                    )
+                }
+            }
+            BackgroundMode.KABAH -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF050C15), Color(0xFF1A0D20), Color(0xFF050C15))
+                            )
+                        )
+                )
+            }
+            BackgroundMode.EMERALD_GEOMETRIC -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF041A12), Color(0xFF08261B), Color(0xFF04120D))
+                            )
+                        )
+                )
+            }
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(DynamicSkyTheme.getSkyBrush(LocalTime.now()))
+                )
+            }
+        }
+
+        ArabesquePattern(lineColor = Color(0x12FFD700))
+
+        if (settings.animationsEnabled && settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
+            WeatherAmbientOverlay(
+                weatherCondition = weatherCondition,
+                showBirds = settings.showBirdsAnimation
+            )
+        }
+
+        if (effectiveMode == "VIDEO" && hasAnyMedia) {
+            VideoModeLayout(
+                settings = settings,
+                schedule = schedule,
+                currentTimeString = currentTimeString,
+                hijriDateString = hijriDateString,
+                gregorianDateString = gregorianDateString,
+                hasVideo = hasVideo,
+                hasPhotos = hasPhotos,
+                screenInfo = screenInfo,
+                onSettingsClick = onSettingsClick,
+                onVideoEnded = { videoFinishedOnce = true }
+            )
+        } else {
+            NormalModeLayout(
+                settings = settings,
+                schedule = schedule,
+                currentTimeString = currentTimeString,
+                hijriDateString = hijriDateString,
+                gregorianDateString = gregorianDateString,
+                upcomingEvent = upcomingEvent,
+                temperature = temperature,
+                weatherCondition = weatherCondition,
+                screenInfo = screenInfo,
+                onSettingsClick = onSettingsClick
+            )
+        }
+    }
+}
+// ============================================================
+// MODE VIDEO (Opsi H) — V1.04.420
+// ============================================================
+@Composable
+private fun VideoModeLayout(
+    settings: AppSettings,
+    schedule: PrayerSchedule,
+    currentTimeString: String,
+    hijriDateString: String,
+    gregorianDateString: String,
+    hasVideo: Boolean,
+    hasPhotos: Boolean,
+    screenInfo: ScreenInfo,
+    onSettingsClick: () -> Unit,
+    onVideoEnded: () -> Unit
+) {
+    val isFullMode = settings.videoFrameScale == "FULL"
+    val panelKiriWidth = if (isFullMode) 0f else 0.24f
+    val panelKananWidth = 1f - panelKiriWidth
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            // PANEL KIRI (24%)
+            if (!isFullMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(panelKiriWidth)
+                        .background(Color(0xDD071219))
+                        .border(
+                            width = 1.dp,
+                            color = IslamicGold.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(0.dp)
+                        )
+                        .padding(12.dp)
+                ) {
+                    VideoModeLeftPanel(
+                        settings = settings,
+                        schedule = schedule,
+                        currentTimeString = currentTimeString,
+                        hijriDateString = hijriDateString,
+                        gregorianDateString = gregorianDateString
+                    )
+                }
+            }
+
+            // PANEL KANAN (76%)
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(if (isFullMode) 1f else panelKananWidth)
+                    .background(Color.Black)
+            ) {
+                if (hasVideo) {
+                    MasjidVideoPlayer(
+                        videoUriString = settings.videoUri,
+                        isFullscreen = true,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (hasPhotos) {
+                    PhotoSlideshow(
+                        photoUris = settings.photoSlideshowUris,
+                        intervalSeconds = settings.photoSlideshowIntervalSeconds,
+                        isFullscreen = true,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // Overlay wisdom di bawah video
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = 60.dp, start = 16.dp, end = 16.dp)
+                ) {
+                    WisdomCardCarousel(
+                        upcomingEvent = null,
+                        intervalSeconds = settings.wisdomCardIntervalSeconds,
+                        animationType = settings.wisdomCardAnimation,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Tombol Settings overlay kanan atas
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ) {
+                    SettingsOverlayButton(onClick = onSettingsClick)
+                }
+            }
+        }
+
+        // Running text full width di bawah
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            RunningTextMarquee(
+                text = settings.runningText,
+                speed = settings.runningTextSpeed,
+                fontSize = settings.runningTextFontSize,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+// ============================================================
+// PANEL KIRI VIDEO MODE
+// ============================================================
+@Composable
+private fun VideoModeLeftPanel(
+    settings: AppSettings,
+    schedule: PrayerSchedule,
+    currentTimeString: String,
+    hijriDateString: String,
+    gregorianDateString: String
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // LOGO + NAMA MASJID
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xCC091620))
+                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .padding(10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = "🕌", fontSize = 24.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = settings.mosqueName.uppercase(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IslamicGoldLight,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    letterSpacing = 0.5.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        // KOTAK GABUNGAN JAM + TANGGAL
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xCC091620))
+                .border(1.5.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                .padding(10.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = currentTimeString,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    letterSpacing = 1.sp,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(1.dp)
+                        .background(IslamicGold.copy(alpha = 0.7f))
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = hijriDateString,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = IslamicGoldLight,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = gregorianDateString,
+                    fontSize = 10.sp,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        // LIST SHOLAT VERTIKAL
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            schedule.items.forEach { item ->
+                PrayerRowItem(
+                    item = item,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // PROGRESS BAR
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xCC091620))
+                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .padding(10.dp)
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = IslamicGold,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "MENUJU ${schedule.nextPrayer?.id?.displayName?.uppercase() ?: "SHOLAT"}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                val h = schedule.secondsToNext / 3600
+                val m = (schedule.secondsToNext % 3600) / 60
+                val s = schedule.secondsToNext % 60
+                Text(
+                    text = String.format("%02d:%02d:%02d", h, m, s),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color(0x33FFFFFF))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(schedule.progressToNext.coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(IslamicGold, IslamicGoldLight)
+                                )
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// ITEM SHOLAT VERTIKAL
+// ============================================================
+@Composable
+private fun PrayerRowItem(
+    item: PrayerItem,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = when {
+        item.isNext -> Color(0xCC2C220E)
+        item.isActive -> Color(0xCC0F3B2A)
+        item.isPassed -> Color(0x880D1B26)
+        else -> Color(0xCC0F2332)
+    }
+    val borderColor = when {
+        item.isNext -> IslamicGold
+        item.isActive -> IslamicGreen
+        item.isPassed -> Color(0x33446075)
+        else -> Color(0x44264A66)
+    }
+    val borderWidth = when {
+        item.isNext -> 2.dp
+        item.isActive -> 2.dp
+        else -> 1.dp
+    }
+    val textColor = when {
+        item.isNext -> IslamicGoldLight
+        item.isActive -> IslamicGreen
+        item.isPassed -> TextSecondary.copy(alpha = 0.5f)
+        else -> TextPrimary
+    }
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(bgColor)
+            .border(borderWidth, borderColor, RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Schedule,
+            contentDescription = null,
+            tint = if (item.isNext || item.isActive) textColor else TextSecondary.copy(alpha = 0.6f),
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = item.id.displayName,
+            fontSize = 11.sp,
+            fontWeight = if (item.isNext || item.isActive) FontWeight.Bold else FontWeight.Medium,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = item.timeFormatted,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = textColor,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1
+        )
+    }
+}
+
+// ============================================================
+// TOMBOL SETTINGS OVERLAY
+// ============================================================
+@Composable
+private fun SettingsOverlayButton(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color(0xAA091620))
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = IslamicGold.copy(alpha = if (isFocused) 1f else 0.5f),
+                shape = CircleShape
+            )
+            .focusable(interactionSource = interactionSource)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = "Pengaturan",
+            tint = if (isFocused) IslamicGoldLight else IslamicGold,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+// ============================================================
+// MODE NORMAL — Layout lengkap seperti sebelumnya
+// ============================================================
+@Composable
+private fun NormalModeLayout(
+    settings: AppSettings,
+    schedule: PrayerSchedule,
+    currentTimeString: String,
+    hijriDateString: String,
+    gregorianDateString: String,
+    upcomingEvent: IslamicEvent,
+    temperature: Int,
+    weatherCondition: String,
+    screenInfo: ScreenInfo,
+    onSettingsClick: () -> Unit
+) {
     var showQrisModal by remember { mutableStateOf(false) }
     var showSlideOverlay by remember { mutableStateOf(false) }
-    var userDismissedVideoFullscreen by remember { mutableStateOf(false) }
     var userDismissedSlide by remember { mutableStateOf(false) }
 
     val layoutPad: Float = when {
@@ -176,289 +714,92 @@ private fun HomeScreenContent(
         }
     }
 
-    val isSmartVideoFullscreen = settings.videoEnabled &&
-            !settings.videoUri.isNullOrBlank() &&
-            settings.videoSmartFullscreen &&
-            schedule.secondsToNext > 1800 &&
-            !userDismissedVideoFullscreen
-
-    val isSplitVideo = settings.videoEnabled &&
-            !settings.videoUri.isNullOrBlank() &&
-            !settings.videoSmartFullscreen
-
-    val isSplitPhoto = !settings.videoEnabled &&
-            settings.photoSlideshowEnabled &&
-            settings.photoSlideshowUris.isNotEmpty()
-
-    val isSplitMode = isSplitVideo || isSplitPhoto
-
-    val now = LocalTime.now()
-    val realTimeSkyBrush = DynamicSkyTheme.getSkyBrush(now)
-
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF071219))
+            .padding(screenInfo.safePaddingDp)
     ) {
-        when (settings.backgroundMode) {
-            BackgroundMode.MAKKAH_DYNAMIC -> {
-                MakkahDynamicBackground(
-                    weatherCondition = weatherCondition,
-                    modifier = Modifier.fillMaxSize()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = screenInfo.widthDp.dp * layoutPad)
+                .then(
+                    if (contentMaxWidth < 1f) {
+                        Modifier.width(screenInfo.widthDp.dp * contentMaxWidth)
+                    } else Modifier
                 )
-            }
-            BackgroundMode.CUSTOM -> {
-                if (!settings.customBackgroundUri.isNullOrBlank()) {
-                    AsyncImage(
-                        model = settings.customBackgroundUri,
-                        contentDescription = "Background Kustom Masjid",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                        alpha = 0.5f
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize().background(realTimeSkyBrush))
-                }
-            }
-            BackgroundMode.KABAH -> {
-                Image(
-                    painter = painterResource(id = R.drawable.bg_kabah_1790267578617),
-                    contentDescription = "Background Ka'bah",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                    alpha = 0.35f
-                )
-            }
-            BackgroundMode.EMERALD_GEOMETRIC -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF041A12), Color(0xFF08261B), Color(0xFF04120D))
-                            )
-                        )
-                )
-            }
-            else -> {
-                Box(modifier = Modifier.fillMaxSize().background(realTimeSkyBrush))
-            }
-        }
-
-        if (settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color(0x22000000), Color(0x66040B10), Color(0xAA02070A))
-                        )
-                    )
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color(0x66000000),
-                                Color(0xAA000000)
-                            )
-                        )
-                    )
-            )
-        }
-
-        ArabesquePattern(lineColor = Color(0x12FFD700))
-
-        if (settings.animationsEnabled && settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
-            WeatherAmbientOverlay(
+                .align(Alignment.Center),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            TopBar(
+                locationName = "${settings.city}, ${settings.province}",
+                dayDateString = gregorianDateString,
+                currentTimeString = currentTimeString,
+                temperature = temperature,
                 weatherCondition = weatherCondition,
-                showBirds = settings.showBirdsAnimation
+                onSettingsClick = onSettingsClick,
+                modifier = Modifier.weight(0.07f)
             )
-        }
 
-        if (settings.cctvEnabled && settings.cctvUrl.isNotBlank()) {
-            CctvWidget(
-                settings = settings,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        if (isSmartVideoFullscreen) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                MasjidVideoPlayer(
-                    videoUriString = settings.videoUri,
-                    isFullscreen = true,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = screenInfo.scaledDp(16))
-                        .clip(RoundedCornerShape(screenInfo.scaledDp(12)))
-                        .background(Color(0xCC000000))
-                        .padding(
-                            horizontal = screenInfo.scaledDp(20),
-                            vertical = screenInfo.scaledDp(8)
-                        )
-                        .clickable { userDismissedVideoFullscreen = true },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mosque,
-                        contentDescription = null,
-                        tint = IslamicGold,
-                        modifier = Modifier.size(screenInfo.scaledDp(18))
-                    )
-                    Spacer(modifier = Modifier.width(screenInfo.scaledDp(10)))
-                    val nextName = schedule.nextPrayer?.id?.displayName ?: "Sholat"
-                    val mm = schedule.secondsToNext / 60
-                    Text(
-                        text = "$nextName dalam $mm menit • Sentuh untuk tampilan penuh",
-                        fontSize = screenInfo.scaledSp(13),
-                        fontWeight = FontWeight.SemiBold,
-                        color = IslamicGoldLight
-                    )
-                }
-            }
-        } else {
-            Box(
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(screenInfo.safePaddingDp)
+                    .weight(0.24f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = screenInfo.widthDp.dp * layoutPad)
-                        .then(
-                            if (contentMaxWidth < 1f) {
-                                Modifier.width(screenInfo.widthDp.dp * contentMaxWidth)
-                            } else Modifier
-                        )
-                        .align(Alignment.Center),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    TopBar(
-                        locationName = "${settings.city}, ${settings.province}",
-                        dayDateString = gregorianDateString,
-                        currentTimeString = currentTimeString,
-                        temperature = temperature,
-                        weatherCondition = weatherCondition,
-                        onSettingsClick = onSettingsClick,
-                        modifier = Modifier.weight(0.07f)
-                    )
-
-                    if (isSplitMode) {
-                        Row(
-                            modifier = Modifier
-                                .weight(0.24f)
-                                .fillMaxWidth()
-                                .padding(horizontal = screenInfo.scaledDp(24)),
-                            horizontalArrangement = Arrangement.spacedBy(screenInfo.scaledDp(16)),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(0.38f),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                MosqueHeader(mosqueName = settings.mosqueName)
-                                Spacer(modifier = Modifier.height(screenInfo.scaledDp(4)))
-                                ClockAndDate(
-                                    timeString = currentTimeString,
-                                    hijriDateString = hijriDateString,
-                                    gregorianDateString = gregorianDateString
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(0.62f)
-                                    .fillMaxHeight(0.95f)
-                            ) {
-                                if (isSplitVideo) {
-                                    MasjidVideoPlayer(
-                                        videoUriString = settings.videoUri,
-                                        isFullscreen = false,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    PhotoSlideshow(
-                                        photoUris = settings.photoSlideshowUris,
-                                        intervalSeconds = settings.photoSlideshowIntervalSeconds,
-                                        isFullscreen = false,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Column(
-                            modifier = Modifier
-                                .weight(0.24f)
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            MosqueHeader(mosqueName = settings.mosqueName)
-                            ClockAndDate(
-                                timeString = currentTimeString,
-                                hijriDateString = hijriDateString,
-                                gregorianDateString = gregorianDateString
-                            )
-                        }
-                    }
-
-                    PrayerCardsRow(
-                        prayerItems = schedule.items,
-                        settings = settings,
-                        modifier = Modifier
-                            .weight(0.28f)
-                            .fillMaxWidth(if (isSplitMode) 0.62f else 1f)
-                    )
-
-                    PrayerProgressBar(
-                        nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
-                        secondsRemaining = schedule.secondsToNext,
-                        progress = schedule.progressToNext,
-                        modifier = Modifier.weight(0.05f)
-                    )
-
-                    if (settings.contentRotationEnabled) {
-                        ContentRotationCard(
-                            settings = settings,
-                            intervalSeconds = settings.contentRotationIntervalSeconds,
-                            modifier = Modifier.weight(0.06f)
-                        )
-                    } else {
-                        WisdomCardCarousel(
-                            upcomingEvent = upcomingEvent,
-                            intervalSeconds = settings.wisdomCardIntervalSeconds,
-                            animationType = settings.wisdomCardAnimation,
-                            modifier = Modifier.weight(0.06f)
-                        )
-                    }
-
-                    OfficerCarousel(
-                        officers = settings.officers,
-                        weeklyOfficers = settings.weeklyOfficers,
-                        officerPhotoUri = settings.officerPhotoUri,
-                        nextPrayerId = schedule.nextPrayer?.id ?: PrayerId.MAGHRIB,
-                        modifier = Modifier.weight(0.24f)
-                    )
-
-                    RunningTextMarquee(
-                        text = settings.runningText,
-                        speed = settings.runningTextSpeed,
-                        fontSize = settings.runningTextFontSize,
-                        modifier = Modifier.weight(0.06f)
-                    )
-                }
+                MosqueHeader(mosqueName = settings.mosqueName)
+                ClockAndDate(
+                    timeString = currentTimeString,
+                    hijriDateString = hijriDateString,
+                    gregorianDateString = gregorianDateString
+                )
             }
+
+            PrayerCardsRow(
+                prayerItems = schedule.items,
+                settings = settings,
+                modifier = Modifier
+                    .weight(0.28f)
+                    .fillMaxWidth()
+            )
+
+            PrayerProgressBar(
+                nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
+                secondsRemaining = schedule.secondsToNext,
+                progress = schedule.progressToNext,
+                modifier = Modifier.weight(0.05f)
+            )
+
+            if (settings.contentRotationEnabled) {
+                ContentRotationCard(
+                    settings = settings,
+                    intervalSeconds = settings.contentRotationIntervalSeconds,
+                    modifier = Modifier.weight(0.06f)
+                )
+            } else {
+                WisdomCardCarousel(
+                    upcomingEvent = upcomingEvent,
+                    intervalSeconds = settings.wisdomCardIntervalSeconds,
+                    animationType = settings.wisdomCardAnimation,
+                    modifier = Modifier.weight(0.06f)
+                )
+            }
+
+            OfficerCarousel(
+                officers = settings.officers,
+                weeklyOfficers = settings.weeklyOfficers,
+                officerPhotoUri = settings.officerPhotoUri,
+                nextPrayerId = schedule.nextPrayer?.id ?: PrayerId.MAGHRIB,
+                modifier = Modifier.weight(0.24f)
+            )
+
+            RunningTextMarquee(
+                text = settings.runningText,
+                speed = settings.runningTextSpeed,
+                fontSize = settings.runningTextFontSize,
+                modifier = Modifier.weight(0.06f)
+            )
         }
 
         if (showQrisModal && !showSlideOverlay) {
@@ -482,6 +823,9 @@ private fun HomeScreenContent(
     }
 }
 
+// ============================================================
+// KONTEN ROTASI (dipertahankan)
+// ============================================================
 @Composable
 private fun ContentRotationCard(
     settings: AppSettings,
