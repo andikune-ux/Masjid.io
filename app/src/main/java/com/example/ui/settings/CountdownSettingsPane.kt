@@ -19,8 +19,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AvTimer
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +65,94 @@ fun CountdownSettingsPane(
                     "Gunakan tombol KIRI/KANAN setelah tekan OK untuk menggeser.",
             fontSize = 13.sp,
             color = TextSecondary
+        )
+
+        // ============================================================
+        // V1.04.421 BARU — ALUR SHOLAT BARU (Adzan → Doa → Iqomah → Mode Fokus)
+        // ============================================================
+        Text(
+            text = "📢 ALUR SHOLAT (V1.04.421)",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Text(
+            text = "Urutan: Beep → Overlay Adzan → Himbauan HP → Niat Qobliyah → Mode Fokus (Niat Fardhu → Dzikir)",
+            fontSize = 12.sp,
+            color = TextSecondary,
+            lineHeight = 16.sp
+        )
+
+        // A. Durasi Overlay Adzan
+        DurationSliderCard(
+            title = "Durasi Overlay Adzan",
+            description = "Lama tampil layar 'ADZAN [waktu]' setelah masuk waktu sholat.",
+            icon = Icons.Default.Timer,
+            value = settings.adzanDisplayDurationSeconds.toFloat(),
+            valueRange = 3f..30f,
+            steps = 27,
+            unitLabel = "Detik",
+            onValueChange = { onUpdate(settings.copy(adzanDisplayDurationSeconds = it.toInt())) }
+        )
+
+        // B. Durasi Himbauan HP
+        DurationSliderCard(
+            title = "Durasi Himbauan HP",
+            description = "Lama tampil layar 'HENINGKAN HP ANDA' untuk ketenangan ibadah.",
+            icon = Icons.Default.PhoneAndroid,
+            value = settings.silentPhoneDisplayDurationSeconds.toFloat(),
+            valueRange = 3f..30f,
+            steps = 27,
+            unitLabel = "Detik",
+            onValueChange = { onUpdate(settings.copy(silentPhoneDisplayDurationSeconds = it.toInt())) }
+        )
+
+        // C. Durasi Niat Qobliyah
+        DurationSliderCard(
+            title = "Durasi Niat Qobliyah + Countdown Iqomah",
+            description = "Lama tampil niat sholat sunnah qobliyah (dengan hitungan iqomah).",
+            icon = Icons.Default.AvTimer,
+            value = settings.qobliyahNiatDisplayDurationSeconds.toFloat(),
+            valueRange = 5f..60f,
+            steps = 55,
+            unitLabel = "Detik",
+            onValueChange = { onUpdate(settings.copy(qobliyahNiatDisplayDurationSeconds = it.toInt())) }
+        )
+
+        // D. Durasi Niat Fardhu (di Mode Fokus)
+        DurationSliderCard(
+            title = "Durasi Niat Fardhu (Mode Fokus)",
+            description = "Lama tampil niat sholat fardhu (arab + latin + arti) di Mode Fokus.",
+            icon = Icons.Default.HourglassBottom,
+            value = settings.fardhuNiatDisplayDurationSeconds.toFloat(),
+            valueRange = 5f..60f,
+            steps = 55,
+            unitLabel = "Detik",
+            onValueChange = { onUpdate(settings.copy(fardhuNiatDisplayDurationSeconds = it.toInt())) }
+        )
+
+        // E. Durasi Dzikir (Mode Fokus)
+        DurationSliderCard(
+            title = "Durasi Dzikir (Mode Fokus)",
+            description = "Lama tampil dzikir setelah sholat sebelum keluar dari Mode Fokus.",
+            icon = Icons.Default.VolumeOff,
+            value = settings.dzikirDisplayDurationSeconds.toFloat(),
+            valueRange = 30f..300f,
+            steps = 53,
+            unitLabel = "Detik",
+            onValueChange = { onUpdate(settings.copy(dzikirDisplayDurationSeconds = it.toInt())) }
+        )
+
+        // ============================================================
+        // PENGATURAN LAMA (tetap dipertahankan)
+        // ============================================================
+        Text(
+            text = "⏱️ PENGATURAN UMUM",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight,
+            modifier = Modifier.padding(top = 8.dp)
         )
 
         // 1. Jeda Iqomah
@@ -138,6 +228,9 @@ fun CountdownSettingsPane(
         )
     }
 }
+// ============================================================
+// KOMPONEN: DURATION SLIDER CARD
+// ============================================================
 
 @Composable
 fun DurationSliderCard(
@@ -217,7 +310,6 @@ fun DurationSliderCard(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // TvSlider (bisa geser pakai remote)
         TvSlider(
             label = "Nilai",
             value = value,
