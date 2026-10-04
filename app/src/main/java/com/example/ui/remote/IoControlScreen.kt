@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Tv
@@ -111,8 +110,8 @@ enum class IoPhase {
     CONNECTED,
     SENDING_SETTINGS,
     SENDING_MEDIA,
-    VERIFYING,          // V1.30.7 BARU: cek hasil transfer
-    READY_TO_RESTART,   // V1.30.7 BARU: tampil konfirmasi restart manual
+    VERIFYING,
+    READY_TO_RESTART,
     RECEIVING,
     DONE,
     ERROR
@@ -120,6 +119,8 @@ enum class IoPhase {
 
 // ============================================================
 // MAIN COMPOSABLE
+// V1.04.423: Hapus tombol Scan Barcode dari iO Control
+// (fokus ke web remote lewat RemoteSettingsPane saja)
 // ============================================================
 @Composable
 fun IoControlScreen(
@@ -146,7 +147,6 @@ fun IoControlScreen(
 
     var mediaProgress by remember { mutableStateOf<MediaTransferHelper.TransferProgress?>(null) }
 
-    // ===== STATE V1.30.7 BARU =====
     var transferResult by remember { mutableStateOf<RemoteControlClient.MediaTransferResult?>(null) }
     var allMediaList by remember { mutableStateOf<List<MediaTransferHelper.MediaFileInfo>>(emptyList()) }
     var failedFieldKeys by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -154,7 +154,6 @@ fun IoControlScreen(
     var isRetrying by remember { mutableStateOf(false) }
 
     var showHelp by remember { mutableStateOf(false) }
-    var showWebRemoteQr by remember { mutableStateOf(false) }
     var currentIp by remember { mutableStateOf("...") }
     var isWifiOn by remember { mutableStateOf(false) }
 
@@ -233,7 +232,7 @@ fun IoControlScreen(
         }
     }
         // ============================================================
-    // LAUNCHER: Kirim Settings + Media (dengan alur baru V1.30.7)
+    // LAUNCHER: Kirim Settings + Media
     // ============================================================
     LaunchedEffect(phase) {
         when (phase) {
@@ -258,7 +257,6 @@ fun IoControlScreen(
                 )
 
                 if (result.success) {
-                    // Siapkan daftar media untuk dikirim
                     allMediaList = MediaTransferHelper.collectMediaFiles(currentSettings)
                     phase = IoPhase.SENDING_MEDIA
                 } else {
@@ -272,7 +270,6 @@ fun IoControlScreen(
                 statusMessage = "Mengirim media..."
 
                 if (allMediaList.isEmpty()) {
-                    // Tidak ada media → langsung verify (anggap sukses)
                     transferResult = RemoteControlClient.MediaTransferResult(
                         success = true,
                         message = "Tidak ada media untuk dikirim",
@@ -295,16 +292,13 @@ fun IoControlScreen(
                     }
                 )
 
-                // Simpan hasil — apapun statusnya (sukses / gagal)
                 transferResult = mediaResult
                 failedFieldKeys = mediaResult.failures.map { it.fieldKey }
 
-                // Pindah ke VERIFYING (bukan finalize langsung)
                 phase = IoPhase.VERIFYING
             }
 
             IoPhase.VERIFYING -> {
-                // Cek hasil transfer
                 val result = transferResult
                 if (result == null) {
                     phase = IoPhase.ERROR
@@ -318,15 +312,12 @@ fun IoControlScreen(
                     "${result.filesTransferred} sukses, ${result.filesFailed} gagal"
                 }
 
-                // Selalu pindah ke READY_TO_RESTART (baik sukses atau ada gagal)
-                // Restart adalah keputusan MANUAL user
                 delay(500)
                 phase = IoPhase.READY_TO_RESTART
             }
 
             IoPhase.READY_TO_RESTART -> {
                 // Tidak ada aksi otomatis.
-                // Menunggu user klik tombol KONFIRMASI RESTART atau COBA LAGI.
             }
 
             else -> { /* no-op */ }
@@ -358,15 +349,13 @@ fun IoControlScreen(
                 IoPhase.ERROR -> "Error"
             },
             onBack = onBack,
-            onHelp = { showHelp = true },
-            onWebRemoteQr = { showWebRemoteQr = true }
+            onHelp = { showHelp = true }
         )
 
         NetworkInfoBar(
             ip = currentIp,
             wifiOn = isWifiOn,
-            deviceName = deviceName,
-            onOpenQr = { showWebRemoteQr = true }
+            deviceName = deviceName
         )
 
         when (phase) {
@@ -386,7 +375,6 @@ fun IoControlScreen(
                             DeviceDiscovery.startScan(context, scope)
                         }
                     },
-                    onOpenWebRemoteQr = { showWebRemoteQr = true },
                     scanButtonFocusRequester = scanButtonFocusRequester,
                     firstDeviceFocusRequester = firstDeviceFocusRequester
                 )
@@ -395,7 +383,6 @@ fun IoControlScreen(
                 ConnectedView(
                     device = selectedDevice,
                     onSend = {
-                        // Reset state sebelum kirim
                         transferResult = null
                         failedFieldKeys = emptyList()
                         allMediaList = emptyList()
@@ -435,7 +422,6 @@ fun IoControlScreen(
                     targetName = selectedDevice?.name ?: "Perangkat",
                     allMediaList = allMediaList,
                     onConfirmRestart = {
-                        // Kirim sinyal finalize → TV countdown → restart
                         scope.launch {
                             statusMessage = "Mengirim sinyal restart..."
                             val target = selectedDevice
@@ -456,7 +442,6 @@ fun IoControlScreen(
                     },
                     onShowFailures = { showFailureDialog = true },
                     onRetryFailed = {
-                        // Kirim ulang HANYA file yang gagal
                         val target = selectedDevice ?: return@ReadyToRestartView
                         val failedKeys = failedFieldKeys
                         if (failedKeys.isEmpty()) return@ReadyToRestartView
@@ -479,7 +464,6 @@ fun IoControlScreen(
 
                             isRetrying = false
 
-                            // Gabung hasil: file yang sukses sebelumnya + hasil retry
                             val prevSuccess = (transferResult?.filesTransferred ?: 0)
                             val newSuccess = retryResult.filesTransferred
                             val newFailed = retryResult.filesFailed
@@ -500,8 +484,6 @@ fun IoControlScreen(
                         }
                     },
                     onSkipRestart = {
-                        // User tidak mau restart sekarang.
-                        // Keluar-buka app nanti akan auto-pakai file yang sudah masuk.
                         phase = IoPhase.DONE
                         statusMessage = "Selesai. Template akan aktif otomatis saat app dibuka ulang."
                     }
@@ -538,30 +520,17 @@ fun IoControlScreen(
                 onDismiss = { showFailureDialog = false }
             )
         }
-
-        // ===== DIALOG BARCODE QR WEB REMOTE =====
-        if (showWebRemoteQr) {
-            val webRemoteUrl = "http://$currentIp:$serverPort/?token=${currentSettings.remoteAuthToken}"
-            WebRemoteQrDialog(
-                url = webRemoteUrl,
-                ip = currentIp,
-                port = serverPort,
-                isWifiConnected = isWifiOn,
-                onDismiss = { showWebRemoteQr = false }
-            )
-        }
     }
 }
 // ============================================================
-// TOP BAR
+// TOP BAR — V1.04.423: Hapus tombol Scan Barcode
 // ============================================================
 @Composable
 private fun IoTopBar(
     title: String,
     subtitle: String,
     onBack: () -> Unit,
-    onHelp: () -> Unit,
-    onWebRemoteQr: () -> Unit = {}
+    onHelp: () -> Unit
 ) {
     val interactionSourceBack = remember { MutableInteractionSource() }
     val isFocusedBack by interactionSourceBack.collectIsFocusedAsState()
@@ -570,10 +539,6 @@ private fun IoTopBar(
     val interactionSourceHelp = remember { MutableInteractionSource() }
     val isFocusedHelp by interactionSourceHelp.collectIsFocusedAsState()
     val isPressedHelp by interactionSourceHelp.collectIsPressedAsState()
-
-    val interactionSourceQr = remember { MutableInteractionSource() }
-    val isFocusedQr by interactionSourceQr.collectIsFocusedAsState()
-    val isPressedQr by interactionSourceQr.collectIsPressedAsState()
 
     Row(
         modifier = Modifier
@@ -618,88 +583,45 @@ private fun IoTopBar(
             }
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        NeonFocusBorder(
+            focused = isFocusedHelp,
+            pressed = isPressedHelp,
+            borderWidth = 5.dp,
+            cornerRadius = 10.dp
         ) {
-            // Tombol SCAN BARCODE WEB REMOTE
-            NeonFocusBorder(
-                focused = isFocusedQr,
-                pressed = isPressedQr,
-                borderWidth = 5.dp,
-                cornerRadius = 10.dp
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(IoBlue.copy(alpha = 0.2f))
+                    .focusable(interactionSource = interactionSourceHelp)
+                    .clickable(
+                        interactionSource = interactionSourceHelp,
+                        indication = null
+                    ) { onHelp() }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF103657))
-                        .border(1.5.dp, IslamicGoldLight.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
-                        .focusable(interactionSource = interactionSourceQr)
-                        .clickable(
-                            interactionSource = interactionSourceQr,
-                            indication = null
-                        ) { onWebRemoteQr() }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode,
-                        contentDescription = "Scan Barcode Web Remote",
-                        tint = IslamicGoldLight,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Scan Barcode HP",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGoldLight
-                    )
-                }
-            }
-
-            // Tombol PANDUAN
-            NeonFocusBorder(
-                focused = isFocusedHelp,
-                pressed = isPressedHelp,
-                borderWidth = 5.dp,
-                cornerRadius = 10.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(IoBlue.copy(alpha = 0.2f))
-                        .focusable(interactionSource = interactionSourceHelp)
-                        .clickable(
-                            interactionSource = interactionSourceHelp,
-                            indication = null
-                        ) { onHelp() }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Panduan",
-                        tint = IoBlueLight,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Panduan", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
-                }
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Panduan",
+                    tint = IoBlueLight,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "Panduan", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IoBlueLight)
             }
         }
     }
 }
 
 // ============================================================
-// INFO BAR JARINGAN
+// INFO BAR JARINGAN — V1.04.423: Hapus tombol QR
 // ============================================================
 @Composable
 private fun NetworkInfoBar(
     ip: String,
     wifiOn: Boolean,
-    deviceName: String,
-    onOpenQr: () -> Unit = {}
+    deviceName: String
 ) {
     Row(
         modifier = Modifier
@@ -732,53 +654,12 @@ private fun NetworkInfoBar(
             )
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val qrInteraction = remember { MutableInteractionSource() }
-            val isFocusedQr by qrInteraction.collectIsFocusedAsState()
-            val isPressedQr by qrInteraction.collectIsPressedAsState()
-
-            NeonFocusBorder(
-                focused = isFocusedQr,
-                pressed = isPressedQr,
-                cornerRadius = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF132F4C))
-                        .border(1.dp, IoBlueLight.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                        .focusable(interactionSource = qrInteraction)
-                        .clickable(
-                            interactionSource = qrInteraction,
-                            indication = null
-                        ) { onOpenQr() }
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode,
-                        contentDescription = "Scan Barcode Web Remote",
-                        tint = IoBlueLight,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Scan Barcode Web HP",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = IoBlueLight
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-            Text(text = deviceName, fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
-        }
+        Text(text = deviceName, fontSize = 11.sp, color = TextSecondary.copy(alpha = 0.7f))
     }
 }
 
 // ============================================================
-// SCANNING VIEW
+// SCANNING VIEW — V1.04.423: Hapus tombol Web Remote QR
 // ============================================================
 @Composable
 private fun ScanningView(
@@ -787,7 +668,6 @@ private fun ScanningView(
     myRole: String,
     onDeviceClick: (DiscoveredDevice) -> Unit,
     onRescan: () -> Unit,
-    onOpenWebRemoteQr: () -> Unit = {},
     scanButtonFocusRequester: FocusRequester,
     firstDeviceFocusRequester: FocusRequester
 ) {
@@ -857,72 +737,6 @@ private fun ScanningView(
             }
 
             ScanButton(onClick = onRescan, focusRequester = scanButtonFocusRequester)
-
-            // TOMBOL CEPAT SCAN BARCODE WEB REMOTE HP
-            WebRemoteQuickButton(onClick = onOpenWebRemoteQr)
-        }
-    }
-}
-
-// ============================================================
-// WEB REMOTE QUICK BUTTON
-// ============================================================
-@Composable
-private fun WebRemoteQuickButton(onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 12.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF0F3254), Color(0xFF144775))
-                    )
-                )
-                .border(1.5.dp, IslamicGold.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
-                .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.QrCode,
-                    contentDescription = null,
-                    tint = IslamicGoldLight,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "SCAN BARCODE WEB REMOTE HP",
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGoldLight
-                    )
-                    Text(
-                        text = "Atur TV langsung lewat browser di HP Anda",
-                        fontSize = 10.5.sp,
-                        color = TextSecondary
-                    )
-                }
-            }
         }
     }
 }
@@ -958,7 +772,6 @@ private fun ScanButton(onClick: () -> Unit, focusRequester: FocusRequester) {
         }
     }
 }
-
 // ============================================================
 // RADAR VIEW
 // ============================================================
@@ -1401,7 +1214,7 @@ private fun MediaProgressView(
 }
 
 // ============================================================
-// V1.30.7 BARU — VERIFYING VIEW
+// VERIFYING VIEW
 // ============================================================
 @Composable
 private fun VerifyingView(
@@ -1495,7 +1308,7 @@ private fun VerifyingView(
     }
 }
 // ============================================================
-// V1.30.7 BARU — READY TO RESTART VIEW
+// READY TO RESTART VIEW
 // ============================================================
 @Composable
 private fun ReadyToRestartView(
@@ -1512,7 +1325,6 @@ private fun ReadyToRestartView(
     val failures = result?.failures ?: emptyList()
     val isAllSuccess = totalFailed == 0
 
-    // Hitung jumlah foto & video dari daftar media
     val photoCount = allMediaList.count { it.fileType == "photo" }
     val videoCount = allMediaList.count { it.fileType == "video" }
 
@@ -1526,7 +1338,6 @@ private fun ReadyToRestartView(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ===== HEADER ICON =====
         Box(
             modifier = Modifier
                 .size(90.dp)
@@ -1552,7 +1363,6 @@ private fun ReadyToRestartView(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ===== JUDUL =====
         Text(
             text = if (isAllSuccess) "✅ SEMUA FILE TERKIRIM" else "⚠️ SEBAGIAN FILE GAGAL",
             fontSize = 22.sp,
@@ -1569,7 +1379,6 @@ private fun ReadyToRestartView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ===== RINGKASAN =====
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
@@ -1583,32 +1392,18 @@ private fun ReadyToRestartView(
                 .padding(16.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SummaryRow(
-                    label = "Total file",
-                    value = "${totalSuccess + totalFailed}"
-                )
-                SummaryRow(
-                    label = "Sukses",
-                    value = "$totalSuccess",
-                    valueColor = IoGreen
-                )
+                SummaryRow(label = "Total file", value = "${totalSuccess + totalFailed}")
+                SummaryRow(label = "Sukses", value = "$totalSuccess", valueColor = IoGreen)
                 SummaryRow(
                     label = "Gagal",
                     value = "$totalFailed",
                     valueColor = if (totalFailed > 0) IoRed else TextSecondary
                 )
-                SummaryRow(
-                    label = "📷 Foto",
-                    value = "$photoCount"
-                )
-                SummaryRow(
-                    label = "🎬 Video",
-                    value = "$videoCount"
-                )
+                SummaryRow(label = "📷 Foto", value = "$photoCount")
+                SummaryRow(label = "🎬 Video", value = "$videoCount")
             }
         }
 
-        // ===== INFO TAMBAHAN =====
         if (isAllSuccess) {
             Spacer(modifier = Modifier.height(16.dp))
             Box(
@@ -1698,9 +1493,7 @@ private fun ReadyToRestartView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ===== TOMBOL AKSI =====
         if (isAllSuccess) {
-            // SUKSES SEMUA: tombol utama "KONFIRMASI RESTART" + tombol kecil "LEWATI"
             ReadyActionButton(
                 icon = Icons.Default.Refresh,
                 title = "KONFIRMASI RESTART",
@@ -1720,7 +1513,6 @@ private fun ReadyToRestartView(
                 onClick = onSkipRestart
             )
         } else {
-            // ADA YANG GAGAL: tombol utama "COBA LAGI" + tombol "LIHAT LOG" + "RESTART SAJA"
             ReadyActionButton(
                 icon = Icons.Default.Refresh,
                 title = "COBA LAGI (${totalFailed} FILE)",
@@ -1768,7 +1560,6 @@ private fun ReadyToRestartView(
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
-
 // ============================================================
 // ROW RINGKASAN
 // ============================================================
@@ -1963,26 +1754,19 @@ private fun FailureLogDialog(
                     }
                 }
 
-                NeonFocusBorder(
-                    focused = false,
-                    pressed = false,
-                    borderWidth = 4.dp,
-                    cornerRadius = 8.dp
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(IoCard)
+                        .clickable { onDismiss() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(IoCard)
-                            .clickable { onDismiss() }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "TUTUP",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
+                    Text(
+                        text = "TUTUP",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
                 }
             }
 
@@ -2060,7 +1844,6 @@ private fun FailureLogDialog(
         }
     }
 }
-
 // ============================================================
 // WAITING RECEIVE VIEW
 // ============================================================
