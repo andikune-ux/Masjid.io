@@ -14,6 +14,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,13 +43,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.content.DzikirStore
@@ -59,10 +63,18 @@ import com.example.data.model.PrayerId
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.IslamicGoldLight
 import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
-private enum class FocusPhase { ADZAN, QOBLIYAH, FARDHU, DZIKIR }
+/**
+ * PrayerFocusOverlay — Mode Fokus Sholat (V1.04.421).
+ *
+ * 2 FASE (berbeda dari versi lama yang 4 fase):
+ *   FASE 1: NIAT SHOLAT FARDHU (arab + latin + arti)
+ *   FASE 2: DZIKIR (rotasi 8 detik)
+ *
+ * Fase ADZAN & QOBLIYAH sudah dipindah ke AdzanSequenceOverlay.
+ */
+private enum class FocusPhase { NIAT_FARDHU, DZIKIR }
 
 @Composable
 fun PrayerFocusOverlay(
@@ -74,33 +86,41 @@ fun PrayerFocusOverlay(
     settings: AppSettings? = null,
     onDismiss: () -> Unit
 ) {
-    var currentPhase by remember { mutableStateOf(FocusPhase.ADZAN) }
-    var secondsRemaining by remember { mutableIntStateOf(iqamahWaitMinutes * 60) }
+    var currentPhase by remember { mutableStateOf(FocusPhase.NIAT_FARDHU) }
+
+    // Durasi dari settings (fallback: default)
+    val fardhuDurationSec = settings?.fardhuNiatDisplayDurationSeconds ?: 15
+    val dzikirDurationSec = settings?.dzikirDisplayDurationSeconds ?: 120
+
+    var secondsRemaining by remember { mutableIntStateOf(fardhuDurationSec) }
 
     val phaseGradient = when (currentPhase) {
-        FocusPhase.ADZAN -> listOf(Color(0xFF0D1B2A), Color(0xFF1B263B), Color(0xFF0D1B2A))
-        FocusPhase.QOBLIYAH -> listOf(Color(0xFF1B3A2E), Color(0xFF2E5F44), Color(0xFF1B3A2E))
-        FocusPhase.FARDHU -> listOf(Color(0xFF3A2E1B), Color(0xFF5F442E), Color(0xFF3A2E1B))
+        FocusPhase.NIAT_FARDHU -> listOf(Color(0xFF3A2E1B), Color(0xFF5F442E), Color(0xFF3A2E1B))
         FocusPhase.DZIKIR -> listOf(Color(0xFF1A0D2A), Color(0xFF2E1B3A), Color(0xFF1A0D2A))
     }
 
     val phaseNum = when (currentPhase) {
-        FocusPhase.ADZAN -> 1
-        FocusPhase.QOBLIYAH -> 2
-        FocusPhase.FARDHU -> 3
-        FocusPhase.DZIKIR -> 4
+        FocusPhase.NIAT_FARDHU -> 1
+        FocusPhase.DZIKIR -> 2
     }
 
-    // Cek apakah dzikir aktif
-    val dzikirEnabled = settings?.dzikirEnabled == true
-    val totalPhases = if (dzikirEnabled) 4 else 3
+    val totalPhases = 2
 
+    // Focus requester untuk terima tombol remote
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        delay(200)
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
+    // Timer auto-advance antar fase
     LaunchedEffect(currentPhase) {
-        when (currentPhase) {
-            FocusPhase.ADZAN -> secondsRemaining = iqamahWaitMinutes * 60
-            FocusPhase.QOBLIYAH -> secondsRemaining = qobliyahWaitMinutes * 60
-            FocusPhase.FARDHU -> secondsRemaining = (totalDurationMinutes - iqamahWaitMinutes - qobliyahWaitMinutes) * 60
-            FocusPhase.DZIKIR -> secondsRemaining = settings?.dzikirDurationSeconds ?: 120
+        secondsRemaining = when (currentPhase) {
+            FocusPhase.NIAT_FARDHU -> fardhuDurationSec
+            FocusPhase.DZIKIR -> dzikirDurationSec
         }
 
         while (secondsRemaining > 0) {
@@ -109,11 +129,12 @@ fun PrayerFocusOverlay(
         }
 
         when (currentPhase) {
-            FocusPhase.ADZAN -> currentPhase = FocusPhase.QOBLIYAH
-            FocusPhase.QOBLIYAH -> currentPhase = FocusPhase.FARDHU
-            FocusPhase.FARDHU -> {
-                if (dzikirEnabled) currentPhase = FocusPhase.DZIKIR
-                else onDismiss()
+            FocusPhase.NIAT_FARDHU -> {
+                if (settings?.dzikirEnabled == true) {
+                    currentPhase = FocusPhase.DZIKIR
+                } else {
+                    onDismiss()
+                }
             }
             FocusPhase.DZIKIR -> onDismiss()
         }
@@ -134,10 +155,42 @@ fun PrayerFocusOverlay(
         label = "pulse_scale"
     )
 
+    val allowExit = settings?.focusModeAllowExitWithRemote ?: true
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(phaseGradient))
+            .focusRequester(focusRequester)
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                            // OK = skip ke fase berikutnya atau keluar
+                            when (currentPhase) {
+                                FocusPhase.NIAT_FARDHU -> {
+                                    if (settings?.dzikirEnabled == true) {
+                                        currentPhase = FocusPhase.DZIKIR
+                                    } else {
+                                        onDismiss()
+                                    }
+                                }
+                                FocusPhase.DZIKIR -> onDismiss()
+                            }
+                            true
+                        }
+                        Key.Back, Key.Escape -> {
+                            // Back = keluar dari Mode Fokus (kalau diizinkan)
+                            if (allowExit) {
+                                onDismiss()
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
+            .focusable()
     ) {
         Column(
             modifier = Modifier
@@ -165,20 +218,23 @@ fun PrayerFocusOverlay(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0x33FFFFFF))
-                        .clickable { onDismiss() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Tutup Mode Fokus",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                // Tombol Close (kalau allowExit = true)
+                if (allowExit) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color(0x33FFFFFF))
+                            .clickable { onDismiss() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup Mode Fokus",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
@@ -201,18 +257,7 @@ fun PrayerFocusOverlay(
                 label = "focus_phase_transition"
             ) { phase ->
                 when (phase) {
-                    FocusPhase.ADZAN -> AdzanPhase(
-                        prayerId = prayerId,
-                        prayerTimeFormatted = prayerTimeFormatted,
-                        countdownText = countdownText,
-                        pulseScale = pulseScale
-                    )
-                    FocusPhase.QOBLIYAH -> QobliyahPhase(
-                        prayerId = prayerId,
-                        countdownText = countdownText,
-                        pulseScale = pulseScale
-                    )
-                    FocusPhase.FARDHU -> FardhuPhase(prayerId = prayerId)
+                    FocusPhase.NIAT_FARDHU -> NiatFardhuPhase(prayerId = prayerId)
                     FocusPhase.DZIKIR -> DzikirPhase(
                         dzikirCountdown = countdownText,
                         pulseScale = pulseScale
@@ -229,15 +274,12 @@ fun PrayerFocusOverlay(
                     .clip(RoundedCornerShape(3.dp))
                     .background(Color(0x33FFFFFF))
             ) {
-                val totalDurationSec = totalDurationMinutes * 60
+                val totalSec = (fardhuDurationSec + if (settings?.dzikirEnabled == true) dzikirDurationSec else 0).coerceAtLeast(1)
                 val elapsedSec = when (currentPhase) {
-                    FocusPhase.ADZAN -> (iqamahWaitMinutes * 60) - secondsRemaining
-                    FocusPhase.QOBLIYAH -> (iqamahWaitMinutes * 60) + ((qobliyahWaitMinutes * 60) - secondsRemaining)
-                    FocusPhase.FARDHU -> (iqamahWaitMinutes * 60) + (qobliyahWaitMinutes * 60) +
-                            ((totalDurationMinutes - iqamahWaitMinutes - qobliyahWaitMinutes) * 60 - secondsRemaining)
-                    FocusPhase.DZIKIR -> totalDurationSec - secondsRemaining
+                    FocusPhase.NIAT_FARDHU -> fardhuDurationSec - secondsRemaining
+                    FocusPhase.DZIKIR -> fardhuDurationSec + (dzikirDurationSec - secondsRemaining)
                 }
-                val progress = (elapsedSec.toFloat() / totalDurationSec).coerceIn(0f, 1f)
+                val progress = (elapsedSec.toFloat() / totalSec).coerceIn(0f, 1f)
 
                 Box(
                     modifier = Modifier
@@ -251,7 +293,7 @@ fun PrayerFocusOverlay(
             }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Fase $phaseNum dari $totalPhases",
+                text = "Fase $phaseNum dari $totalPhases  •  OK: Lanjut  •  BACK: Keluar",
                 fontSize = 11.sp,
                 color = Color(0xAAFFFFFF),
                 modifier = Modifier.fillMaxWidth(),
@@ -260,236 +302,90 @@ fun PrayerFocusOverlay(
         }
     }
 }
-
 // ============================================================
-// FASE 1: ADZAN
-// ============================================================
-
-@Composable
-private fun AdzanPhase(
-    prayerId: PrayerId,
-    prayerTimeFormatted: String,
-    countdownText: String,
-    pulseScale: Float
-) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(text = "🕌", fontSize = 64.sp)
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "WAKTU ${prayerId.displayName.uppercase()} TELAH TIBA",
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight,
-            letterSpacing = 4.sp,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = prayerTimeFormatted,
-            fontSize = 72.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White,
-            letterSpacing = 6.sp
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0x44FFD700))
-                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-                .padding(horizontal = 40.dp, vertical = 20.dp)
-                .scale(pulseScale)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "⏱️ IQAMAH DALAM",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight,
-                    letterSpacing = 2.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = countdownText,
-                    fontSize = 56.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    letterSpacing = 4.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            ReminderCard(
-                icon = Icons.Default.PhoneAndroid,
-                text = "HENINGKAN HP",
-                color = UrgentRed
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            ReminderCard(
-                icon = Icons.Default.VolumeOff,
-                text = "RAPATKAN SHAF",
-                color = IslamicGreen
-            )
-        }
-    }
-}
-
-// ============================================================
-// FASE 2: QOBLIYAH
+// FASE 1: NIAT SHOLAT FARDHU (arab + latin + arti)
 // ============================================================
 
 @Composable
-private fun QobliyahPhase(
-    prayerId: PrayerId,
-    countdownText: String,
-    pulseScale: Float
-) {
+private fun NiatFardhuPhase(prayerId: PrayerId) {
+    val niat = getFardhuNiat(prayerId)
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(text = "🕌", fontSize = 56.sp)
+
         Spacer(modifier = Modifier.height(12.dp))
+
         Text(
-            text = "SHOLAT SUNNAH QOBLIYAH",
-            fontSize = 44.sp,
+            text = "NIAT SHOLAT FARDHU",
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = IslamicGoldLight,
             letterSpacing = 3.sp,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Spacer(modifier = Modifier.height(6.dp))
+
         Text(
-            text = "Sebelum ${prayerId.displayName}",
-            fontSize = 24.sp,
-            color = Color(0xCCFFFFFF),
-            fontStyle = FontStyle.Italic
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0x44A5D6A7))
-                .border(2.dp, IslamicGreen, RoundedCornerShape(20.dp))
-                .padding(horizontal = 40.dp, vertical = 20.dp)
-                .scale(pulseScale)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "⏱️ SHOLAT FARDHU DALAM",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGreen,
-                    letterSpacing = 2.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = countdownText,
-                    fontSize = 56.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    letterSpacing = 4.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.7f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0x33000000))
-                .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                .padding(24.dp)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "رَبَّنَا وَاجْعَلْنَا مُسْلِمَيْنِ لَكَ",
-                    fontSize = 28.sp,
-                    color = IslamicGoldLight,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Ya Allah, jadikanlah kami orang yang berserah diri kepada-Mu",
-                    fontSize = 14.sp,
-                    color = Color(0xCCFFFFFF),
-                    textAlign = TextAlign.Center,
-                    fontStyle = FontStyle.Italic
-                )
-            }
-        }
-    }
-}
-
-// ============================================================
-// FASE 3: FARDHU
-// ============================================================
-
-@Composable
-private fun FardhuPhase(prayerId: PrayerId) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(text = "🕌", fontSize = 72.sp)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "DIRIKAN SHOLAT ${prayerId.displayName.uppercase()}",
-            fontSize = 52.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight,
-            letterSpacing = 4.sp,
+            text = prayerId.displayName.uppercase(),
+            fontSize = 44.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = IslamicGold,
+            letterSpacing = 3.sp,
             textAlign = TextAlign.Center
         )
+
         Spacer(modifier = Modifier.height(32.dp))
 
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .clip(RoundedCornerShape(16.dp))
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(20.dp))
                 .background(Color(0x33000000))
-                .border(2.dp, IslamicGold, RoundedCornerShape(16.dp))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
                 .padding(32.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Text(
-                    text = "إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَوْقُوتًا",
-                    fontSize = 28.sp,
+                    text = niat.arabic,
+                    fontSize = 32.sp,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 50.sp
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .height(1.dp)
+                        .background(IslamicGold.copy(alpha = 0.4f))
+                )
+
+                Text(
+                    text = niat.latin,
+                    fontSize = 16.sp,
                     color = IslamicGoldLight,
                     textAlign = TextAlign.Center,
-                    lineHeight = 44.sp
+                    fontWeight = FontWeight.Medium,
+                    fontStyle = FontStyle.Italic,
+                    lineHeight = 24.sp
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+
+                Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
-                    text = "\"Sesungguhnya sholat itu wajib atas orang-orang mukmin pada waktu yang telah ditentukan.\"",
-                    fontSize = 18.sp,
+                    text = niat.arti,
+                    fontSize = 14.sp,
                     color = Color(0xCCFFFFFF),
                     textAlign = TextAlign.Center,
-                    fontStyle = FontStyle.Italic,
-                    lineHeight = 26.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "(QS. An-Nisa: 103)",
-                    fontSize = 14.sp,
-                    color = IslamicGold,
-                    fontWeight = FontWeight.Bold
+                    lineHeight = 22.sp
                 )
             }
         }
@@ -497,7 +393,7 @@ private fun FardhuPhase(prayerId: PrayerId) {
 }
 
 // ============================================================
-// FASE 4: DZIKIR (BARU)
+// FASE 2: DZIKIR (rotasi 8 detik)
 // ============================================================
 
 @Composable
@@ -505,7 +401,6 @@ private fun DzikirPhase(
     dzikirCountdown: String,
     pulseScale: Float
 ) {
-    // Rotasi dzikir setiap 8 detik
     var dzikirIndex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
@@ -522,7 +417,6 @@ private fun DzikirPhase(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Header
         Text(
             text = "📿 DZIKIR SETELAH SHOLAT",
             fontSize = 20.sp,
@@ -543,7 +437,6 @@ private fun DzikirPhase(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Card dzikir
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
@@ -553,7 +446,6 @@ private fun DzikirPhase(
                 .padding(28.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Nama dzikir
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = dzikir.title,
@@ -582,7 +474,6 @@ private fun DzikirPhase(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Arab
                 Text(
                     text = dzikir.arabic,
                     fontSize = 32.sp,
@@ -593,7 +484,6 @@ private fun DzikirPhase(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Latin
                 Text(
                     text = dzikir.latin,
                     fontSize = 16.sp,
@@ -605,7 +495,6 @@ private fun DzikirPhase(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Arti
                 Text(
                     text = "\"${dzikir.translation}\"",
                     fontSize = 15.sp,
@@ -618,7 +507,6 @@ private fun DzikirPhase(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Countdown
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
@@ -628,10 +516,7 @@ private fun DzikirPhase(
                 .scale(pulseScale)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "⏱️",
-                    fontSize = 22.sp
-                )
+                Text(text = "⏱️", fontSize = 22.sp)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Kembali ke Home dalam $dzikirCountdown",
@@ -643,39 +528,47 @@ private fun DzikirPhase(
         }
     }
 }
-
 // ============================================================
-// KARTU REMINDER
+// DATA NIAT SHOLAT FARDHU (standar NU)
+// Arab + Latin + Arti
 // ============================================================
+private data class FardhuNiat(
+    val arabic: String,
+    val latin: String,
+    val arti: String
+)
 
-@Composable
-private fun ReminderCard(
-    icon: ImageVector,
-    text: String,
-    color: Color
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(color.copy(alpha = 0.25f))
-            .border(1.5.dp, color, RoundedCornerShape(12.dp))
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = text,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                letterSpacing = 1.5.sp
-            )
-        }
+private fun getFardhuNiat(prayerId: PrayerId): FardhuNiat {
+    return when (prayerId) {
+        PrayerId.SUBUH -> FardhuNiat(
+            arabic = "أُصَلِّي فَرْضَ الصُّبْحِ رَكْعَتَيْنِ مُسْتَقْبِلَ الْقِبْلَةِ أَدَاءً لِلَّهِ تَعَالَى",
+            latin = "Ushallī fardhash-shubhi rak'ataini mustaqbilal-qiblati adā'an lillāhi ta'ālā",
+            arti = "Aku niat sholat fardhu Subuh dua rakaat, menghadap kiblat, tunai, karena Allah Ta'ala."
+        )
+        PrayerId.DZUHUR -> FardhuNiat(
+            arabic = "أُصَلِّي فَرْضَ الظُّهْرِ أَرْبَعَ رَكَعَاتٍ مُسْتَقْبِلَ الْقِبْلَةِ أَدَاءً لِلَّهِ تَعَالَى",
+            latin = "Ushallī fardhazh-zhuhri arba'a raka'ātin mustaqbilal-qiblati adā'an lillāhi ta'ālā",
+            arti = "Aku niat sholat fardhu Dzuhur empat rakaat, menghadap kiblat, tunai, karena Allah Ta'ala."
+        )
+        PrayerId.ASHAR -> FardhuNiat(
+            arabic = "أُصَلِّي فَرْضَ الْعَصْرِ أَرْبَعَ رَكَعَاتٍ مُسْتَقْبِلَ الْقِبْلَةِ أَدَاءً لِلَّهِ تَعَالَى",
+            latin = "Ushallī fardhal-'ashri arba'a raka'ātin mustaqbilal-qiblati adā'an lillāhi ta'ālā",
+            arti = "Aku niat sholat fardhu Ashar empat rakaat, menghadap kiblat, tunai, karena Allah Ta'ala."
+        )
+        PrayerId.MAGHRIB -> FardhuNiat(
+            arabic = "أُصَلِّي فَرْضَ الْمَغْرِبِ ثَلَاثَ رَكَعَاتٍ مُسْتَقْبِلَ الْقِبْلَةِ أَدَاءً لِلَّهِ تَعَالَى",
+            latin = "Ushallī fardhal-maghribi tsalātsa raka'ātin mustaqbilal-qiblati adā'an lillāhi ta'ālā",
+            arti = "Aku niat sholat fardhu Maghrib tiga rakaat, menghadap kiblat, tunai, karena Allah Ta'ala."
+        )
+        PrayerId.ISYA -> FardhuNiat(
+            arabic = "أُصَلِّي فَرْضَ الْعِشَاءِ أَرْبَعَ رَكَعَاتٍ مُسْتَقْبِلَ الْقِبْلَةِ أَدَاءً لِلَّهِ تَعَالَى",
+            latin = "Ushallī fardhal-'isyā'i arba'a raka'ātin mustaqbilal-qiblati adā'an lillāhi ta'ālā",
+            arti = "Aku niat sholat fardhu Isya empat rakaat, menghadap kiblat, tunai, karena Allah Ta'ala."
+        )
+        PrayerId.SYURUQ -> FardhuNiat(
+            arabic = "أُصَلِّي سُنَّةَ الضُّحَى رَكْعَتَيْنِ لِلَّهِ تَعَالَى",
+            latin = "Ushallī sunnatadh-dhuḥā rak'ataini lillāhi ta'ālā",
+            arti = "Aku niat sholat sunnah Dhuha dua rakaat, karena Allah Ta'ala."
+        )
     }
 }
