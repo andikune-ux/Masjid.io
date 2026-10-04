@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
@@ -77,34 +78,40 @@ fun QrisSettingsPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // ============================================================
-    // V1.04.421: Copy QRIS ke folder permanen
-    // ============================================================
-    val qrisPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                val localPath = withContext(Dispatchers.IO) {
-                    MediaPersistenceHelper.copyToPermanent(
-                        context = context,
-                        sourceUri = uri.toString(),
-                        folder = MediaPersistenceHelper.FOLDER_QRIS,
-                        fileNamePrefix = "qris"
-                    )
+    // Helper: proses URI QRIS
+    fun processQrisUri(uri: Uri) {
+        scope.launch {
+            val localPath = withContext(Dispatchers.IO) {
+                MediaPersistenceHelper.copyToPermanent(
+                    context = context,
+                    sourceUri = uri.toString(),
+                    folder = MediaPersistenceHelper.FOLDER_QRIS,
+                    fileNamePrefix = "qris"
+                )
+            }
+            if (localPath != null) {
+                settings.qrisPhotoUri?.let { old ->
+                    if (old != localPath) MediaPersistenceHelper.deleteFile(old)
                 }
-                if (localPath != null) {
-                    // Hapus QRIS lama
-                    settings.qrisPhotoUri?.let { old ->
-                        if (old != localPath) MediaPersistenceHelper.deleteFile(old)
-                    }
-                    onUpdate(settings.copy(qrisPhotoUri = localPath))
-                } else {
-                    // Fallback
-                    onUpdate(settings.copy(qrisPhotoUri = uri.toString()))
-                }
+                onUpdate(settings.copy(qrisPhotoUri = localPath))
+            } else {
+                onUpdate(settings.copy(qrisPhotoUri = uri.toString()))
             }
         }
+    }
+
+    // TOMBOL 1: GALERI
+    val qrisGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) processQrisUri(uri)
+    }
+
+    // TOMBOL 2: FILE MANAGER
+    val qrisFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) processQrisUri(uri)
     }
 
     Column(
@@ -183,15 +190,22 @@ fun QrisSettingsPane(
                     lineHeight = 16.sp
                 )
 
+                // 2 TOMBOL: GALERI + FILE
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvActionButton(
                         icon = Icons.Default.AddPhotoAlternate,
-                        label = "PILIH DARI GALERI",
+                        label = "GALERI",
                         backgroundColor = IslamicGold,
                         textColor = Color(0xFF09141D),
-                        onClick = { qrisPickerLauncher.launch("image/*") }
+                        onClick = { qrisGalleryLauncher.launch("image/*") }
                     )
-
+                    TvActionButton(
+                        icon = Icons.Default.FolderOpen,
+                        label = "FILE",
+                        backgroundColor = IslamicGold,
+                        textColor = Color(0xFF09141D),
+                        onClick = { qrisFileLauncher.launch(arrayOf("image/*")) }
+                    )
                     if (!settings.qrisPhotoUri.isNullOrBlank()) {
                         TvActionButton(
                             icon = Icons.Default.Delete,
@@ -207,15 +221,21 @@ fun QrisSettingsPane(
                             }
                         )
                     }
-
-                    TvActionButton(
-                        icon = Icons.Default.Visibility,
-                        label = "UJI TAMPILAN",
-                        backgroundColor = IslamicGreen,
-                        textColor = Color(0xFF09141D),
-                        onClick = onTestQrisFocus
-                    )
                 }
+
+                TvActionButton(
+                    icon = Icons.Default.Visibility,
+                    label = "UJI TAMPILAN",
+                    backgroundColor = IslamicGreen,
+                    textColor = Color(0xFF09141D),
+                    onClick = onTestQrisFocus
+                )
+
+                Text(
+                    text = "💡 Kalau GALERI tidak bisa pilih di TV, coba FILE.",
+                    fontSize = 10.sp,
+                    color = TextSecondary.copy(alpha = 0.8f)
+                )
             }
         }
 
@@ -371,19 +391,19 @@ private fun TvActionButton(
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = textColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = textColor
         )
