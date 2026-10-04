@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,24 +50,22 @@ fun TopBar(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // ============================================================
-    // FOKUS TOMBOL SETTINGS — pakai NeonFocusBorder
-    // ============================================================
     val settingsInteractionSource = remember { MutableInteractionSource() }
     val isSettingsFocused by settingsInteractionSource.collectIsFocusedAsState()
     val isSettingsPressed by settingsInteractionSource.collectIsPressedAsState()
 
+    // V1.04.419: Layout 3-zona sama rata → kotak tengah PRESISI di tengah layar
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // ============ KIRI: LOGO MASJID.IO ============
+        // ============ ZONA KIRI: LOGO MASJID.IO ============
         Row(
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.widthIn(min = 260.dp)
+            horizontalArrangement = Arrangement.Start
         ) {
             Box(
                 modifier = Modifier
@@ -100,13 +97,9 @@ fun TopBar(
             )
         }
 
-        // ============ JARAK KIRI-TENGAH ============
-        Spacer(modifier = Modifier.width(24.dp))
-
-        // ============ TENGAH: CUACA & LOKASI ============
+        // ============ ZONA TENGAH: CUACA & LOKASI (auto center) ============
         Row(
             modifier = Modifier
-                .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xCC091620))
                 .border(
@@ -162,36 +155,38 @@ fun TopBar(
             )
         }
 
-        // ============ JARAK TENGAH-KANAN ============
-        Spacer(modifier = Modifier.width(24.dp))
-
-        // ============ KANAN: TOMBOL SETTINGS ============
-        // Pakai NeonFocusBorder agar border berputar muncul saat fokus
-        NeonFocusBorder(
-            focused = isSettingsFocused,
-            pressed = isSettingsPressed,
-            borderWidth = 5.dp,
-            cornerRadius = 26.dp,
-            modifier = Modifier.size(52.dp)
+        // ============ ZONA KANAN: TOMBOL SETTINGS ============
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End
         ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xCC091620))
-                    .focusable(interactionSource = settingsInteractionSource)
-                    .clickable(
-                        interactionSource = settingsInteractionSource,
-                        indication = null
-                    ) { onSettingsClick() },
-                contentAlignment = Alignment.Center
+            NeonFocusBorder(
+                focused = isSettingsFocused,
+                pressed = isSettingsPressed,
+                borderWidth = 5.dp,
+                cornerRadius = 26.dp,
+                modifier = Modifier.size(52.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Pengaturan",
-                    tint = if (isSettingsFocused) IslamicGoldLight else IslamicGold,
-                    modifier = Modifier.size(28.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xCC091620))
+                        .focusable(interactionSource = settingsInteractionSource)
+                        .clickable(
+                            interactionSource = settingsInteractionSource,
+                            indication = null
+                        ) { onSettingsClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Pengaturan",
+                        tint = if (isSettingsFocused) IslamicGoldLight else IslamicGold,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }
