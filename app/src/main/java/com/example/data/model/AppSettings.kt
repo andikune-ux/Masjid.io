@@ -133,7 +133,7 @@ data class AppSettings(
     val longitude: Double = 106.8272,
     val calculationMethod: String = "Kementerian Agama RI (Kemenag)",
     val languageCode: String = "id",
-    val runningText: String = "║ Selamat datang di Masjid Al-Ikhlas ║ Luruskan dan rapatkan shaf sholat ║ Harap nonaktifkan nada dering ponsel ║ Mari jaga kebersihan dan ketertiban masjid ║ Infaq & Shadaqah: Rek BSI 7123-4567-89 a.n Masjid Al-Ikhlas ║",
+    val runningText: String = "║ Selamat datang di Masjid Al-Ikhlas ║ Luruskan dan rapatkan shaf sholat ║ Harap nonaktifkan nada dering ponsel ║ Mari jaga kebersihan dan ketertiban masjid ║",
     val runningTextSpeed: Int = 5,
     val runningTextFontSize: Int = 18,
     val officers: OfficerSchedule = OfficerSchedule(),
@@ -178,14 +178,22 @@ data class AppSettings(
     val photoSlideshowEnabled: Boolean = false,
     val photoSlideshowUris: List<String> = emptyList(),
     val photoSlideshowIntervalSeconds: Int = 10,
-    // ============================================================
-    // V1.04.420 BARU — AUTO-SWITCH MODE & UKURAN FRAME
-    // ============================================================
     val autoSwitchEnabled: Boolean = false,
     val videoModeIntervalMinutes: Int = 5,
     val normalModeDurationMinutes: Int = 2,
     val videoFrameScale: String = "POTONG",
     val waitVideoFinishBeforeSwitch: Boolean = true,
+    // ============================================================
+    // V1.04.421 BARU — ALUR SHOLAT BARU (Adzan → Doa → Iqomah → Mode Fokus)
+    // ============================================================
+    val adzanDisplayDurationSeconds: Int = 8,
+    val silentPhoneDisplayDurationSeconds: Int = 8,
+    val qobliyahNiatDisplayDurationSeconds: Int = 15,
+    val fardhuNiatDisplayDurationSeconds: Int = 15,
+    val dzikirDisplayDurationSeconds: Int = 120,
+    val focusModeAllowExitWithRemote: Boolean = true,
+    val showDoaAfterAdzan: Boolean = true,
+    val showDoaAfterIqomah: Boolean = true,
     // ============================================================
     val slideEnabled: Boolean = false,
     val slideIntervalSeconds: Int = 15,
