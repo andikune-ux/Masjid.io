@@ -16,18 +16,18 @@ object AppKnowledge {
 
     val APP_STRUCTURE = """
 app/src/main/java/com/example/
-├── MainActivity.kt                    -> Activity utama
+├── MainActivity.kt                    -> Activity utama (V1.04.418)
 ├── audio/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
 │   ├── model/
-│   │   └── AppSettings.kt             -> Model pengaturan (110+ field)
+│   │   └── AppSettings.kt             -> Model pengaturan (120+ field)
 │   ├── local/
 │   │   ├── SettingsRepository.kt      -> Simpan/load setting + exportSummary
 │   │   ├── PrayerTimesCalculator.kt   -> Hitung jadwal sholat
 │   │   ├── IslamicCalendar.kt         -> Kalender Hijriah
 │   │   ├── IslamicWisdomStore.kt      -> Data kartu nasihat
-│   │   ├── SunMoonCalculator.kt       -> Posisi matahari/bulan real-time (V1.30.2)
+│   │   ├── SunMoonCalculator.kt       -> Posisi matahari/bulan real-time
 │   │   ├── DynamicSkyTheme.kt         -> Warna langit dinamis
 │   │   ├── IndonesiaLocations.kt      -> Data lokasi Indonesia
 │   │   └── WeatherService.kt          -> Data cuaca
@@ -49,23 +49,23 @@ app/src/main/java/com/example/
 │   ├── CrashReporter.kt               -> Log crash + WA Fonnte
 │   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
-│   ├── SettingsTransferHelper.kt      -> Serialize + upload media (V1.30.4)
+│   ├── SettingsTransferHelper.kt      -> Serialize + upload media
 │   ├── RemoteControlClient.kt         -> HTTP client iO Control (V1.30.7)
-│   ├── MediaTransferHelper.kt         -> Chunk + kompres media (V1.30.4)
-│   ├── IoBundleHelper.kt              -> Bundle .iO (V1.30.7 BARU)
+│   ├── MediaTransferHelper.kt         -> Chunk + kompres media
+│   ├── IoBundleHelper.kt              -> Bundle .iO (V1.30.7)
 │   ├── FonnteHelper.kt                -> Token & Group ID Fonnte
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
 │   ├── ApkDownloader.kt               -> Download & install APK
 │   └── BuildHistoryFetcher.kt         -> Fetch build history GitHub
 └── ui/
-    ├── home/HomeScreen.kt             -> Tampilan utama (responsive)
+    ├── home/HomeScreen.kt             -> Tampilan utama (V1.04.420)
     ├── focus/
     │   ├── PrayerFocusOverlay.kt      -> Mode fokus 4 fase
     │   └── QRISFocusOverlay.kt        -> Preview QRIS
     ├── slides/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
-    │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan (V1.30.6)
+    │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
     │   ├── KajianSlide.kt             -> Slide Jadwal Kajian
     │   └── SlideManager.kt            -> Manager rotasi slide
     ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
@@ -75,7 +75,7 @@ app/src/main/java/com/example/
     │   ├── RemoteDashboard.kt         -> Info akses remote
     │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
     │   ├── NetworkHelper.kt           -> Helper deteksi IP WiFi
-    │   ├── IoControlScreen.kt         -> UI radar + konfirmasi restart (V1.30.7)
+    │   ├── IoControlScreen.kt         -> UI radar + konfirmasi restart
     │   ├── IoControlHelpSheet.kt      -> Panduan iO Control
     │   └── RestartCountdownOverlay.kt -> Overlay countdown restart
     ├── settings/
@@ -85,9 +85,9 @@ app/src/main/java/com/example/
     │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
     │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
-    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah (V1.30.7)
-    │   ├── IoBundleListSection.kt     -> Daftar file template .iO (V1.30.7 BARU)
-    │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif (V1.30.3)
+    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah + Bundle .iO
+    │   ├── IoBundleListSection.kt     -> Daftar file template .iO
+    │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif
     │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
     │   ├── PowerSettingsPane.kt       -> Daya & Booting
@@ -99,7 +99,7 @@ app/src/main/java/com/example/
     │   ├── CctvSettingsPane.kt        -> CCTV Masjid
     │   ├── RemoteSettingsPane.kt      -> iO Control + Remote Server
     │   ├── TimeSettingsPane.kt        -> Waktu manual
-    │   ├── VideoSettingsPane.kt       -> Video & Foto Slideshow
+    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame (V1.04.420)
     │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan
     │   ├── WisdomSettingsPane.kt      -> Kartu nasihat
     │   ├── MiniCalendarPickerModal.kt -> Kalender mini
@@ -107,24 +107,24 @@ app/src/main/java/com/example/
     │   ├── RiwayatCrashScreen.kt      -> Riwayat crash
     │   └── RiwayatUpdateScreen.kt     -> Riwayat update
     ├── components/
-    │   ├── MakkahDynamicBackground.kt -> Tema Makkah Dinamis (V1.30.2)
-    │   ├── ResponsiveLayoutHelper.kt  -> Auto-scale TV (V1.30.3)
-    │   ├── AutoFocusPane.kt           -> Auto-focus D-pad (V1.30.5)
+    │   ├── MakkahDynamicBackground.kt -> Tema Makkah Dinamis
+    │   ├── ResponsiveLayoutHelper.kt  -> Auto-scale TV
+    │   ├── AutoFocusPane.kt           -> Auto-focus D-pad
     │   ├── TvSlider.kt                -> Slider TV
     │   ├── TvToggle.kt                -> Toggle TV
     │   ├── TvFocusHelper.kt           -> Helper fokus D-pad
     │   ├── FocusHelper.kt             -> Helper fokus tambahan
-    │   ├── NeonFocusBorder.kt         -> Border fokus berputar (V1.30.6)
-    │   ├── PhotoSlideshow.kt          -> Slideshow foto
-    │   ├── MasjidVideoPlayer.kt       -> Video player (ExoPlayer)
-    │   ├── UpdateDialog.kt            -> Dialog update (V1.30.6 fix tombol)
+    │   ├── NeonFocusBorder.kt         -> Border fokus berputar
+    │   ├── PhotoSlideshow.kt          -> Slideshow foto (V1.04.420)
+    │   ├── MasjidVideoPlayer.kt       -> Video player (V1.04.420)
+    │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
-    │   ├── PrayerCardsRow.kt          -> Kartu sholat (with foto)
+    │   ├── PrayerCardsRow.kt          -> Kartu sholat
     │   ├── PrayerProgressBar.kt       -> Bar progres sholat
-    │   ├── RunningTextMarquee.kt      -> Running text bergulir
+    │   ├── RunningTextMarquee.kt      -> Running text (V1.04.418)
     │   ├── PinDialog.kt               -> Dialog PIN
     │   ├── ChangePinDialog.kt         -> Dialog ubah PIN
-    │   ├── TopBar.kt                  -> Top bar (V1.30.6 NeonFocusBorder)
+    │   ├── TopBar.kt                  -> Top bar (V1.04.419)
     │   ├── ClockAndDate.kt            -> Jam & tanggal
     │   ├── MosqueHeader.kt            -> Header nama masjid
     │   ├── ArabesquePattern.kt        -> Pola arabesque
@@ -144,6 +144,7 @@ app/src/main/java/com/example/
    - Panel Imam & Muadzin auto-slide
    - Running text + Video/Foto Slideshow
    - Auto-scale untuk semua ukuran TV
+   - 2 mode otomatis: MODE VIDEO (Opsi H) & MODE NORMAL
 
 3. TEMA MAKKAH DINAMIS (V1.30.2)
    - Langit bergerak real-time 24 jam
@@ -157,7 +158,7 @@ app/src/main/java/com/example/
    - Deteksi tipe: Ultrawide, Standar, 4:3
    - Safe Area Padding untuk hindari overscan
    - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
-   - Menu baru: Tampilan TV (kategori ke-20)
+   - Menu: Tampilan TV
 
 5. NAVIGASI D-PAD (V1.30.5 + V1.30.6)
    - Auto-focus ke elemen pertama pane (AutoFocusPane.kt)
@@ -175,7 +176,8 @@ app/src/main/java/com/example/
 
 8. SLIDE FULLSCREEN
    - Slide QRIS / Laporan / Kajian auto-rotate
-   - Slide Laporan pakai icon dompet (V1.30.6, bukan celengan babi)
+   - Slide Laporan pakai icon dompet
+   - FULLSCREEN — terpisah dari Mode Video
 
 9. CCTV MASJID
    - Widget PiP (RTSP + HTTP)
@@ -189,12 +191,13 @@ app/src/main/java/com/example/
     - Kompres video otomatis (MediaMuxer)
     - Progress bar per-file + total
     - Retry otomatis 3x per chunk
-    - UPDATE PATH LOKAL setelah media masuk TV (V1.30.6)
-    - VERIFIKASI transfer sebelum restart (V1.30.7)
-    - Konfirmasi restart MANUAL via tombol (V1.30.7)
+    - UPDATE PATH LOKAL setelah media masuk TV
+    - VERIFIKASI transfer sebelum restart
+    - Konfirmasi restart MANUAL via tombol
 
 11. REMOTE CONTROL WEB
     - HTTP server + dashboard browser HP
+    - Token Fonnte DISEMBUNYIKAN dari web (hanya di Opsi Developer)
 
 12. MODE RAMADHAN
     - Countdown Imsak/Iftar + Tarawih + Kultum
@@ -205,10 +208,11 @@ app/src/main/java/com/example/
 14. TENTANG APLIKASI
     - Periksa Update + Riwayat + Install APK
     - Tap file APK = install, tombol merah = hapus
-    - Dialog update fix: tombol selalu terlihat (V1.30.6)
+    - Dialog update: tombol selalu terlihat
 
 15. OPSI DEVELOPER (PIN 140399)
     - Backup Aman + Riwayat Crash + WhatsApp Fonnte
+    - Token Fonnte hanya bisa diubah di sini
 
 16. VERSIONING OTOMATIS
     - Format V{inti}.{tanggal}.{countHariIni}
@@ -230,39 +234,86 @@ app/src/main/java/com/example/
 
 25. APK INSTALL DARI FILE TERSIMPAN
 
-26. TAMPILAN TV RESPONSIF (V1.30.3)
+26. TAMPILAN TV RESPONSIF
 
-27. TRANSFER MEDIA iO CONTROL (V1.30.4)
+27. TRANSFER MEDIA iO CONTROL
     - Foto & video ikut terkirim via chunk
     - Progress per-file + total
     - Retry otomatis
-    - Notifikasi status (sukses/gagal/berjalan)
 
-28. FIX MEDIA PATH (V1.30.6)
+28. FIX MEDIA PATH
     - Update settings TV dengan path lokal setelah media masuk
-    - Foto/video langsung muncul di TV setelah transfer
-    - Support: QRIS, Logo, Background, Kartu Sholat, Video, Slideshow
 
-29. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL (V1.30.7) — BARU
+29. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL (V1.30.7)
     - Cek semua file benar-benar terkirim sebelum restart
-    - Restart MANUAL via tombol konfirmasi (bukan auto)
-    - Tombol COBA LAGI untuk kirim ulang file gagal saja
+    - Restart MANUAL via tombol konfirmasi
+    - Tombol COBA LAGI untuk kirim ulang file gagal
     - Tombol LIHAT LOG untuk stack trace Kotlin asli
     - Tombol RESTART SAJA kalau ada file gagal
     - Tombol LEWATI → template aktif otomatis saat app dibuka ulang
 
-30. FILE TEMPLATE .iO (V1.30.7) — BARU
-    - Setiap transfer sukses → auto-bikin file .iO
-    - File .iO = ZIP (settings.json + metadata.json + media/)
+30. FILE TEMPLATE .iO (V1.30.7)
+    - Format .iO = ZIP (settings.json + metadata.json + media/)
+    - Auto-bikin setiap transfer selesai
     - Nama file: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
     - Lokasi: /sdcard/masjid.io/Terima/
+    - File TIDAK dihapus otomatis
     - Daftar file template di menu Tampilan & Background
-    - Tombol GUNAKAN / INFO / HAPUS per file
-    - File TIDAK dihapus otomatis (kecuali user hapus manual)
-    - Apply template → media lama DITAMBAH (bukan ditimpa)
-    """.trimIndent()
+    - 3 tombol per file: GUNAKAN / INFO / HAPUS
+    - Apply template → media lama DITAMBAH
+    - Setelah apply → dialog konfirmasi restart
 
-    val UPDATE_HISTORY = """
+31. STORAGE PERMISSION DIALOG (V1.04.418) — BARU
+    - Muncul otomatis saat pertama buka app
+    - Dialog penjelasan izin akses file
+    - Tombol BERI IZIN → buka Manage All Files Access
+    - Auto-detect kalau izin sudah diberikan
+    - Cek permission sebelum download update
+
+32. LAYOUT OPSI H — MODE VIDEO (V1.04.420) — BARU
+    - Panel kiri 24%: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar
+    - Panel kanan 76%: video/foto dengan lock frame
+    - List sholat vertikal 6 baris (Subuh → Isya)
+    - Highlight NEXT: emas + border tebal + pulse animation
+    - Kotak gabungan jam + tanggal (1 kotak)
+    - Icon sholat pakai Material Icon (bukan emoji)
+    - Overlay wisdom card di bawah video (bar tipis)
+    - Tombol Settings overlay mengambang kanan atas
+    - Running text full width bawah
+    - Mode NORMAL: layout lengkap seperti sebelumnya
+
+33. AUTO-SWITCH MODE (V1.04.420) — BARU
+    - Bolak-balik Mode Video ↔ Mode Normal otomatis
+    - Interval video (1-60 menit)
+    - Durasi normal (1-30 menit)
+    - Tunggu video loop 1x selesai sebelum switch (opsional)
+    - Kalau belum ada video/foto → mode normal permanen
+    - JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
+    - Berjalan 24 jam nonstop
+
+34. PENGATURAN UKURAN FRAME (V1.04.420) — BARU
+    - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
+    - POTONG (Crop) seperti Instagram Reels
+    - PAS (Fit/Letterbox) seperti Netflix
+    - ZOOM (Fill) seperti TikTok
+    - FULL (Fullscreen) panel kiri hilang
+    - FIT (Stretch) paksa video/foto sesuaikan frame
+    - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
+    - Referensi app ternama untuk mode masing-masing
+    """.trimIndent()
+        val UPDATE_HISTORY = """
+V1.04.420 (04 Oktober 2026)
+- Layout Opsi H + Auto-Switch Mode + Ukuran Frame
+- Panel kiri 24% + video 76% (mode video/foto)
+- Kotak gabungan jam + tanggal + list sholat vertikal
+- 5 mode ukuran frame: POTONG / PAS / ZOOM / FULL / FIT
+- Auto-switch Mode Video <-> Mode Normal otomatis
+
+V1.04.418 (04 Oktober 2026)
+- Storage Permission Dialog muncul otomatis saat pertama buka
+- Hapus token Fonnte dari web dashboard
+- Perlambat speed running text (speed 1 = 40x lebih lambat)
+
 V1.30.7 (03 Oktober 2026)
 - Verifikasi transfer + konfirmasi restart manual + file template .iO
 - Setiap transfer sukses → auto-bikin file .iO (bundle ZIP)
@@ -276,8 +327,8 @@ V1.30.6 (03 Oktober 2026)
 - Foto/video tidak muncul di TV (fix path lokal)
 - AutoFocusPane: auto-fokus ke elemen pertama pane
 - Border fokus berputar kembali (NeonFocusBorder)
-- Icon dompet di Laporan Keuangan (ganti celengan babi)
-- UpdateDialog: tombol selalu terlihat + changelog scrollable
+- Icon dompet di Laporan Keuangan
+- UpdateDialog: tombol selalu terlihat
 
 V1.30.5 (03 Oktober 2026)
 - Auto-Focus Pane & Smooth D-pad Navigation
@@ -331,7 +382,8 @@ V1.28.1 (28 September 2026)
 V1.28.0 (27 September 2026)
 - Versi dasar: jadwal sholat, mode fokus, kiosk, dll
     """.trimIndent()
-        val KNOWN_ISSUES = """
+
+    val KNOWN_ISSUES = """
 === SUDAH DIPERBAIKI ===
 1. Foto ustadz tidak tampil → normalisasi nama hari
 2. Suara beep terlalu pendek → TONE_CDMA_ALERT_CALL_GUARD
@@ -355,14 +407,21 @@ V1.28.0 (27 September 2026)
 20. DeviceDiscovery butuh deviceId → kirim dari IoControlScreen
 21. TV beda ukuran kepotong → ResponsiveLayoutHelper
 22. Extension .dp() bentrok dengan Compose → rename .scaledDp()
-23. Foto & video tidak ikut transfer iO Control → chunk upload (V1.30.4)
-24. Foto/video tidak muncul di TV → update path lokal (V1.30.6)
-25. Fokus D-pad hilang/tidak jelas → AutoFocusPane (V1.30.5)
-26. Border fokus tidak terlihat (tertutup solid) → tipis dim gold (V1.30.6)
-27. Icon celengan babi di Laporan Keuangan → dompet (V1.30.6)
-28. Tombol UpdateDialog tidak terlihat → fillMaxHeight 0.92f (V1.30.6)
-29. Restart otomatis padahal file belum semua terkirim → verifikasi + restart manual (V1.30.7)
-30. Error transfer tidak jelas penyebabnya → simpan stack trace Kotlin asli (V1.30.7)
+23. Foto & video tidak ikut transfer iO Control → chunk upload
+24. Foto/video tidak muncul di TV → update path lokal
+25. Fokus D-pad hilang/tidak jelas → AutoFocusPane
+26. Border fokus tidak terlihat → tipis dim gold
+27. Icon celengan babi di Laporan Keuangan → dompet
+28. Tombol UpdateDialog tidak terlihat → fillMaxHeight 0.92f
+29. Restart otomatis padahal file belum semua terkirim → verifikasi + restart manual
+30. Error transfer tidak jelas penyebabnya → simpan stack trace Kotlin asli
+31. Izin kelola file muncul tiap buka app → StoragePermissionDialog otomatis (V1.04.418)
+32. Download update gagal karena izin → cek permission dulu sebelum download (V1.04.418)
+33. Token Fonnte terlihat di web dashboard → hapus dari web (V1.04.418)
+34. Running text speed 1 masih ngebut → multiplier 40x (V1.04.418)
+35. Kotak cuaca di TopBar tidak center → layout 3-zona weight (V1.04.419)
+36. Layout video/foto berantakan → Opsi H (V1.04.420)
+37. Frame video tidak konsisten dimensi → 5 mode ukuran frame (V1.04.420)
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -378,6 +437,31 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[04-10-2026] - V1.04.420
+Error: Import HomeScreen.kt kurang (ClockAndDate, MosqueHeader, QRISFocusOverlay, SlideManager)
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Tambah 4 import — ClockAndDate, MosqueHeader (dari components), QRISFocusOverlay (dari focus), SlideManager (dari slides)
+
+[04-10-2026] - V1.04.419
+Error: Kotak cuaca di TopBar tidak presisi di tengah
+File: app/src/main/java/com/example/ui/components/TopBar.kt
+Solusi: Ganti Arrangement.SpaceBetween ke 3-zona weight(1f) — kiri Weight 1f Start, tengah auto, kanan Weight 1f End
+
+[04-10-2026] - V1.04.418
+Error: Aplikasi tidak bisa download update karena belum izin akses file
+File: app/src/main/java/com/example/MainActivity.kt
+Solusi: Tambah StoragePermissionDialog yang muncul otomatis + cek permission sebelum download
+
+[04-10-2026] - V1.04.418
+Error: Token Fonnte tampil di web dashboard (bisa diubah via web)
+File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+Solusi: Hapus fonnteToken & fonnteGroupId dari HTML + saveFields + applySettingsUpdate + getFullSettingsJson
+
+[04-10-2026] - V1.04.418
+Error: Aplikasi bentrok dengan paket yang sudah ada saat install update
+File: debug.keystore / app/build.gradle.kts / .github/workflows/build.yml
+Solusi: Upload ulang debug.keystore asli dari riwayat commit sebelum AI Studio ubah
 
 [03-10-2026] - V1.30.7
 Error: File CustomBackgroundPane.kt refer ke IoBundleListSection yang belum ada
@@ -459,15 +543,19 @@ URUTAN BATCH:
 4. Update versi + UpdateHistory + AppKnowledge
 5. Commit
 
-8 ELEMEN WAJIB RESPON:
+ATURAN FORMAT (V1.04.418+):
 1. Visualisasi folder (emoji + indentasi)
 2. Path lengkap file
 3. Nama file
-4. URL cepat
-5. 2 opsi akses (A: link, B: navigasi)
-6. Kode timpa full
-7. Pesan commit
-8. Bahasa Indonesia simple
+4. URL edit (untuk file lama) atau URL new (untuk file baru)
+5. Kode timpa full
+6. Pesan commit
+
+CATATAN FORMAT:
+- Elemen "2 opsi akses" TIDAK perlu lagi
+- Elemen "Bahasa Indonesia" TIDAK perlu lagi
+- Pakai code block (3 backtick) untuk path, URL, nama file
+- Biar muncul tombol Salin otomatis
 
 LARANGAN:
 - Jangan hapus fitur lama tanpa izin
@@ -493,7 +581,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.30.7
+- Versi saat ini : V1.04.420
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -502,7 +590,7 @@ UPDATE WAJIB TIAP BUILD:
 3. Update AppKnowledge.kt (struktur + fitur + build error)
 
 ATURAN FORMAT:
-- Setiap respon wajib 8 elemen
+- Setiap respon pakai code block untuk path/URL/nama file
 - Kode timpa full
 - Bahasa Indonesia simple
 - 1 chat = 1 fitur utuh kalau muat
@@ -510,13 +598,13 @@ ATURAN FORMAT:
 
     val MEMORY_INSTRUCTION = """
 ATURAN FORMAT:
-- Setiap respon wajib 8 elemen (lihat WORKFLOW_INSTRUCTION)
 - Kode timpa full, jangan suruh user edit manual
 - Bahasa Indonesia yang mudah dipahami
 - 1 chat = 1 fitur utuh kalau muat
 - Kalau kode tidak muat 1 bubble → tulis "jangan commit dulu, masih ada sambungan"
-- JANGAN nolak buka link GitHub publik (bisa dibuka via fitur web)
+- JANGAN nolak buka link GitHub publik
 - JANGAN gabung link 1 file dengan lainnya — pisah per file
+- Pakai code block (3 backtick) untuk path/URL/nama file — biar ada tombol Salin
 
 ATURAN KERJA:
 - Konfirmasi dulu sebelum eksekusi
@@ -533,9 +621,9 @@ STRUKTUR MENU SETTINGS (20 Kategori):
 4.  Identitas Masjid
 5.  Jadwal Petugas & Foto
 6.  Donasi QRIS & Rekening
-7.  Video Kegiatan Masjid
+7.  Video Kegiatan Masjid (Auto-Switch + Ukuran Frame)
 8.  Tampilan & Background
-9.  Tampilan TV (responsive — V1.30.3)
+9.  Tampilan TV
 10. Kartu Nasihat & Mutiara
 11. Running Text
 12. Audio & Adzan
@@ -557,7 +645,7 @@ FILE PENTING:
 - app/build.gradle.kts              -> versioning
 - version.properties                -> data versi otomatis
 - .github/workflows/build.yml       -> build & release
-- debug.keystore                    -> keystore permanen
+- debug.keystore                    -> keystore permanen (JANGAN DIUBAH)
 - gradle/libs.versions.toml         -> KSP & dependency
 
 PATH BACKUP AMAN:
@@ -570,8 +658,30 @@ PENANGANAN BUILD ERROR:
 4. Update AppKnowledge.kt -> BUILD_ERROR_HISTORY
 5. Commit ulang
 
+=== ATURAN SIGNATURE / KEYSTORE (WAJIB) ===
+
+JANGAN PERNAH ubah file-file ini:
+1. debug.keystore (root repo)
+2. Blok signingConfigs di app/build.gradle.kts
+3. Bagian signing di .github/workflows/build.yml
+
+KALAU PAKAI AI STUDIO:
+- Tekankan di prompt: "JANGAN ubah file debug.keystore,
+  JANGAN ubah signingConfigs, JANGAN ubah workflow signing."
+- AI Studio cuma boleh EDIT kode Kotlin/XML saja
+- Build tetap via GitHub Actions
+
+ATURAN INSTALL APK:
+- SELALU install dari GitHub Release
+- JANGAN install APK dari AI Studio
+- Alasan: signature beda → Android tolak → "bentrok dengan paket yang sudah ada"
+
+RIWAYAT KEJADIAN:
+- 04-10-2026: AI Studio ubah debug.keystore → V1.04.415 bentrok dengan V1.03.395
+- Solusi: restore debug.keystore lama dari commit sebelum AI Studio ubah
+
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.30.7)
+- Tidak ada (semua fitur selesai per V1.04.420)
     """.trimIndent()
         val MEMORY_KNOWLEDGE = """
 ============================================================
@@ -579,64 +689,53 @@ MEMORY KNOWLEDGE & INSTRUCTION — MASJID.IO
 Untuk AI baru yang membaca backup ini
 ============================================================
 
-=== BAGIAN 1 — ATURAN FORMAT RESPON (8 ELEMEN WAJIB) ===
+=== BAGIAN 1 — ATURAN FORMAT RESPON ===
 
-1. Visualisasi folder (emoji + indentasi, seperti file manager)
+Elemen wajib (V1.04.418+):
+1. Visualisasi folder (emoji + indentasi)
 2. Path lengkap file
-3. Nama file (agar mudah di-copy)
-4. URL cepat (bisa di-tap)
-5. 2 opsi akses file (OPSI A: link, OPSI B: navigasi)
-6. Kode timpa full (bukan edit manual)
-7. Pesan commit (text persis untuk kolom commit message)
-8. Bahasa Indonesia: simple, tidak teknis rumit, ramah, sopan
+3. Nama file
+4. URL edit / URL new
+5. Kode timpa full
+6. Pesan commit
+
+CATATAN:
+- Elemen "2 opsi akses" TIDAK perlu lagi
+- Elemen "Bahasa Indonesia" TIDAK perlu lagi
+- Pakai code block untuk path/URL/nama file → tombol Salin otomatis
 
 === BAGIAN 1B — ATURAN ANTI-TRUNCATION ===
 
-Jika kode terlalu panjang melebihi batas aman 1 bubble chat,
-AI WAJIB otomatis memecah menjadi BEBERAPA BAGIAN:
-
-1. Beri judul: "BAGIAN 1 DARI N", "BAGIAN 2 DARI N"
-2. Akhir tiap bagian: "(lanjut di BAGIAN berikutnya)"
-3. Awal tiap bagian: "(sambungan dari BAGIAN sebelumnya)"
-4. User cukup copy-paste semua BAGIAN berurutan
-5. JANGAN potong kode di tengah fungsi/blok
-6. JANGAN bilang "kode dilanjut di chat berikutnya"
-7. BAGIAN wajib seimbang (rata)
+Kalau kode kepanjangan:
+1. Judul: "BAGIAN 1 DARI N"
+2. Akhir: "(lanjut di BAGIAN berikutnya)"
+3. Awal: "(sambungan dari BAGIAN sebelumnya)"
+4. JANGAN potong di tengah fungsi
+5. JANGAN bilang "kode dilanjut di chat berikutnya"
 
 === BAGIAN 1C — ATURAN LINK GITHUB ===
 
 1. JANGAN tolak buka link GitHub publik
 2. JANGAN gabung link 1 file dengan link lain
-3. Kecuali butuh login akun → baru boleh tolak
-4. Repo Masjid.io PUBLIC → bebas diakses
-
-=== BAGIAN 1D — ATURAN SIMPLIFIKASI ===
-
-1. Elemen 5 (2 Opsi Akses) TIDAK perlu ditampilkan lagi
-2. Elemen 8 (Bahasa Indonesia) TIDAK perlu ditampilkan lagi
-3. Fokus: folder, path, nama file, URL, kode, pesan commit
-4. Kalau kode muat 1 bubble → kirim 1 bubble
-5. Kalau tidak muat → bilang "jangan commit dulu, masih ada sambungan"
+3. Repo Masjid.io PUBLIC → bebas diakses
 
 === BAGIAN 2 — ATURAN KERJA ===
 
-1. Konfirmasi dulu sebelum eksekusi.
-2. Jujur kalau belum tahu, jangan menebak.
-3. JANGAN asal hapus fitur lama.
-4. Lihat kode asli dulu sebelum timpa.
-5. Kerjakan 1 per 1, atau sekaligus kalau user minta.
-6. Sebelum build, tanya "Harus Update / Skip".
-7. KERJAKAN PER BATCH.
-8. JANGAN BUKA FILE YANG SAMA BERKALI-KALI.
-9. KONFIRMASI SEBELUM LANJUT.
+1. Konfirmasi dulu sebelum eksekusi
+2. Jujur kalau belum tahu
+3. JANGAN hapus fitur lama tanpa izin
+4. Lihat kode asli dulu sebelum timpa
+5. Kerjakan per batch
+6. JANGAN buka file sama 2x
+7. Konfirmasi sebelum lanjut
 
-=== BAGIAN 3 — IDENTITAS USER & APLIKASI ===
+=== BAGIAN 3 — IDENTITAS ===
 
 USER:
-  Nama  : Andi
-  Email : andikune@gmail.com
+  Nama : Andi
+  Email: andikune@gmail.com
 
-DEVICE: HP Android (bukan PC/laptop)
+DEVICE: HP Android (bukan PC)
 REPO: https://github.com/andikune-ux/Masjid.io (PUBLIC)
 
 APLIKASI:
@@ -644,7 +743,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.30.7
+  Versi saat ini : V1.04.420
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -672,9 +771,9 @@ APLIKASI:
 
 === BAGIAN 5 — SOSIAL MEDIA ===
 
-WhatsApp  : https://chat.whatsapp.com/ErJpG34fdzwL9FOmoh4fNN
-TikTok    : https://www.tiktok.com/@nayyra.une
-Instagram : https://www.instagram.com/nayyra.une
+WhatsApp : https://chat.whatsapp.com/ErJpG34fdzwL9FOmoh4fNN
+TikTok   : https://www.tiktok.com/@nayyra.une
+Instagram: https://www.instagram.com/nayyra.une
 
 === BAGIAN 6 — FILE PENTING ===
 
@@ -713,17 +812,16 @@ Solusi: [cara memperbaiki]
 
 === BAGIAN 11 — PRINSIP UTAMA ===
 
-1. KERJAKAN PER BATCH.
-2. JANGAN BUKA FILE YANG SAMA BERKALI-KALI.
-3. KONFIRMASI SEBELUM LANJUT.
-4. JANGAN ASUMSI - LIHAT KODE ASLI DULU.
-5. JANGAN HAPUS FITUR LAMA TANPA IZIN.
+1. KERJAKAN PER BATCH
+2. JANGAN BUKA FILE YANG SAMA BERKALI-KALI
+3. KONFIRMASI SEBELUM LANJUT
+4. JANGAN ASUMSI - LIHAT KODE ASLI DULU
+5. JANGAN HAPUS FITUR LAMA TANPA IZIN
 
 === BAGIAN 12 — FULL SOURCE CODE EXPORT ===
 
 Backup Aman WAJIB menyertakan ISI SEMUA FILE KODE.
-
-FORMAT EXPORT:
+Format:
 ---BEGIN--- path/file.kt
 [ISI KODE LENGKAP]
 ---END--- path/file.kt
@@ -738,56 +836,26 @@ FORMAT EXPORT:
 === BAGIAN 14 — ATURAN KERJA SAMA DENGAN AI BARU ===
 
 Jika user ganti AI, AI baru WAJIB:
-1. Baca BACKUP AMAN terlebih dahulu.
-2. Pahami struktur aplikasi + isi kode.
-3. Ikuti aturan 8 elemen format.
-4. Ikuti aturan anti-truncation.
-5. Ikuti aturan link GitHub.
-6. Konfirmasi dulu sebelum eksekusi.
-7. Jangan menebak - tanya user kalau tidak tahu.
+1. Baca BACKUP AMAN terlebih dahulu
+2. Pahami struktur aplikasi + isi kode
+3. Ikuti aturan format respon
+4. Ikuti aturan anti-truncation
+5. Ikuti aturan link GitHub
+6. Konfirmasi dulu sebelum eksekusi
+7. Jangan menebak - tanya user kalau tidak tahu
 
 === BAGIAN 15 — LINK GITHUB SOURCE CODE ===
 
-AI baru DAPAT membuka sendiri kode lengkap dari GitHub.
-Repo PUBLIC, tidak butuh login atau token.
+Repo Utama: https://github.com/andikune-ux/Masjid.io
+Tree API: https://api.github.com/repos/andikune-ux/Masjid.io/git/trees/main?recursive=1
+RAW: https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
+BLOB: https://github.com/andikune-ux/Masjid.io/blob/main/
 
-LINK UTAMA:
-  Repo Utama: https://github.com/andikune-ux/Masjid.io
-  Daftar Semua File: https://api.github.com/repos/andikune-ux/Masjid.io/git/trees/main?recursive=1
+LINK EDIT (file lama):
+https://github.com/andikune-ux/Masjid.io/edit/main/{path}
 
-LINK RAW: https://raw.githubusercontent.com/andikune-ux/Masjid.io/main/
-LINK BLOB: https://github.com/andikune-ux/Masjid.io/blob/main/
-
-FOLDER KUNCI:
-- app/src/main/java/com/example/MainActivity.kt
-- app/src/main/java/com/example/util/BackupManager.kt
-- app/src/main/java/com/example/util/CrashReporter.kt
-- app/src/main/java/com/example/util/GithubSourceFetcher.kt
-- app/src/main/java/com/example/util/SettingsTransferHelper.kt
-- app/src/main/java/com/example/util/RemoteControlClient.kt
-- app/src/main/java/com/example/util/MediaTransferHelper.kt
-- app/src/main/java/com/example/util/IoBundleHelper.kt
-- app/src/main/java/com/example/data/AppKnowledge.kt
-- app/src/main/java/com/example/data/UpdateHistory.kt
-- app/src/main/java/com/example/data/local/SettingsRepository.kt
-- app/src/main/java/com/example/data/local/SunMoonCalculator.kt
-- app/src/main/java/com/example/data/model/AppSettings.kt
-- app/src/main/java/com/example/ui/settings/SettingsScreen.kt
-- app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
-- app/src/main/java/com/example/ui/settings/TvDisplaySettingsPane.kt
-- app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
-- app/src/main/java/com/example/ui/settings/IoBundleListSection.kt
-- app/src/main/java/com/example/ui/remote/RemoteServer.kt
-- app/src/main/java/com/example/ui/remote/DeviceDiscovery.kt
-- app/src/main/java/com/example/ui/remote/IoControlScreen.kt
-- app/src/main/java/com/example/ui/components/MakkahDynamicBackground.kt
-- app/src/main/java/com/example/ui/components/ResponsiveLayoutHelper.kt
-- app/src/main/java/com/example/ui/components/AutoFocusPane.kt
-- app/src/main/java/com/example/ui/components/NeonFocusBorder.kt
-- app/src/main/java/com/example/ui/home/HomeScreen.kt
-- app/build.gradle.kts
-- gradle/libs.versions.toml
-- .github/workflows/build.yml
+LINK NEW (file baru):
+https://github.com/andikune-ux/Masjid.io/new/main/{path}
 
 === BAGIAN 16 — FITUR iO CONTROL ===
 
@@ -814,10 +882,10 @@ FOLDER KUNCI:
 === BAGIAN 19 — FITUR RESPONSIVE AUTO-SCALE TV ===
 
 - Deteksi resolusi TV otomatis
-- Base 1920x1080 — auto-scale 0.6× s/d 2.5×
+- Base 1920x1080 — auto-scale 0.6x s/d 2.5x
 - Safe Area Padding 0-10%
 - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
-- Menu: Tampilan TV (kategori ke-20)
+- Menu: Tampilan TV (kategori ke-9)
 - Extension: .scaledDp() & .scaledSp() — JANGAN pakai .dp()/.sp()
 
 === BAGIAN 20 — FITUR TRANSFER MEDIA iO CONTROL ===
@@ -827,7 +895,7 @@ FOLDER KUNCI:
 - Kompres foto (1920px, 85%) + video (MediaMuxer)
 - Progress bar per-file + total
 - Retry otomatis 3x per chunk
-- Alur: settings → media → finalize
+- Alur: settings -> media -> finalize
 - File di filesDir/masjid_io/{qris|logo|background|video|slideshow|prayer_card}
 - Endpoint media PUBLIC
 
@@ -843,51 +911,102 @@ FOLDER KUNCI:
 
 - Foto/video tidak muncul di TV (fix path lokal)
 - applyMediaPathToSettings() di RemoteServer.kt
-- Ganti path HP → path lokal setelah media tersimpan
-- Support: QRIS, Logo, Background, Kartu Sholat, Video, Slideshow
+- Ganti path HP -> path lokal setelah media tersimpan
 
 === BAGIAN 23 — FITUR BORDER BERPUTAR (V1.30.6) ===
 
 - NeonFocusBorder: core border tipis (dim gold 20%)
 - Glow berputar 2-kutub (putih + emas)
 - Tail 30% dari keliling
-- Blur tetap ada
-- Animasi berputar terlihat jelas
 
 === BAGIAN 24 — FITUR UPDATE DIALOG FIX (V1.30.6) ===
 
-- Dialog pakai fillMaxHeight(0.92f) — maks 92% tinggi layar
+- Dialog pakai fillMaxHeight(0.92f)
 - Changelog pakai weight(1f) + verticalScroll
 - Tombol SKIP / NANTI / UPDATE selalu terlihat
-- build.yml: extract changelog dari UpdateHistory.kt
 
 === BAGIAN 25 — FITUR VERIFIKASI + RESTART MANUAL (V1.30.7) ===
 
-- Transfer dianggap selesai kalau ada hasil verifikasi
 - Phase baru: VERIFYING + READY_TO_RESTART
 - Restart MANUAL via tombol KONFIRMASI RESTART
-- Tombol COBA LAGI: retry HANYA file yang gagal
+- Tombol COBA LAGI: retry HANYA file gagal
 - Tombol LIHAT LOG: popup stack trace Kotlin asli
-- Tombol RESTART SAJA: kalau ada gagal, tetap bisa restart
 - Tombol LEWATI: template aktif otomatis saat app dibuka ulang
-- Stack trace disimpan dari setiap catch — bukan kode singkatan
-- FailureLogDialog: tombol SALIN LOG ke clipboard
 
 === BAGIAN 26 — FITUR FILE TEMPLATE .iO (V1.30.7) ===
 
 - Format .iO = ZIP (settings.json + metadata.json + media/)
-- Auto-bikin setiap transfer selesai (sukses/gagal)
+- Auto-bikin setiap transfer selesai
 - Nama file: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
 - Lokasi: /sdcard/masjid.io/Terima/
-- File TIDAK dihapus otomatis (kecuali user hapus manual)
-- Daftar file template di menu Tampilan & Background
+- File TIDAK dihapus otomatis
 - 3 tombol per file: GUNAKAN / INFO / HAPUS
-- Title kecil: "8 sukses · 2 gagal · 📷 12 foto · 🎬 1 video"
-- Apply template → media lama DITAMBAH (bukan ditimpa)
-- Setelah apply → dialog konfirmasi restart 5 detik
-- File baru: IoBundleHelper.kt
-- File baru: IoBundleListSection.kt
-- Endpoint baru: /api/io/list-bundles, /api/io/delete-bundle, /api/io/restore-bundle
+- Title kecil: "8 sukses - 2 gagal - foto - video"
+- Apply template -> media lama DITAMBAH
+- File baru: IoBundleHelper.kt + IoBundleListSection.kt
+
+=== BAGIAN 27 — ATURAN SIGNATURE / KEYSTORE (WAJIB) ===
+
+JANGAN PERNAH ubah file-file ini:
+1. debug.keystore (root repo)
+2. Blok signingConfigs di app/build.gradle.kts
+3. Bagian signing di .github/workflows/build.yml
+
+KALAU PAKAI AI STUDIO:
+- Tekankan di prompt: "JANGAN ubah debug.keystore,
+  JANGAN ubah signingConfigs, JANGAN ubah workflow signing."
+- AI Studio cuma boleh EDIT kode Kotlin/XML saja
+- Build tetap via GitHub Actions
+
+ATURAN INSTALL APK:
+- SELALU install dari GitHub Release
+- JANGAN install APK dari AI Studio
+- Alasan: signature beda -> Android tolak -> bentrok
+
+RIWAYAT KEJADIAN:
+- 04-10-2026: AI Studio ubah debug.keystore -> bentrok
+- Solusi: restore debug.keystore dari commit lama
+
+=== BAGIAN 28 — FITUR STORAGE PERMISSION DIALOG (V1.04.418) ===
+
+- Dialog muncul otomatis saat pertama buka app
+- Tombol BERI IZIN -> buka Manage All Files Access
+- Auto-detect kalau izin sudah diberikan
+- Cek permission sebelum download update
+- Back button diblokir saat dialog aktif
+
+=== BAGIAN 29 — FITUR LAYOUT OPSI H (V1.04.420) ===
+
+- Mode Video/Foto: panel kiri 24% + panel kanan 76%
+- Panel kiri: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar
+- List sholat vertikal 6 baris (Subuh -> Isya)
+- Highlight NEXT: emas + border tebal + pulse animation
+- Kotak gabungan: jam 32sp + garis pemisah + hijriah + masehi
+- Icon sholat pakai Material Icon (bukan emoji)
+- Overlay wisdom card di bawah video (bar tipis)
+- Tombol Settings overlay kanan atas
+- Running text full width bawah
+- Mode Normal: layout lengkap seperti sebelumnya
+
+=== BAGIAN 30 — FITUR AUTO-SWITCH MODE (V1.04.420) ===
+
+- Bolak-balik Mode Video <-> Mode Normal
+- Interval video: 1-60 menit
+- Durasi normal: 1-30 menit
+- Tunggu video loop 1x selesai sebelum switch (opsional)
+- Kalau belum ada video/foto -> mode normal permanen
+- JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
+- Berjalan 24 jam nonstop
+
+=== BAGIAN 31 — FITUR UKURAN FRAME (V1.04.420) ===
+
+- 5 mode: POTONG / PAS / ZOOM / FULL / FIT
+- POTONG (Crop) seperti Instagram Reels
+- PAS (Fit/Letterbox) seperti Netflix
+- ZOOM (Fill) seperti TikTok
+- FULL (Fullscreen) panel kiri hilang
+- FIT (Stretch) paksa video/foto sesuaikan frame
+- Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
 
 ============================================================
 END OF MEMORY KNOWLEDGE
