@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -35,11 +36,18 @@ import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
+/**
+ * PhotoSlideshow — Slideshow foto kegiatan masjid.
+ *
+ * V1.04.420: Tambah parameter contentScale
+ *   - contentScale: cara foto menyesuaikan frame (PAS/POTONG/ZOOM/FULL/FIT)
+ */
 @Composable
 fun PhotoSlideshow(
     photoUris: List<String>,
     intervalSeconds: Int = 10,
     isFullscreen: Boolean = false,
+    contentScale: ContentScale = ContentScale.Crop,
     modifier: Modifier = Modifier
 ) {
     val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
@@ -60,7 +68,6 @@ fun PhotoSlideshow(
             var currentIndex by remember { mutableIntStateOf(0) }
             val safeInterval = intervalSeconds.coerceIn(3, 120)
 
-            // Auto-ganti foto setiap X detik
             LaunchedEffect(photoUris.size, safeInterval) {
                 while (true) {
                     delay(safeInterval * 1000L)
@@ -68,7 +75,6 @@ fun PhotoSlideshow(
                 }
             }
 
-            // Kalau index lebih dari size (misal foto dihapus user), reset ke 0
             if (currentIndex >= photoUris.size) {
                 currentIndex = 0
             }
@@ -82,14 +88,13 @@ fun PhotoSlideshow(
                 AsyncImage(
                     model = uri,
                     contentDescription = "Foto Kegiatan Masjid",
-                    contentScale = ContentScale.Crop,
+                    contentScale = contentScale,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(shape)
                 )
             }
 
-            // Indikator titik di bawah (kalau lebih dari 1 foto)
             if (photoUris.size > 1 && !isFullscreen) {
                 Box(
                     modifier = Modifier
@@ -99,7 +104,7 @@ fun PhotoSlideshow(
                         .background(Color(0xAA000000))
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
-                    androidx.compose.foundation.layout.Row(
+                    Row(
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -118,7 +123,6 @@ fun PhotoSlideshow(
                 }
             }
         } else {
-            // Placeholder kalau belum ada foto
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
