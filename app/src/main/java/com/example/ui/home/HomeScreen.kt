@@ -164,14 +164,14 @@ private fun HomeScreenContent(
         delay(durationMs)
 
         if (effectiveMode == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
-            videoFinishedOnce = false
-            while (!videoFinishedOnce) {
+            videoLoopedOnce = false
+            while (!videoLoopedOnce) {
                 delay(500L)
             }
         }
 
         currentMode = if (effectiveMode == "VIDEO") "NORMAL" else "VIDEO"
-        videoFinishedOnce = false
+        videoLoopedOnce = false
     }
 
     Box(
@@ -254,7 +254,7 @@ private fun HomeScreenContent(
                 hasPhotos = hasPhotos,
                 screenInfo = screenInfo,
                 onSettingsClick = onSettingsClick,
-                onVideoEnded = { videoFinishedOnce = true }
+                onVideoLooped = { videoLoopedOnce = true }
             )
         } else {
             NormalModeLayout(
@@ -274,17 +274,6 @@ private fun HomeScreenContent(
 }
 // ============================================================
 // MODE VIDEO (Opsi H) — V1.04.423 FINAL
-//
-// STRUKTUR:
-//   Column (fillMaxSize)
-//   ├── Box (weight 1f)  → Row (weight 0.24 + weight 0.76) → 100% PERFECT
-//   │   → Tombol ⚙ overlay di sudut kanan atas LAYAR
-//   └── Running Text (height 52dp) → FIXED di paling bawah
-//
-// KUNCI:
-//   - Panel pakai weight() → DIJAMIN 100% tanpa rounding gap
-//   - Wisdom card langsung fillMaxWidth di dalam panel kanan
-//   - Tidak ada padding luar di panel kanan (full-bleed)
 // ============================================================
 @Composable
 private fun VideoModeLayout(
@@ -297,11 +286,10 @@ private fun VideoModeLayout(
     hasPhotos: Boolean,
     screenInfo: ScreenInfo,
     onSettingsClick: () -> Unit,
-    onVideoEnded: () -> Unit
+    onVideoLooped: () -> Unit
 ) {
     val isFullMode = settings.videoFrameScale == "FULL"
 
-    // Mapping mode ukuran frame → ContentScale + zoomFactor
     val contentScale: ContentScale = when (settings.videoFrameScale) {
         "POTONG" -> ContentScale.Crop
         "PAS" -> ContentScale.Fit
@@ -317,18 +305,13 @@ private fun VideoModeLayout(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // ============================================================
-        // BARIS UTAMA — Row ambil SISA ruang (di atas running text)
-        // ============================================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
-                // ============================================================
-                // PANEL KIRI 24% — pakai weight() biar presisi
-                // ============================================================
+                // PANEL KIRI 24%
                 if (!isFullMode) {
                     Box(
                         modifier = Modifier
@@ -352,24 +335,20 @@ private fun VideoModeLayout(
                     }
                 }
 
-                // ============================================================
-                // PANEL KANAN 76% — pakai weight() biar presisi
-                // VIDEO STAGE FULL-BLEED (mentok tepi kanan)
-                // ============================================================
+                // PANEL KANAN 76% — Video Stage Full-Bleed
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(if (isFullMode) 1f else 0.76f)
                         .background(Color.Black)
                 ) {
-                    // ===== VIDEO/FOTO STAGE =====
                     if (hasVideo) {
                         MasjidVideoPlayer(
                             videoUriString = settings.videoUri,
                             isFullscreen = true,
                             contentScale = contentScale,
                             zoomFactor = zoomFactor,
-                            onVideoEnded = onVideoEnded,
+                            onVideoLooped = onVideoLooped,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else if (hasPhotos) {
@@ -382,11 +361,7 @@ private fun VideoModeLayout(
                         )
                     }
 
-                    // ============================================================
-                    // WISDOM CARD OVERLAY — full width panel kanan
-                    // Tidak ada padding luar, biar mentok dari kiri panel kanan
-                    // sampai tepi kanan layar
-                    // ============================================================
+                    // Wisdom card overlay full width panel kanan
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -403,7 +378,7 @@ private fun VideoModeLayout(
                 }
             }
 
-            // ===== TOMBOL ⚙ OVERLAY — SUDUT KANAN ATAS LAYAR =====
+            // Tombol ⚙ overlay sudut kanan atas layar
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -413,9 +388,7 @@ private fun VideoModeLayout(
             }
         }
 
-        // ============================================================
-        // RUNNING TEXT — FIXED di paling bawah
-        // ============================================================
+        // Running Text fixed di paling bawah
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -446,7 +419,7 @@ private fun VideoModeLeftPanel(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        // ===== LOGO + NAMA MASJID =====
+        // LOGO + NAMA MASJID
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -473,7 +446,7 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // ===== KOTAK GABUNGAN JAM + TANGGAL =====
+        // KOTAK JAM + TANGGAL
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -522,7 +495,7 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // ===== LIST SHOLAT VERTIKAL — pakai weight(1f) =====
+        // LIST SHOLAT VERTIKAL pakai weight(1f)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -539,7 +512,7 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // ===== KOTAK PROGRESS =====
+        // KOTAK PROGRESS
         Box(
             modifier = Modifier
                 .fillMaxWidth()
