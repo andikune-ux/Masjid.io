@@ -44,9 +44,13 @@ import com.example.ui.theme.TextSecondary
 /**
  * MasjidVideoPlayer — Pemutar video kegiatan masjid.
  *
- * V1.04.420: Tambah parameter contentScale + onVideoEnded
- *   - contentScale: cara video menyesuaikan frame (PAS/POTONG/ZOOM/FULL/FIT)
- *   - onVideoEnded: callback saat video selesai loop 1x (untuk auto-switch)
+ * V1.04.422 FIX:
+ *   - FIX BUG: variable lokal `resizeMode` bentrok dengan property PlayerView.resizeMode
+ *     → di-rename jadi `aspectResizeMode`
+ *   - FIX: fallback default ke RESIZE_MODE_ZOOM (sebelumnya FIT → bikin video letterbox)
+ *   - Dukung semua 5 mode ukuran frame dengan benar:
+ *     POTONG (Crop) / PAS (Fit) / ZOOM (Fill) / FULL (Fullscreen) / FIT (Stretch)
+ *   - Video loop terus, callback onVideoEnded dipanggil setiap 1x putaran selesai
  */
 @Composable
 fun MasjidVideoPlayer(
@@ -60,12 +64,18 @@ fun MasjidVideoPlayer(
     val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
     val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
 
-    // Mapping ContentScale ke AspectRatioFrameLayout resizeMode
-    val resizeMode = when (contentScale) {
+    // ============================================================
+    // V1.04.422 FIX BUG: rename `resizeMode` → `aspectResizeMode`
+    // Sebelumnya nama variable lokal bentrok dengan property PlayerView.resizeMode
+    // sehingga selalu jatuh ke fallback (FIT) → video tampak letterbox.
+    // ============================================================
+    val aspectResizeMode: Int = when (contentScale) {
         ContentScale.Fit -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         ContentScale.Crop -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         ContentScale.FillBounds -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        ContentScale.Inside -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        ContentScale.None -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
+        else -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     }
 
     val exoPlayer = remember {
@@ -76,6 +86,10 @@ fun MasjidVideoPlayer(
         }
     }
 
+    // ============================================================
+    // Callback onVideoEnded — dipanggil saat video selesai 1x putaran
+    // (dipakai oleh HomeScreen untuk auto-switch mode)
+    // ============================================================
     DisposableEffect(onVideoEnded) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -141,7 +155,8 @@ fun MasjidVideoPlayer(
 
                         val playerView = PlayerView(ctx).apply {
                             useController = false
-                            this.resizeMode = @Suppress("NAME_SHADOWING") resizeMode
+                            // V1.04.422 FIX: pakai aspectResizeMode (variable lokal yang benar)
+                            this.resizeMode = aspectResizeMode
                             layoutParams = FrameLayout.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
