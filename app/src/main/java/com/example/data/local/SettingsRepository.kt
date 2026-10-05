@@ -105,9 +105,7 @@ class SettingsRepository(context: Context) {
             normalModeDurationMinutes = prefs.getInt("normalModeDurationMinutes", 2),
             videoFrameScale = prefs.getString("videoFrameScale", "POTONG") ?: "POTONG",
             waitVideoFinishBeforeSwitch = prefs.getBoolean("waitVideoFinishBeforeSwitch", true),
-            // ============================================================
-            // V1.04.421 BARU — ALUR SHOLAT BARU
-            // ============================================================
+            // ALUR SHOLAT BARU
             adzanDisplayDurationSeconds = prefs.getInt("adzanDisplayDurationSeconds", 8),
             silentPhoneDisplayDurationSeconds = prefs.getInt("silentPhoneDisplayDurationSeconds", 8),
             qobliyahNiatDisplayDurationSeconds = prefs.getInt("qobliyahNiatDisplayDurationSeconds", 15),
@@ -116,7 +114,7 @@ class SettingsRepository(context: Context) {
             focusModeAllowExitWithRemote = prefs.getBoolean("focusModeAllowExitWithRemote", true),
             showDoaAfterAdzan = prefs.getBoolean("showDoaAfterAdzan", true),
             showDoaAfterIqomah = prefs.getBoolean("showDoaAfterIqomah", true),
-            // ============================================================
+            // SLIDE
             slideEnabled = prefs.getBoolean("slideEnabled", false),
             slideIntervalSeconds = prefs.getInt("slideIntervalSeconds", 15),
             qrisSlideEnabled = prefs.getBoolean("qrisSlideEnabled", true),
@@ -168,9 +166,16 @@ class SettingsRepository(context: Context) {
             isManualTimeEnabled = prefs.getBoolean("isManualTimeEnabled", false),
             manualTimeOffsetSeconds = prefs.getLong("manualTimeOffsetSeconds", 0L),
             keepScreenOn = prefs.getBoolean("keepScreenOn", true),
+            // ============================================================
+            // V1.04.423 — JADWAL ON/OFF OTOMATIS
+            //   ON  = Subuh - 15 menit
+            //   OFF = Isya + 30 menit
+            // ============================================================
             autoOnOff = prefs.getBoolean("autoOnOff", false),
-            autoOnTime = prefs.getString("autoOnTime", "04:00") ?: "04:00",
-            autoOffTime = prefs.getString("autoOffTime", "22:30") ?: "22:30",
+            autoOffMinutesAfterIsya = prefs.getInt("autoOffMinutesAfterIsya", 30),
+            autoOnMinutesBeforeSubuh = prefs.getInt("autoOnMinutesBeforeSubuh", 15),
+            autoOffDialogEnabled = prefs.getBoolean("autoOffDialogEnabled", true),
+            // ============================================================
             idleScreenOff = prefs.getBoolean("idleScreenOff", true),
             idleTimeoutMinutes = prefs.getInt("idleTimeoutMinutes", 30),
             autoBrightness = prefs.getBoolean("autoBrightness", true),
@@ -179,7 +184,7 @@ class SettingsRepository(context: Context) {
             fonnteGroupId = prefs.getString("fonnteGroupId", "")?.takeIf { it.isNotBlank() } ?: FonnteHelper.getGroupId(),
             whatsappReportEnabled = prefs.getBoolean("whatsappReportEnabled", true),
             // ============================================================
-            // V1.04.422 BARU — PIN LOCK MODE
+            // PIN LOCK MODE
             // ============================================================
             pinLockMode = runCatching {
                 PinLockMode.valueOf(
@@ -252,9 +257,7 @@ class SettingsRepository(context: Context) {
         putInt("normalModeDurationMinutes", s.normalModeDurationMinutes)
         putString("videoFrameScale", s.videoFrameScale)
         putBoolean("waitVideoFinishBeforeSwitch", s.waitVideoFinishBeforeSwitch)
-        // ============================================================
-        // V1.04.421 — ALUR SHOLAT BARU
-        // ============================================================
+        // ALUR SHOLAT BARU
         putInt("adzanDisplayDurationSeconds", s.adzanDisplayDurationSeconds)
         putInt("silentPhoneDisplayDurationSeconds", s.silentPhoneDisplayDurationSeconds)
         putInt("qobliyahNiatDisplayDurationSeconds", s.qobliyahNiatDisplayDurationSeconds)
@@ -263,7 +266,7 @@ class SettingsRepository(context: Context) {
         putBoolean("focusModeAllowExitWithRemote", s.focusModeAllowExitWithRemote)
         putBoolean("showDoaAfterAdzan", s.showDoaAfterAdzan)
         putBoolean("showDoaAfterIqomah", s.showDoaAfterIqomah)
-        // ============================================================
+        // SLIDE
         putBoolean("slideEnabled", s.slideEnabled)
         putInt("slideIntervalSeconds", s.slideIntervalSeconds)
         putBoolean("qrisSlideEnabled", s.qrisSlideEnabled)
@@ -313,9 +316,15 @@ class SettingsRepository(context: Context) {
         putBoolean("isManualTimeEnabled", s.isManualTimeEnabled)
         putLong("manualTimeOffsetSeconds", s.manualTimeOffsetSeconds)
         putBoolean("keepScreenOn", s.keepScreenOn)
+        // ============================================================
+        // V1.04.423 — JADWAL ON/OFF OTOMATIS
+        // Field lama autoOnTime & autoOffTime TIDAK di-save (dihapus)
+        // ============================================================
         putBoolean("autoOnOff", s.autoOnOff)
-        putString("autoOnTime", s.autoOnTime)
-        putString("autoOffTime", s.autoOffTime)
+        putInt("autoOffMinutesAfterIsya", s.autoOffMinutesAfterIsya)
+        putInt("autoOnMinutesBeforeSubuh", s.autoOnMinutesBeforeSubuh)
+        putBoolean("autoOffDialogEnabled", s.autoOffDialogEnabled)
+        // ============================================================
         putBoolean("idleScreenOff", s.idleScreenOff)
         putInt("idleTimeoutMinutes", s.idleTimeoutMinutes)
         putBoolean("autoBrightness", s.autoBrightness)
@@ -324,7 +333,7 @@ class SettingsRepository(context: Context) {
         putString("fonnteGroupId", s.fonnteGroupId)
         putBoolean("whatsappReportEnabled", s.whatsappReportEnabled)
         // ============================================================
-        // V1.04.422 BARU — PIN LOCK MODE
+        // PIN LOCK MODE
         // ============================================================
         putString("pinLockMode", s.pinLockMode.name)
     }.apply()
@@ -337,12 +346,12 @@ private fun loadStringList(key: String): List<String> {
         List(arr.length()) { i -> arr.getString(i) }
     }.getOrDefault(emptyList())
 }
+
 private fun saveStringList(key: String, list: List<String>) {
     val arr = JSONArray()
     list.forEach { arr.put(it) }
     prefs.edit().putString(key, arr.toString()).apply()
 }
-
 private fun loadWeeklyOfficers(): List<DailyOfficerItem> {
     val raw = prefs.getString("weeklyOfficers", null) ?: return AppSettings.createDefaultWeeklySchedule()
     return runCatching {
@@ -516,7 +525,7 @@ private fun saveLaporanKeuangan(l: LaporanKeuangan) {
             appendLine("- Interval Foto     : ${s.photoSlideshowIntervalSeconds} detik")
             appendLine("- Jumlah Foto       : ${s.photoSlideshowUris.size} foto")
             appendLine()
-            appendLine("ALUR SHOLAT (V1.04.421)")
+            appendLine("ALUR SHOLAT")
             appendLine("- Durasi Overlay Adzan   : ${s.adzanDisplayDurationSeconds} detik")
             appendLine("- Durasi Himbauan HP     : ${s.silentPhoneDisplayDurationSeconds} detik")
             appendLine("- Durasi Niat Qobliyah   : ${s.qobliyahNiatDisplayDurationSeconds} detik")
@@ -546,7 +555,15 @@ private fun saveLaporanKeuangan(l: LaporanKeuangan) {
             appendLine("- Port Server       : ${s.remoteServerPort}")
             appendLine()
             // ============================================================
-            // V1.04.422 BARU — SECTION KEAMANAN
+            // V1.04.423 BARU — JADWAL ON/OFF OTOMATIS
+            // ============================================================
+            appendLine("JADWAL ON/OFF OTOMATIS")
+            appendLine("- Status            : ${if (s.autoOnOff) "AKTIF" else "NONAKTIF"}")
+            appendLine("- ON (Layar Nyala)  : Subuh - ${s.autoOnMinutesBeforeSubuh} menit (auto)")
+            appendLine("- OFF (Layar Redup) : Isya + ${s.autoOffMinutesAfterIsya} menit (auto)")
+            appendLine("- Popup Konfirmasi  : ${if (s.autoOffDialogEnabled) "AKTIF" else "NONAKTIF"}")
+            appendLine("  (Popup muncul saat user tekan remote di jam OFF)")
+            appendLine()
             // ============================================================
             appendLine("KEAMANAN")
             appendLine("- PIN Code          : ${"*".repeat(s.pinCode.length)} (${s.pinCode.length} digit)")
