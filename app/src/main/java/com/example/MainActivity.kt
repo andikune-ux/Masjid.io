@@ -69,6 +69,7 @@ import com.example.data.local.IslamicCalendar
 import com.example.data.local.PrayerTimesCalculator
 import com.example.data.local.SettingsRepository
 import com.example.data.local.WeatherService
+import com.example.data.model.PinLockMode
 import com.example.data.model.PrayerId
 import com.example.data.model.PrayerSchedule
 import com.example.kiosk.KioskManager
@@ -116,6 +117,7 @@ enum class AppScreen {
 
 private const val UPDATE_PREFS = "update_prefs"
 private const val KEY_SKIPPED_VERSION = "skipped_version"
+private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L   // 5 menit
 
 class MainActivity : ComponentActivity() {
 
@@ -155,255 +157,273 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
         setContent {
-            val context = LocalContext.current
-            val settings by settingsRepository.settingsFlow.collectAsState()
-            val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val settings by settingsRepository.settingsFlow.collectAsState()
+    val scope = rememberCoroutineScope()
 
-            var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
+    var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
-            var showStoragePermissionDialog by remember {
-                mutableStateOf(BackupManager.needsStoragePermission())
-            }
-
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        val needsPermission = BackupManager.needsStoragePermission()
-                        showStoragePermissionDialog = needsPermission
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
-            var showRestartCountdown by remember { mutableStateOf(false) }
-
-var showUpdateDialog by remember { mutableStateOf(false) }
-var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
-var downloadProgress by remember { mutableFloatStateOf(0f) }
-var isDownloading by remember { mutableStateOf(false) }
-var isInstalling by remember { mutableStateOf(false) }
-
-val updatePrefs = remember {
-    context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
-}
-fun getSkippedVersion(): String? =
-    updatePrefs.getString(KEY_SKIPPED_VERSION, null)
-
-fun setSkippedVersion(version: String) {
-    updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
-}
-
-LaunchedEffect(
-    settings.fonnteToken,
-    settings.fonnteGroupId,
-    settings.whatsappReportEnabled
-) {
-    CrashReporter.updateFonnteConfig(
-        token = settings.fonnteToken,
-        groupId = settings.fonnteGroupId,
-        enabled = settings.whatsappReportEnabled
-    )
-}
-
-LaunchedEffect(settings.kioskModeEnabled) {
-    if (settings.kioskModeEnabled) {
-        KioskManager.enableKiosk(this@MainActivity)
-    } else {
-        KioskManager.disableKiosk(this@MainActivity)
+    var showStoragePermissionDialog by remember {
+        mutableStateOf(BackupManager.needsStoragePermission())
     }
-}
 
-DisposableEffect(settings.kioskModeEnabled) {
-    val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
-    if (settings.kioskModeEnabled) {
-        try { startService(serviceIntent) } catch (_: Exception) {}
-    } else {
-        try { stopService(serviceIntent) } catch (_: Exception) {}
-    }
-    onDispose {
-        try { stopService(serviceIntent) } catch (_: Exception) {}
-    }
-}
-
-val remoteServer = remember {
-    RemoteServer(
-        context = this@MainActivity,
-        settingsRepository = settingsRepository,
-        onRestart = {
-            runOnUiThread {
-                val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-                finish()
-            }
-        },
-        onSettingsReceived = { jsonBody ->
-            try {
-                val current = settingsRepository.settingsFlow.value
-                val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
-                if (newSettings != null) {
-                    settingsRepository.updateSettings(newSettings)
-                    val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
-                    if (portBerubah) {
-                        needsHardRestart = true
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
-            }
-        },
-        onFinalize = {
-            runOnUiThread {
-                android.util.Log.d("MainActivity", "onFinalize dipanggil")
-                showRestartCountdown = true
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val needsPermission = BackupManager.needsStoragePermission()
+                showStoragePermissionDialog = needsPermission
             }
         }
-    )
-}
-var isRemoteServerRunning by remember { mutableStateOf(false) }
-
-LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
-    if (settings.remoteControlEnabled) {
-        remoteServer.stop()
-        delay(300)
-        remoteServer.start(scope)
-        delay(2500)
-        val realStatus = remoteServer.isRunning()
-        isRemoteServerRunning = realStatus
-        if (!realStatus) {
-            android.util.Log.e(
-                "MainActivity",
-                "Remote Server gagal: ${remoteServer.lastError}"
-            )
-        }
-    } else {
-        remoteServer.stop()
-        isRemoteServerRunning = false
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-}
+    var showRestartCountdown by remember { mutableStateOf(false) }
 
-DisposableEffect(Unit) {
-    onDispose { remoteServer.stop() }
-}
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var isInstalling by remember { mutableStateOf(false) }
 
-LaunchedEffect(Unit) {
-    try {
-        delay(3000)
-        val info = UpdateManager.checkForUpdate()
-        if (info.available) {
-            val skippedVersion = getSkippedVersion()
-            val isSkipped = skippedVersion == info.latestVersion
+    val updatePrefs = remember {
+        context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
+    }
+    fun getSkippedVersion(): String? =
+        updatePrefs.getString(KEY_SKIPPED_VERSION, null)
 
-            if (info.isForceUpdate || !isSkipped) {
-                updateInfo = info
-                showUpdateDialog = true
+    fun setSkippedVersion(version: String) {
+        updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
+    }
+
+    // ============================================================
+    // V1.04.422 BARU — PIN LOCK STATE
+    // ============================================================
+    var sessionPinVerified by remember { mutableStateOf(false) }
+    var lastPinVerifiedTime by remember { mutableLongStateOf(0L) }
+
+    // Helper: cek apakah perlu minta PIN saat ini
+    fun shouldRequestPin(): Boolean {
+        return when (settings.pinLockMode) {
+            PinLockMode.IMMEDIATE -> true
+            PinLockMode.UNTIL_EXIT -> !sessionPinVerified
+            PinLockMode.TIMEOUT_5MIN -> {
+                if (!sessionPinVerified) return true
+                val elapsed = System.currentTimeMillis() - lastPinVerifiedTime
+                elapsed >= PIN_TIMEOUT_MS
             }
         }
-    } catch (_: Exception) { }
-}
+    }
 
-val startDownload: () -> Unit = {
-    val info = updateInfo
-    if (info?.downloadUrl.isNullOrBlank()) {
-        Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
-    } else if (BackupManager.needsStoragePermission()) {
-        Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
-        showStoragePermissionDialog = true
-    } else {
-        isDownloading = true
-        downloadProgress = 0f
+    LaunchedEffect(
+        settings.fonnteToken,
+        settings.fonnteGroupId,
+        settings.whatsappReportEnabled
+    ) {
+        CrashReporter.updateFonnteConfig(
+            token = settings.fonnteToken,
+            groupId = settings.fonnteGroupId,
+            enabled = settings.whatsappReportEnabled
+        )
+    }
 
-        scope.launch {
-            ApkDownloader.downloadApk(
-                context = this@MainActivity,
-                downloadUrl = info!!.downloadUrl!!,
-                fileName = "masjid-io-${info.latestVersion}.apk"
-            ).collect { state ->
-                when {
-                    state.errorMessage != null -> {
-                        isDownloading = false
-                        isInstalling = false
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Download gagal: ${state.errorMessage}",
-                            Toast.LENGTH_LONG
-                        ).show()
+    LaunchedEffect(settings.kioskModeEnabled) {
+        if (settings.kioskModeEnabled) {
+            KioskManager.enableKiosk(this@MainActivity)
+        } else {
+            KioskManager.disableKiosk(this@MainActivity)
+        }
+    }
+
+    DisposableEffect(settings.kioskModeEnabled) {
+        val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
+        if (settings.kioskModeEnabled) {
+            try { startService(serviceIntent) } catch (_: Exception) {}
+        } else {
+            try { stopService(serviceIntent) } catch (_: Exception) {}
+        }
+        onDispose {
+            try { stopService(serviceIntent) } catch (_: Exception) {}
+        }
+    }
+
+    val remoteServer = remember {
+        RemoteServer(
+            context = this@MainActivity,
+            settingsRepository = settingsRepository,
+            onRestart = {
+                runOnUiThread {
+                    val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
-                    state.isFinished && state.savedFilePath != null -> {
-                        isDownloading = false
-                        isInstalling = true
-
-                        val ok = ApkDownloader.installApk(
-                            this@MainActivity,
-                            state.savedFilePath
-                        )
-                        if (!ok) {
-                            isInstalling = false
-                            ApkDownloader.openInstallPermissionSettings(this@MainActivity)
-                        } else {
-                            ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
+                    startActivity(intent)
+                    finish()
+                }
+            },
+            onSettingsReceived = { jsonBody ->
+                try {
+                    val current = settingsRepository.settingsFlow.value
+                    val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
+                    if (newSettings != null) {
+                        settingsRepository.updateSettings(newSettings)
+                        val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
+                        if (portBerubah) {
+                            needsHardRestart = true
                         }
                     }
-                    else -> {
-                        downloadProgress = state.progress
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
+                }
+            },
+            onFinalize = {
+                runOnUiThread {
+                    android.util.Log.d("MainActivity", "onFinalize dipanggil")
+                    showRestartCountdown = true
+                }
+            }
+        )
+    }
+    var isRemoteServerRunning by remember { mutableStateOf(false) }
+
+    LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
+        if (settings.remoteControlEnabled) {
+            remoteServer.stop()
+            delay(300)
+            remoteServer.start(scope)
+            delay(2500)
+            val realStatus = remoteServer.isRunning()
+            isRemoteServerRunning = realStatus
+            if (!realStatus) {
+                android.util.Log.e(
+                    "MainActivity",
+                    "Remote Server gagal: ${remoteServer.lastError}"
+                )
+            }
+        } else {
+            remoteServer.stop()
+            isRemoteServerRunning = false
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { remoteServer.stop() }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            delay(3000)
+            val info = UpdateManager.checkForUpdate()
+            if (info.available) {
+                val skippedVersion = getSkippedVersion()
+                val isSkipped = skippedVersion == info.latestVersion
+
+                if (info.isForceUpdate || !isSkipped) {
+                    updateInfo = info
+                    showUpdateDialog = true
+                }
+            }
+        } catch (_: Exception) { }
+    }
+
+    val startDownload: () -> Unit = {
+        val info = updateInfo
+        if (info?.downloadUrl.isNullOrBlank()) {
+            Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
+        } else if (BackupManager.needsStoragePermission()) {
+            Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
+            showStoragePermissionDialog = true
+        } else {
+            isDownloading = true
+            downloadProgress = 0f
+
+            scope.launch {
+                ApkDownloader.downloadApk(
+                    context = this@MainActivity,
+                    downloadUrl = info!!.downloadUrl!!,
+                    fileName = "masjid-io-${info.latestVersion}.apk"
+                ).collect { state ->
+                    when {
+                        state.errorMessage != null -> {
+                            isDownloading = false
+                            isInstalling = false
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Download gagal: ${state.errorMessage}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        state.isFinished && state.savedFilePath != null -> {
+                            isDownloading = false
+                            isInstalling = true
+
+                            val ok = ApkDownloader.installApk(
+                                this@MainActivity,
+                                state.savedFilePath
+                            )
+                            if (!ok) {
+                                isInstalling = false
+                                ApkDownloader.openInstallPermissionSettings(this@MainActivity)
+                            } else {
+                                ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
+                            }
+                        }
+                        else -> {
+                            downloadProgress = state.progress
+                        }
                     }
                 }
             }
         }
     }
-}
 
-val permissionLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.RequestMultiplePermissions()
-) { }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
 
-LaunchedEffect(Unit) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO
+                )
             )
-        )
-    } else {
-        permissionLauncher.launch(
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        )
+        } else {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            )
+        }
     }
-}
 
-DisposableEffect(settings.keepScreenOn) {
-    if (settings.keepScreenOn) {
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    } else {
-        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    DisposableEffect(settings.keepScreenOn) {
+        if (settings.keepScreenOn) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {}
     }
-    onDispose {}
-}
-var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
-var showPinDialog by remember { mutableStateOf(false) }
-var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
-var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-var currentTemperature by remember { mutableStateOf(30) }
-var currentWeatherCondition by remember { mutableStateOf("Cerah") }
+    var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
+    var showPinDialog by remember { mutableStateOf(false) }
+    var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
+    var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-LaunchedEffect(settings.latitude, settings.longitude) {
-    while (true) {
-        try {
-            val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
-            currentTemperature = weather.temperature
-            currentWeatherCondition = weather.condition
-        } catch (_: Exception) { }
-        delay(30 * 60 * 1000L)
+    var currentTemperature by remember { mutableStateOf(30) }
+    var currentWeatherCondition by remember { mutableStateOf("Cerah") }
+
+    LaunchedEffect(settings.latitude, settings.longitude) {
+        while (true) {
+            try {
+                val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
+                currentTemperature = weather.temperature
+                currentWeatherCondition = weather.condition
+            } catch (_: Exception) { }
+            delay(30 * 60 * 1000L)
+        }
     }
-}
-
-// ============ BACK PRESS ============
+    // ============ BACK PRESS ============
 DisposableEffect(
     settings.kioskModeEnabled,
     currentScreen,
@@ -419,15 +439,12 @@ DisposableEffect(
 
             when (currentScreen) {
                 AppScreen.ADZAN_SEQUENCE -> {
-                    // Back saat adzan sequence → langsung ke Mode Fokus
                     currentScreen = AppScreen.FOCUS_MODE
                 }
                 AppScreen.FOCUS_MODE -> {
-                    // Kalau izinkan keluar via remote → keluar
                     if (settings.focusModeAllowExitWithRemote) {
                         currentScreen = AppScreen.HOME
                     }
-                    // Kalau tidak izinkan → tetap di Mode Fokus
                 }
                 AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW,
                 AppScreen.RAMADHAN, AppScreen.IO_CONTROL ->
@@ -514,7 +531,6 @@ LaunchedEffect(
                         adzanVolume = settings.adzanVolume
                     )
                     userDismissedRamadhan = false
-                    // V1.04.421: masuk ADZAN_SEQUENCE dulu
                     currentScreen = AppScreen.ADZAN_SEQUENCE
                     break
                 }
@@ -551,6 +567,7 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
         }
     }
 }
+
 // ============ THEME + UI ============
 MasjidTheme {
     Surface(
@@ -577,7 +594,17 @@ MasjidTheme {
                         upcomingEvent = upcomingEvent,
                         temperature = currentTemperature,
                         weatherCondition = currentWeatherCondition,
-                        onSettingsClick = { showPinDialog = true }
+                        onSettingsClick = {
+                            // ============================================================
+                            // V1.04.422 — PIN LOCK LOGIC
+                            // Cek berdasarkan mode sebelum buka Settings
+                            // ============================================================
+                            if (shouldRequestPin()) {
+                                showPinDialog = true
+                            } else {
+                                currentScreen = AppScreen.SETTINGS
+                            }
+                        }
                     )
 
                     AppScreen.ADZAN_SEQUENCE -> AdzanSequenceOverlay(
@@ -655,30 +682,36 @@ MasjidTheme {
             }
 
             // ============ PIN DIALOG ============
+            // V1.04.422: onSuccess set waktu & flag verified
             if (showPinDialog) {
                 PinDialog(
                     correctPin = settings.pinCode,
                     onSuccess = {
                         showPinDialog = false
-                        if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
-                        else currentScreen = AppScreen.SETTINGS
+                        sessionPinVerified = true
+                        lastPinVerifiedTime = System.currentTimeMillis()
+                        if (currentScreen == AppScreen.FOCUS_MODE) {
+                            currentScreen = AppScreen.HOME
+                        } else {
+                            currentScreen = AppScreen.SETTINGS
+                        }
                     },
                     onDismiss = { showPinDialog = false }
                 )
             }
+                                    // ============ STORAGE PERMISSION DIALOG ============
+                        if (showStoragePermissionDialog) {
+                            StoragePermissionDialog(
+                                onGrantClick = {
+                                    BackupManager.openPermissionSettings(this@MainActivity)
+                                },
+                                onSkipClick = {
+                                    showStoragePermissionDialog = false
+                                }
+                            )
+                        }
 
-            // ============ STORAGE PERMISSION DIALOG ============
-            if (showStoragePermissionDialog) {
-                StoragePermissionDialog(
-                    onGrantClick = {
-                        BackupManager.openPermissionSettings(this@MainActivity)
-                    },
-                    onSkipClick = {
-                        showStoragePermissionDialog = false
-                    }
-                )
-            }
-                                    // ============ UPDATE DIALOG ============
+                        // ============ UPDATE DIALOG ============
                         if (showUpdateDialog && updateInfo != null) {
                             val info = updateInfo!!
 
@@ -790,6 +823,7 @@ MasjidTheme {
         }
     }
 }
+
 // ============================================================
 // STORAGE PERMISSION DIALOG
 // Muncul otomatis saat pertama kali app dibuka
@@ -969,6 +1003,7 @@ private fun StoragePermissionDialog(
         }
     }
 }
+
 // ============================================================
 // HELPER: BENEFIT ROW (untuk StoragePermissionDialog)
 // ============================================================
