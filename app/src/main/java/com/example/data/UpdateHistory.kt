@@ -14,6 +14,100 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.04.423",
+            date = "06 Oktober 2026",
+            title = "Jadwal On/Off Otomatis + File Picker Custom + Fix Video Stage + Wisdom Card Full",
+            features = listOf(
+                // ===== JADWAL ON/OFF OTOMATIS =====
+                "Fitur BARU: Jadwal On/Off layar OTOMATIS dari jadwal sholat",
+                "ON otomatis = Subuh - X menit (X bisa diatur 5-120 menit, default 15)",
+                "OFF otomatis = Isya + Y menit (Y bisa diatur 5-120 menit, default 30)",
+                "Brightness otomatis jadi 0 (layar redup total) saat jam OFF",
+                "Brightness kembali normal saat jam ON (Subuh - X menit)",
+                "Polling jadwal setiap 30 detik — real-time ikut waktu",
+                "Tampil kartu 'Jadwal Hari Ini' di menu Daya & Booting",
+                "Kartu menampilkan jam ON & OFF real-time sesuai jadwal sholat hari ini",
+                "2 slider baru: 'Nyala Sebelum Subuh' & 'Redup Setelah Isya'",
+                // ===== POPUP KONFIRMASI =====
+                "Fitur BARU: AutoOffDialog — popup konfirmasi saat user tekan remote di jam OFF",
+                "Popup tanya: 'Apakah Anda bersedia MEMATIKAN JADWAL ON/OFF?'",
+                "Tombol YA (kiri, hijau) = matikan jadwal on/off → layar nyala terus",
+                "Tombol TIDAK (kanan, abu-abu) = popup hilang, layar redup lagi",
+                "Auto-dismiss 2 menit → dianggap TIDAK (default aman)",
+                "Back button = TIDAK (langsung dismiss)",
+                "Focus D-pad otomatis ke tombol TIDAK",
+                "Toggle 'Aktifkan Popup Konfirmasi' di menu Daya & Booting",
+                "File baru: AutoOffDialog.kt (popup + countdown + focus management)",
+                "Temporary wake 2 menit setelah popup di-dismiss",
+                // ===== FIX VIDEO STAGE =====
+                "Fix CRITICAL: video tidak full ke kanan (gap hitam di sisi kanan panel)",
+                "Fix: bug resizeMode shadowing di MasjidVideoPlayer → rename jadi aspectResizeMode",
+                "Fix: contentScale diteruskan dari settings.videoFrameScale ke player",
+                "Fix: 5 mode ukuran frame (POTONG/PAS/ZOOM/FULL/FIT) sekarang benar-benar beda",
+                "Fitur BARU: parameter zoomFactor 1.15f untuk mode ZOOM (beda dari POTONG)",
+                "Fix: struktur root Mode Video Box → Column, running text jadi bagian Column",
+                "Fix: jadwal sholat di panel kiri TIDAK kepotong running text",
+                "Fix: jadwal sholat pakai weight(1f) → isi penuh sampai tepat di atas kotak 'Menuju Subuh'",
+                "Fix: tombol ⚙ Settings overlay di sudut kanan atas LAYAR (bukan di dalam panel kanan)",
+                "Improve: panel pakai weight() bukan fillMaxWidth(fraction) → 100% presisi tanpa rounding gap",
+                "Improve: wisdom card full sampai tepi kanan layar (76% panel kanan)",
+                "Fix: AnimatedContent di WisdomCardCarousel pakai fillMaxWidth() → tidak wrap content",
+                // ===== FIX AUTO-SWITCH =====
+                "Fix CRITICAL: Auto-Switch Mode sekarang berfungsi dengan benar",
+                "Fix: video pakai REPEAT_MODE_ALL → tidak pernah trigger STATE_ENDED",
+                "Solusi: polling posisi video setiap 500ms deteksi loop",
+                "Deteksi loop: posisi turun drastis dari >80% ke <20% durasi",
+                "Rename callback onVideoEnded → onVideoLooped (semantik lebih tepat)",
+                "Logic: tunggu video selesai 1x putaran → baru switch ke Mode Normal",
+                // ===== FIX WISDOM CARD =====
+                "Fix: wisdom card tulisan terpotong — auto-shrink font + multi-line dinamis",
+                "Strategi auto-shrink: ≤60 char 14sp/1 baris, ≤100 13sp/2 baris, ≤150 12sp/2 baris, ≤200 11sp/3 baris, >200 10sp/3 baris",
+                "Ganti TextOverflow.Ellipsis → TextOverflow.Clip (teks utuh tanpa '...')",
+                "Padding wisdom card 12x4dp (lebih lega untuk teks panjang)",
+                "Line height dinamis sesuai font size",
+                // ===== SLIDE CLEAN VIEW =====
+                "Improve: SlideManager CLEAN VIEW — hapus semua overlay navigasi",
+                "Hapus tombol X (kanan atas)",
+                "Hapus panah ◀ kiri & ▶ kanan (tengah sisi)",
+                "Hapus indicator dot + label slide (bawah tengah)",
+                "Hapus hint tombol remote (kiri bawah)",
+                "Fungsi tombol remote TETAP JALAN: OK/BACK keluar, KIRI/KANAN pindah slide",
+                // ===== FILE PICKER CUSTOM =====
+                "Fitur BARU: VideoFilePickerDialog.kt — custom file picker dalam app (TV friendly)",
+                "Scan rekursif /sdcard/ + semua subfolder (skip folder sistem)",
+                "3 mode: VIDEO (hanya video) / IMAGE (hanya foto) / ALL (semua file)",
+                "Navigasi D-pad remote TV (auto-focus, clickable semua item)",
+                "Icon berbeda per tipe (video/foto/audio/dok/unknown)",
+                "Tampilkan size + ekstensi file",
+                "Fix: tombol GALERI + FILE di VideoSettingsPane sekarang benar-benar berfungsi",
+                "Fix: file picker lama (ActivityResultContracts) diganti custom picker yang TV friendly",
+                "Improve: copy dari path lokal (bukan URI) → lebih reliable",
+                "File baru: VideoFilePickerDialog.kt (enum FilePickerMode + Composable dialog)",
+                "File baru: data class PickerItem + helper scanFolder() + folderContainsMatchingFiles()",
+                // ===== JADWAL SHOLAT ICON =====
+                "Improve: icon jadwal sholat berbeda per waktu (bukan emoji)",
+                "Icon: Subuh=WbTwilight, Syuruq=WbSunny, Dzuhur=LightMode",
+                "Icon: Ashar=WbCloudy, Maghrib=NightsStay, Isya=Nightlight",
+                // ===== CLEANUP FIELD LAMA =====
+                "Cleanup: hapus field autoOnTime & autoOffTime (diganti otomatis dari jadwal sholat)",
+                "Field baru: autoOffMinutesAfterIsya (Int, default 30)",
+                "Field baru: autoOnMinutesBeforeSubuh (Int, default 15)",
+                "Field baru: autoOffDialogEnabled (Boolean, default true)",
+                // ===== FILE YANG DIUBAH =====
+                "File diubah: AppSettings.kt (field baru + hapus field lama)",
+                "File diubah: SettingsRepository.kt (load/save field baru)",
+                "File diubah: MasjidVideoPlayer.kt (aspectResizeMode + zoomFactor + onVideoLooped + polling)",
+                "File diubah: HomeScreen.kt (weight panel + icon per waktu + onVideoLooped)",
+                "File diubah: WisdomCardCarousel.kt (auto-shrink + AnimatedContent full width)",
+                "File diubah: SlideManager.kt (clean view — hapus semua overlay)",
+                "File diubah: VideoSettingsPane.kt (pakai custom picker)",
+                "File diubah: PowerSettingsPane.kt (jadwal on/off otomatis + 2 slider + toggle popup)",
+                "File diubah: MainActivity.kt (brightness otomatis + popup trigger + deteksi remote)",
+                "File baru: VideoFilePickerDialog.kt",
+                "File baru: AutoOffDialog.kt"
+            )
+        ),
+        UpdateEntry(
             version = "V1.04.422",
             date = "06 Oktober 2026",
             title = "Fix Mode Video Full-Frame + Auto-Switch + PIN Lock Options + Slide Navigasi",
@@ -43,10 +137,7 @@ object UpdateHistory {
                 "Fitur BARU: Export summary sekarang menyertakan section KEAMANAN",
                 "Fitur BARU: Cooldown slide 5 menit setelah user dismiss via OK/BACK",
                 "Fitur BARU: enum PinLockMode di AppSettings.kt (IMMEDIATE/TIMEOUT_5MIN/UNTIL_EXIT)",
-                "Fitur BARU: field pinLockMode di AppSettings (default UNTIL_EXIT = behavior lama)",
-                "Update: AppKnowledge.kt — tambah BUILD_ERROR_HISTORY entri bug resizeMode shadowing",
-                "Update: AppKnowledge.kt — tambah APP_FEATURES nomor 37-40 (Mode Video fix, PIN Lock, Slide navigasi)",
-                "Update: AppKnowledge.kt — tambah KNOWN_ISSUES entri 44-48"
+                "Fitur BARU: field pinLockMode di AppSettings (default UNTIL_EXIT = behavior lama)"
             )
         ),
         UpdateEntry(
@@ -111,16 +202,10 @@ object UpdateHistory {
                 "FIT (Stretch) paksa video/foto sesuaikan frame",
                 "Frame video/foto LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)",
                 "Icon sholat pakai Material Icon (bukan emoji) — hemat tempat",
-                "Auto-switch JEDA saat Mode Fokus Sholat / Slide Fullscreen / Ramadhan aktif",
-                "File baru: AppSettings 5 field baru (autoSwitchEnabled, videoModeIntervalMinutes, normalModeDurationMinutes, videoFrameScale, waitVideoFinishBeforeSwitch)",
-                "SettingsRepository: load/save 5 field baru + exportSummary section AUTO-SWITCH MODE",
-                "VideoSettingsPane: 2 section baru (Ukuran Frame + Auto-Switch Mode)",
-                "HomeScreen: VideoModeLayout + NormalModeLayout + auto-switch logic",
-                "MasjidVideoPlayer: parameter contentScale + onVideoEnded callback",
-                "PhotoSlideshow: parameter contentScale"
+                "Auto-switch JEDA saat Mode Fokus Sholat / Slide Fullscreen / Ramadhan aktif"
             )
         ),
-        UpdateEntry(
+                UpdateEntry(
             version = "V1.04.418",
             date = "04 Oktober 2026",
             title = "Storage Permission Dialog + Fix Download Check",
@@ -137,7 +222,7 @@ object UpdateHistory {
                 "Tambah info-box di tab Sistem: token hanya bisa diatur via Opsi Developer"
             )
         ),
-                UpdateEntry(
+        UpdateEntry(
             version = "V1.30.7",
             date = "03 Oktober 2026",
             title = "Verifikasi Transfer + Konfirmasi Restart Manual + File Template .iO",
