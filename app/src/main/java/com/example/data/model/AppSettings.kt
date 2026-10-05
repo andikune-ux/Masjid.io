@@ -57,6 +57,22 @@ enum class CctvPosition {
     BOTTOM_RIGHT
 }
 
+/**
+ * Mode PIN Lock setelah keluar dari Settings.
+ *
+ * V1.04.422 BARU.
+ *
+ *   IMMEDIATE      = Setiap kali tekan tombol Settings → langsung minta PIN
+ *   TIMEOUT_5MIN   = PIN diminta kembali 5 menit setelah kembali ke menu utama
+ *   UNTIL_EXIT     = PIN hanya diminta saat pertama buka, tidak minta lagi
+ *                    sampai aplikasi di-keluarkan (DEFAULT — behavior lama)
+ */
+enum class PinLockMode {
+    IMMEDIATE,
+    TIMEOUT_5MIN,
+    UNTIL_EXIT
+}
+
 data class OfficerSchedule(
     val imamSubuh: String = "Ust. H. Ahmad Fauzi",
     val muadzinSubuh: String = "Ust. Ridwan Kamil",
@@ -184,7 +200,7 @@ data class AppSettings(
     val videoFrameScale: String = "POTONG",
     val waitVideoFinishBeforeSwitch: Boolean = true,
     // ============================================================
-    // V1.04.421 BARU — ALUR SHOLAT BARU (Adzan → Doa → Iqomah → Mode Fokus)
+    // V1.04.421 — ALUR SHOLAT BARU (Adzan → Doa → Iqomah → Mode Fokus)
     // ============================================================
     val adzanDisplayDurationSeconds: Int = 8,
     val silentPhoneDisplayDurationSeconds: Int = 8,
@@ -253,7 +269,11 @@ data class AppSettings(
     val saveBatteryMode: Boolean = false,
     val fonnteToken: String = "",
     val fonnteGroupId: String = "",
-    val whatsappReportEnabled: Boolean = true
+    val whatsappReportEnabled: Boolean = true,
+    // ============================================================
+    // V1.04.422 BARU — PIN LOCK MODE
+    // ============================================================
+    val pinLockMode: PinLockMode = PinLockMode.UNTIL_EXIT
 ) {
     companion object {
         fun createDefaultWeeklySchedule(): List<DailyOfficerItem> {
