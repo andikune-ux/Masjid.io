@@ -744,8 +744,9 @@ object RemoteControlClient {
             conn.setRequestProperty("X-File-Id", fileId)
             conn.setRequestProperty("X-Chunk-Index", chunkIndex.toString())
 
-            val base64Chunk = Base64.encodeToString(chunkData, Base64.NO_WRAP)
-            conn.outputStream.use { it.write(base64Chunk.toByteArray(Charsets.UTF_8)) }
+            val payload = Base64.encodeToString(chunkData, Base64.NO_WRAP).toByteArray(Charsets.UTF_8)
+            conn.setFixedLengthStreamingMode(payload.size)
+            conn.outputStream.use { it.write(payload) }
             val code = conn.responseCode
             conn.disconnect()
             code in 200..299
