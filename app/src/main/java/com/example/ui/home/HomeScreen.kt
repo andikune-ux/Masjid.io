@@ -135,7 +135,7 @@ private fun HomeScreenContent(
     modifier: Modifier = Modifier
 ) {
     var currentMode by remember { mutableStateOf("VIDEO") }
-    var videoFinishedOnce by remember { mutableStateOf(false) }
+    var videoLoopedOnce by remember { mutableStateOf(false) }
 
     val hasVideo = settings.videoEnabled && !settings.videoUri.isNullOrBlank()
     val hasPhotos = settings.photoSlideshowEnabled && settings.photoSlideshowUris.isNotEmpty()
