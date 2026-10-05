@@ -16,12 +16,12 @@ object AppKnowledge {
 
     val APP_STRUCTURE = """
 app/src/main/java/com/example/
-├── MainActivity.kt                    -> Activity utama (V1.04.421)
+├── MainActivity.kt                    -> Activity utama (V1.04.422)
 ├── audio/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
 │   ├── model/
-│   │   └── AppSettings.kt             -> Model pengaturan (130+ field)
+│   │   └── AppSettings.kt             -> Model pengaturan (130+ field + PinLockMode)
 │   ├── local/
 │   │   ├── SettingsRepository.kt      -> Simpan/load setting + exportSummary
 │   │   ├── PrayerTimesCalculator.kt   -> Hitung jadwal sholat
@@ -60,7 +60,7 @@ app/src/main/java/com/example/
 │   ├── ApkDownloader.kt               -> Download & install APK
 │   └── BuildHistoryFetcher.kt         -> Fetch build history GitHub
 └── ui/
-    ├── home/HomeScreen.kt             -> Tampilan utama (V1.04.420)
+    ├── home/HomeScreen.kt             -> Tampilan utama (V1.04.422)
     ├── focus/
     │   ├── AdzanSequenceOverlay.kt    -> 3 tahap alur sholat (V1.04.421)
     │   ├── PrayerFocusOverlay.kt      -> Mode Fokus 2 fase (V1.04.421)
@@ -69,7 +69,7 @@ app/src/main/java/com/example/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
     │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
     │   ├── KajianSlide.kt             -> Slide Jadwal Kajian
-    │   └── SlideManager.kt            -> Manager rotasi slide
+    │   └── SlideManager.kt            -> Manager rotasi slide (V1.04.422 — OK/BACK exit + KIRI/KANAN)
     ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
     ├── cctv/CctvWidget.kt             -> Widget CCTV (RTSP/HTTP)
     ├── remote/
@@ -86,23 +86,23 @@ app/src/main/java/com/example/
     │   ├── DeveloperPinDialog.kt      -> PIN 140399
     │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
-    │   ├── CountdownSettingsPane.kt   -> Durasi & countdown (V1.04.421)
-    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah + Bundle .iO (V1.04.421)
+    │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
+    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah + Bundle .iO
     │   ├── IoBundleListSection.kt     -> Daftar file template .iO
     │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif
-    │   ├── IdentitySettingsPane.kt    -> Identitas + logo (V1.04.421)
+    │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
     │   ├── PowerSettingsPane.kt       -> Daya & Booting
-    │   ├── QrisSettingsPane.kt        -> Donasi QRIS (V1.04.421)
+    │   ├── QrisSettingsPane.kt        -> Donasi QRIS
     │   ├── RamadhanSettingsPane.kt    -> Mode Ramadhan
     │   ├── RunningTextSettingsPane.kt -> Running text
-    │   ├── SecuritySettingsPane.kt    -> Keamanan
+    │   ├── SecuritySettingsPane.kt    -> Keamanan (V1.04.422 — + PIN LOCK 3 opsi)
     │   ├── SlideSettingsPane.kt       -> Slide Fullscreen
     │   ├── CctvSettingsPane.kt        -> CCTV Masjid
     │   ├── RemoteSettingsPane.kt      -> iO Control + Remote Server
     │   ├── TimeSettingsPane.kt        -> Waktu manual
-    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame (V1.04.421)
-    │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan (V1.04.421)
+    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame
+    │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan
     │   ├── WisdomSettingsPane.kt      -> Kartu nasihat
     │   ├── MiniCalendarPickerModal.kt -> Kalender mini
     │   ├── PinDialog.kt               -> Dialog PIN
@@ -118,7 +118,7 @@ app/src/main/java/com/example/
     │   ├── FocusHelper.kt             -> Helper fokus tambahan
     │   ├── NeonFocusBorder.kt         -> Border fokus berputar
     │   ├── PhotoSlideshow.kt          -> Slideshow foto
-    │   ├── MasjidVideoPlayer.kt       -> Video player
+    │   ├── MasjidVideoPlayer.kt       -> Video player (V1.04.422 — fix resizeMode)
     │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat
@@ -169,7 +169,7 @@ app/src/main/java/com/example/
    - Blur glow tetap dipertahankan
    - Fokus tidak mendarat di tombol Kembali
 
-6. ALUR SHOLAT BARU (V1.04.421) — BARU
+6. ALUR SHOLAT BARU (V1.04.421)
    - Beep bunyi saat waktu sholat tiba
    - Tahap 1: Overlay Adzan fullscreen ('ADZAN [waktu]')
    - Tahap 2: Overlay Himbauan HP fullscreen
@@ -192,6 +192,7 @@ app/src/main/java/com/example/
    - Slide QRIS / Laporan / Kajian auto-rotate
    - FULLSCREEN — terpisah dari Mode Video
    - Tidak muncul saat Mode Fokus aktif
+   - V1.04.422: OK/BACK keluar, tombol KIRI/KANAN pindah slide
 
 10. CCTV MASJID
     - Widget PiP (RTSP + HTTP)
@@ -295,16 +296,16 @@ app/src/main/java/com/example/
     - Running text full width bawah
     - Mode NORMAL: layout lengkap seperti sebelumnya
 
-34. AUTO-SWITCH MODE (V1.04.420)
+34. AUTO-SWITCH MODE (V1.04.420 + V1.04.422)
     - Bolak-balik Mode Video ↔ Mode Normal otomatis
     - Interval video (1-60 menit)
     - Durasi normal (1-30 menit)
-    - Tunggu video loop 1x selesai sebelum switch (opsional)
+    - V1.04.422: Tunggu video selesai 1x putaran sebelum switch
     - Kalau belum ada video/foto → mode normal permanen
     - JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
     - Berjalan 24 jam nonstop
 
-35. PENGATURAN UKURAN FRAME (V1.04.420)
+35. PENGATURAN UKURAN FRAME (V1.04.420 + V1.04.422)
     - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
     - POTONG (Crop) seperti Instagram Reels
     - PAS (Fit/Letterbox) seperti Netflix
@@ -312,15 +313,61 @@ app/src/main/java/com/example/
     - FULL (Fullscreen) panel kiri hilang
     - FIT (Stretch) paksa video/foto sesuaikan frame
     - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
+    - V1.04.422: Semua 5 mode sekarang benar-benar bekerja (fix bug resizeMode)
 
-36. MEDIA PERSISTENCE (V1.04.421) — BARU
+36. MEDIA PERSISTENCE (V1.04.421)
     - File foto/video di-copy ke filesDir/masjid_io/ (folder permanen)
     - Fix masalah file hilang setelah app tutup/update/reboot
     - Support: QRIS, Logo, Background, Video, Foto Slideshow, Foto Petugas
     - Hapus file lama otomatis saat user ganti/hapus
     - File baru: MediaPersistenceHelper.kt
+
+37. FIX MODE VIDEO FULL-FRAME (V1.04.422) — BARU
+    - Video/foto sekarang PENUH sampai tepi kanan layar (tidak ada gap hitam)
+    - Bug resizeMode shadowing di MasjidVideoPlayer sudah diperbaiki
+    - contentScale diteruskan dari settings.videoFrameScale ke player
+    - 5 mode ukuran frame (POTONG/PAS/ZOOM/FULL/FIT) benar-benar beda
+    - Struktur root Mode Video: Box → Column (running text bagian Column)
+    - Jadwal sholat di panel kiri TIDAK LAGI kepotong running text
+    - Tombol ⚙ Settings overlay di sudut kanan atas LAYAR (bukan panel kanan)
+    - Panel kiri di-compact: font jam 26sp, list sholat 10sp, spacing rapat
+
+38. PIN LOCK MODE (V1.04.422) — BARU
+    - 3 opsi di Settings → Keamanan → PIN LOCK:
+      • IMMEDIATE   = Setiap tekan tombol Settings → langsung minta PIN
+      • TIMEOUT_5MIN = Minta PIN 5 menit setelah kembali ke menu utama
+      • UNTIL_EXIT   = Tidak minta PIN sampai aplikasi ditutup (default)
+    - Enum PinLockMode di AppSettings.kt
+    - Field pinLockMode di AppSettings (default UNTIL_EXIT)
+    - Logic di MainActivity: sessionPinVerified + lastPinVerifiedTime
+    - shouldRequestPin() cek mode + flag + waktu
+    - UI 3 radio button di SecuritySettingsPane
+
+39. SLIDE NAVIGASI REMOTE (V1.04.422) — BARU
+    - Tekan OK / BACK / ENTER / DPAD_CENTER → keluar slide kembali ke Home
+    - Tekan KIRI / KANAN → pindah slide (Qris ↔ Laporan ↔ Kajian)
+    - Panah navigasi kiri/kanan di sisi slide (visual hint)
+    - Hint tombol remote di pojok kiri bawah
+    - Cooldown 5 menit setelah dismiss → slide muncul lagi sesuai jadwal
+
+40. STRUKTUR MODE VIDEO BARU (V1.04.422) — BARU
+    - Root Column (bukan Box)
+    - Row (weight 1f) = panel kiri + panel kanan
+    - Running Text (height 52dp) = fixed di paling bawah
+    - Video/foto full hingga tepi kanan panel (no outer padding)
+    - Layout identik dengan mode normal untuk tombol ⚙ di sudut kanan atas layar
     """.trimIndent()
         val UPDATE_HISTORY = """
+V1.04.422 (06 Oktober 2026)
+- Fix Mode Video Full-Frame + Auto-Switch + PIN Lock Options + Slide Navigasi
+- Video sekarang PENUH sampai tepi kanan (fix bug resizeMode)
+- 5 mode frame (POTONG/PAS/ZOOM/FULL/FIT) benar-benar bekerja
+- Struktur root Mode Video: Box → Column (running text tidak timpa panel)
+- Tombol ⚙ Settings di sudut kanan atas LAYAR (bukan panel kanan)
+- Auto-Switch tunggu video selesai 1x putaran sebelum switch
+- PIN Lock Mode 3 opsi (IMMEDIATE / TIMEOUT_5MIN / UNTIL_EXIT)
+- Slide OK/BACK keluar + tombol KIRI/KANAN pindah slide
+
 V1.04.421 (04 Oktober 2026)
 - Alur Sholat Baru + Media Persistence + Fix Mode Fokus
 - Alur: Beep → Adzan → Himbauan HP → Niat Qobliyah → Mode Fokus
@@ -453,6 +500,13 @@ V1.28.0 (27 September 2026)
 41. Niat sholat belum ada di Mode Fokus → tambah Niat Fardhu arab + latin + arti
 42. Import HomeScreen.kt kurang 4 file → tambah import
 43. MainActivity gagal commit (paste terpotong) → bagi jadi 7 BAGIAN lebih kecil
+44. Video tidak full ke kanan (gap hitam) → fix bug resizeMode shadowing di MasjidVideoPlayer
+45. Mode POTONG/PAS/ZOOM/FIT hasilnya sama saja → rename variable lokal + teruskan contentScale
+46. Jadwal sholat di panel kiri kepotong running text → struktur root Box → Column
+47. Tombol ⚙ Settings overlay di posisi salah → pindah ke root Box (sudut kanan atas LAYAR)
+48. Auto-Switch tidak jalan → reset videoFinishedOnce + tunggu video selesai 1x putaran
+49. Slide tidak bisa keluar via remote → tambah onKeyEvent di SlideManager
+50. PIN tidak diminta kembali setelah keluar Settings → tambah field pinLockMode + logic di MainActivity
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -467,6 +521,36 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[06-10-2026] - V1.04.422
+Error: Video tidak full ke kanan (gap hitam di sisi kanan panel)
+File: app/src/main/java/com/example/ui/components/MasjidVideoPlayer.kt
+Solusi: Rename variable lokal `resizeMode` → `aspectResizeMode`. Sebelumnya nama variable bentrok dengan property PlayerView.resizeMode sehingga selalu fallback ke RESIZE_MODE_FIT.
+
+[06-10-2026] - V1.04.422
+Error: Mode POTONG/PAS/ZOOM/FIT hasilnya sama saja
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Teruskan parameter `contentScale` dari settings.videoFrameScale ke MasjidVideoPlayer dan PhotoSlideshow. Sebelumnya tidak diteruskan → default Crop.
+
+[06-10-2026] - V1.04.422
+Error: Jadwal sholat di panel kiri kepotong oleh running text
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Ubah struktur root Mode Video dari `Box` (overlay) → `Column`. Row ambil `weight(1f)`, Running Text `height(52dp)` fixed di bawah.
+
+[06-10-2026] - V1.04.422
+Error: Tombol ⚙ Settings overlay posisi salah (masuk ke dalam panel)
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Pindah tombol ⚙ dari dalam panel kanan ke root Box dengan `align(Alignment.TopEnd)` → selalu di sudut kanan atas LAYAR.
+
+[06-10-2026] - V1.04.422
+Error: Auto-Switch Mode tidak berfungsi (tidak berganti mode)
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Reset `videoFinishedOnce = false` sebelum tunggu + tunggu video selesai 1x putaran sebelum switch mode.
+
+[06-10-2026] - V1.04.422
+Error: Slide tidak bisa keluar via tombol OK/BACK remote
+File: app/src/main/java/com/example/ui/slides/SlideManager.kt
+Solusi: Tambah `onKeyEvent` handler + FocusRequester untuk terima tombol remote. OK/BACK/ENTER → onDismiss(). KIRI/KANAN → pindah slide.
 
 [04-10-2026] - V1.04.421
 Error: MainActivity gagal commit (paste terpotong)
@@ -573,7 +657,8 @@ Error: IllegalStateException Vertically scrollable infinity
 File: SettingsScreen.kt
 Solusi: Ganti Crossfade ke Box + key() + alpha fade
     """.trimIndent()
-        val WORKFLOW_INSTRUCTION = """
+
+    val WORKFLOW_INSTRUCTION = """
 PRINSIP UTAMA:
 - KERJAKAN PER BATCH
 - JANGAN BUKA FILE YANG SAMA BERKALI-KALI
@@ -626,7 +711,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.04.421
+- Versi saat ini : V1.04.422
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -664,7 +749,7 @@ RIWAYAT KEJADIAN:
 - Solusi: restore debug.keystore dari commit lama
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.04.421)
+- Tidak ada (semua fitur selesai per V1.04.422)
     """.trimIndent()
 
     val MEMORY_INSTRUCTION = """
@@ -690,7 +775,7 @@ ATURAN KERJA:
 STRUKTUR MENU SETTINGS (20 Kategori):
 1.  Lokasi & Waktu Sholat
 2.  Pengaturan Waktu
-3.  Durasi & Hitungan Mundur (V1.04.421 - slider alur sholat baru)
+3.  Durasi & Hitungan Mundur
 4.  Identitas Masjid
 5.  Jadwal Petugas & Foto
 6.  Donasi QRIS & Rekening
@@ -701,7 +786,7 @@ STRUKTUR MENU SETTINGS (20 Kategori):
 11. Running Text
 12. Audio & Adzan
 13. Mode Ramadhan
-14. Keamanan
+14. Keamanan (V1.04.422 — + PIN LOCK 3 opsi)
 15. Daya & Booting
 16. Slide Fullscreen
 17. CCTV Masjid
@@ -793,7 +878,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.04.421
+  Versi saat ini : V1.04.422
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -811,7 +896,7 @@ APLIKASI:
 11. Running Text
 12. Audio & Adzan
 13. Mode Ramadhan
-14. Keamanan
+14. Keamanan (V1.04.422 — + PIN LOCK 3 opsi)
 15. Daya & Booting
 16. Slide Fullscreen
 17. CCTV Masjid
@@ -1033,17 +1118,17 @@ RIWAYAT KEJADIAN:
 - Running text full width bawah
 - Mode Normal: layout lengkap seperti sebelumnya
 
-=== BAGIAN 30 — FITUR AUTO-SWITCH MODE (V1.04.420) ===
+=== BAGIAN 30 — FITUR AUTO-SWITCH MODE (V1.04.420 + V1.04.422) ===
 
 - Bolak-balik Mode Video <-> Mode Normal
 - Interval video: 1-60 menit
 - Durasi normal: 1-30 menit
-- Tunggu video loop 1x selesai sebelum switch (opsional)
+- V1.04.422: Tunggu video selesai 1x putaran sebelum switch
 - Kalau belum ada video/foto -> mode normal permanen
 - JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
 - Berjalan 24 jam nonstop
 
-=== BAGIAN 31 — FITUR UKURAN FRAME (V1.04.420) ===
+=== BAGIAN 31 — FITUR UKURAN FRAME (V1.04.420 + V1.04.422) ===
 
 - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
 - POTONG (Crop) seperti Instagram Reels
@@ -1052,6 +1137,7 @@ RIWAYAT KEJADIAN:
 - FULL (Fullscreen) panel kiri hilang
 - FIT (Stretch) paksa video/foto sesuaikan frame
 - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
+- V1.04.422: Semua 5 mode sekarang benar-benar bekerja (fix bug resizeMode)
 
 === BAGIAN 32 — ALUR SHOLAT BARU (V1.04.421) ===
 
@@ -1083,6 +1169,52 @@ Semua durasi bisa diatur user via Settings -> Durasi & Hitungan Mundur.
 - Support: QRIS, Logo, Background, Video, Foto Slideshow, Foto Petugas
 - Hapus file lama otomatis saat user ganti/hapus
 - Fallback ke URI asli kalau copy gagal
+
+=== BAGIAN 34 — FIX MODE VIDEO FULL-FRAME (V1.04.422) ===
+
+Masalah yang diperbaiki:
+1. Video tidak full ke kanan (gap hitam di sisi kanan panel)
+   - Penyebab: bug resizeMode shadowing di MasjidVideoPlayer
+   - Solusi: rename variable lokal resizeMode → aspectResizeMode
+2. Mode POTONG/PAS/ZOOM/FIT hasilnya sama saja
+   - Penyebab: contentScale tidak diteruskan dari settings
+   - Solusi: teruskan contentScale dari settings.videoFrameScale
+3. Jadwal sholat di panel kiri kepotong running text
+   - Penyebab: struktur root Box (overlay)
+   - Solusi: ubah ke Column — Row weight(1f) + Running Text height(52dp)
+4. Tombol ⚙ Settings overlay posisi salah
+   - Penyebab: Box parent = panel kanan
+   - Solusi: pindah ke root Box (align TopEnd)
+5. Auto-Switch tidak jalan
+   - Penyebab: videoFinishedOnce tidak di-reset
+   - Solusi: reset sebelum tunggu + tunggu video selesai 1x putaran
+
+File terkait: MasjidVideoPlayer.kt + HomeScreen.kt
+
+=== BAGIAN 35 — FITUR PIN LOCK MODE (V1.04.422) ===
+
+3 opsi di Settings → Keamanan → PIN LOCK:
+- IMMEDIATE    = Setiap tekan tombol Settings → langsung minta PIN
+- TIMEOUT_5MIN = Minta PIN 5 menit setelah kembali ke menu utama
+- UNTIL_EXIT   = Tidak minta PIN sampai aplikasi ditutup (default)
+
+File terkait:
+- AppSettings.kt (enum PinLockMode + field pinLockMode)
+- SettingsRepository.kt (load/save pinLockMode)
+- SecuritySettingsPane.kt (UI 3 radio opsi)
+- MainActivity.kt (logic: sessionPinVerified + lastPinVerifiedTime + shouldRequestPin())
+
+Lokasi UI: PIN Akses (bawah PIN Saat Ini) → sebelum Mode Kiosk
+
+=== BAGIAN 36 — SLIDE NAVIGASI REMOTE (V1.04.422) ===
+
+- Tekan OK / BACK / ENTER / DPAD_CENTER → keluar slide, kembali ke Home
+- Tekan KIRI / KANAN → pindah slide (Qris ↔ Laporan ↔ Kajian)
+- Panah navigasi kiri/kanan di sisi slide (visual hint)
+- Hint tombol remote di pojok kiri bawah slide
+- Cooldown 5 menit setelah dismiss → slide muncul lagi sesuai jadwal
+
+File terkait: SlideManager.kt
 
 ============================================================
 END OF MEMORY KNOWLEDGE
