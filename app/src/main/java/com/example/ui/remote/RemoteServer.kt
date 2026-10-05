@@ -18,11 +18,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
+import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStreamReader
+import java.io.IOException
+import java.io.InputStream
 import java.io.OutputStreamWriter
 import java.net.BindException
 import java.net.InetSocketAddress
@@ -50,6 +51,9 @@ class RemoteServer(
         private const val MAX_RETRY = 3
         private const val RETRY_DELAY_MS = 500L
         private const val SESSION_TTL_MS = 24 * 60 * 60 * 1000L
+        private const val MAX_HEADER_LINE_BYTES = 16 * 1024
+        private const val MAX_REQUEST_BODY_BYTES = 80 * 1024 * 1024
+        private const val CLIENT_READ_TIMEOUT_MS = 60_000
     }
 
     private var serverSocket: ServerSocket? = null
@@ -190,10 +194,11 @@ class RemoteServer(
 
     private fun handleClient(client: Socket) {
         try {
-            val reader = BufferedReader(InputStreamReader(client.getInputStream()))
-            val writer = OutputStreamWriter(client.getOutputStream())
+            client.soTimeout = CLIENT_READ_TIMEOUT_MS
+            val input = BufferedInputStream(client.getInputStream())
+            val writer = OutputStreamWriter(client.getOutputStream(), Charsets.UTF_8)
 
-            val requestLine = reader.readLine() ?: return
+            val requestLine = readHttpLine(input) ?: return
             val parts = requestLine.split(" ")
             if (parts.size < 2) { client.close(); return }
 
@@ -205,18 +210,26 @@ class RemoteServer(
             pathOnly = if (qIndex >= 0) fullPath.substring(0, qIndex) else fullPath
 
             val headers = mutableMapOf<String, String>()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                if (line.isNullOrBlank()) break
-                val hp = line!!.split(":", limit = 2)
-                if (hp.size == 2) headers[hp[0].trim().lowercase()] = hp[1].trim()
+            while (true) {
+                val headerLine = readHttpLine(input) ?: throw IOException("Header request tidak lengkap")
+                if (headerLine.isEmpty()) break
+                val separator = headerLine.indexOf(':')
+                if (separator > 0) {
+                    headers[headerLine.substring(0, separator).trim().lowercase()] =
+                        headerLine.substring(separator + 1).trim()
+                }
             }
 
-            val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
-            val body = if (contentLength > 0) {
-                val buf = CharArray(contentLength)
-                reader.read(buf, 0, contentLength)
-                String(buf)
+            val contentLength = headers["content-length"]?.toLongOrNull() ?: 0L
+            if (contentLength < 0L || contentLength > MAX_REQUEST_BODY_BYTES) {
+                sendResponse(writer, 413, "application/json",
+                    """{"success":false,"error":"Request body terlalu besar"}""")
+                writer.flush()
+                client.close()
+                return
+            }
+            val body = if (contentLength > 0L) {
+                String(readRequestBody(input, contentLength.toInt()), Charsets.UTF_8)
             } else ""
 
             val cookieHeader = headers["cookie"] ?: ""
@@ -657,6 +670,43 @@ class RemoteServer(
     }
 }
 
+private fun readHttpLine(input: InputStream): String? {
+    val lineBytes = ByteArrayOutputStream()
+    while (true) {
+        val next = input.read()
+        if (next < 0) {
+            if (lineBytes.size() == 0) return null
+            return String(lineBytes.toByteArray(), Charsets.ISO_8859_1)
+        }
+        if (next == 10) {
+            return String(lineBytes.toByteArray(), Charsets.ISO_8859_1)
+        }
+        if (next != 13) {
+            lineBytes.write(next)
+            if (lineBytes.size() > MAX_HEADER_LINE_BYTES) {
+                throw IOException("HTTP header line terlalu panjang")
+            }
+        }
+    }
+}
+
+private fun readRequestBody(input: InputStream, contentLength: Int): ByteArray {
+    val body = ByteArray(contentLength)
+    var offset = 0
+    while (offset < contentLength) {
+        val count = input.read(body, offset, contentLength - offset)
+        when {
+            count < 0 -> throw IOException("Body request terpotong ($offset/$contentLength byte)")
+            count == 0 -> {
+                val next = input.read()
+                if (next < 0) throw IOException("Body request terpotong ($offset/$contentLength byte)")
+                body[offset++] = next.toByte()
+            }
+            else -> offset += count
+        }
+    }
+    return body
+}
 private fun tryExtractSenderInfo(body: String) {
     try {
         val root = JSONObject(body)
@@ -754,7 +804,7 @@ private fun findLatestIn(dir: File): File? {
 private fun sendResponse(writer: OutputStreamWriter, code: Int, contentType: String, body: String) {
     val statusText = when (code) {
         200 -> "OK"; 400 -> "Bad Request"; 401 -> "Unauthorized"
-        404 -> "Not Found"; 500 -> "Internal Server Error"; else -> "Unknown"
+        404 -> "Not Found"; 413 -> "Payload Too Large"; 500 -> "Internal Server Error"; else -> "Unknown"
     }
     val bodyBytes = body.toByteArray(Charsets.UTF_8)
     writer.write("HTTP/1.1 $code $statusText\r\n")
