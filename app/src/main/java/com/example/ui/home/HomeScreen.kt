@@ -21,8 +21,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WbCloudy
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -127,7 +134,6 @@ private fun HomeScreenContent(
     screenInfo: ScreenInfo,
     modifier: Modifier = Modifier
 ) {
-    // ===== AUTO-SWITCH STATE =====
     var currentMode by remember { mutableStateOf("VIDEO") }
     var videoFinishedOnce by remember { mutableStateOf(false) }
 
@@ -135,17 +141,8 @@ private fun HomeScreenContent(
     val hasPhotos = settings.photoSlideshowEnabled && settings.photoSlideshowUris.isNotEmpty()
     val hasAnyMedia = hasVideo || hasPhotos
 
-    // Tanpa media → Mode Normal permanen
     val effectiveMode = if (!hasAnyMedia) "NORMAL" else currentMode
 
-    // ============================================================
-    // AUTO-SWITCH LOGIC — V1.04.422
-    // Cara kerja:
-    // 1. Tunggu durasi sesuai mode (video / normal)
-    // 2. Kalau Mode Video + tungguVideoSelesai = ON
-    //    → tunggu video selesai 1x putaran (callback onVideoEnded)
-    // 3. Baru switch ke mode berikutnya
-    // ============================================================
     LaunchedEffect(
         settings.autoSwitchEnabled,
         effectiveMode,
@@ -166,7 +163,6 @@ private fun HomeScreenContent(
 
         delay(durationMs)
 
-        // Kalau dari mode video + tunggu video selesai
         if (effectiveMode == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
             videoFinishedOnce = false
             while (!videoFinishedOnce) {
@@ -174,7 +170,6 @@ private fun HomeScreenContent(
             }
         }
 
-        // Switch mode berikutnya
         currentMode = if (effectiveMode == "VIDEO") "NORMAL" else "VIDEO"
         videoFinishedOnce = false
     }
@@ -184,7 +179,6 @@ private fun HomeScreenContent(
             .fillMaxSize()
             .background(Color(0xFF071219))
     ) {
-        // ===== BACKGROUND =====
         when (settings.backgroundMode) {
             BackgroundMode.MAKKAH_DYNAMIC -> {
                 MakkahDynamicBackground(
@@ -249,7 +243,6 @@ private fun HomeScreenContent(
             )
         }
 
-        // ===== KONTEN SESUAI MODE =====
         if (effectiveMode == "VIDEO" && hasAnyMedia) {
             VideoModeLayout(
                 settings = settings,
@@ -280,12 +273,15 @@ private fun HomeScreenContent(
     }
 }
 // ============================================================
-// MODE VIDEO (Opsi H) — V1.04.422
+// MODE VIDEO (Opsi H) — V1.04.423
 //
 // STRUKTUR:
 //   Column (fillMaxSize)
-//   ├── Box (weight 1f)  → Row (Panel Kiri 24% + Panel Kanan 76%)
-//   │                    → Tombol ⚙ overlay di sudut kanan atas LAYAR
+//   ├── Box (weight 1f)  → Row
+//   │   ├── Panel Kiri (24%)   ← Logo + Jam + Sholat + Progress
+//   │   └── Panel Kanan (76%)  ← VIDEO STAGE FULL-BLEED (mentok tepi kanan)
+//   │                            + Wisdom Card di bawah (full 76%)
+//   │   → Tombol ⚙ overlay di sudut kanan atas LAYAR
 //   └── Running Text (height 52dp) → FIXED di paling bawah
 // ============================================================
 @Composable
@@ -305,7 +301,10 @@ private fun VideoModeLayout(
     val panelKiriWidth = if (isFullMode) 0f else 0.24f
     val panelKananWidth = 1f - panelKiriWidth
 
-    // Mapping mode ukuran frame → ContentScale
+    // ============================================================
+    // Mapping mode ukuran frame → ContentScale + zoomFactor
+    // V1.04.423: ZOOM sekarang beda dari POTONG (pakai zoomFactor 1.15x)
+    // ============================================================
     val contentScale: ContentScale = when (settings.videoFrameScale) {
         "POTONG" -> ContentScale.Crop
         "PAS" -> ContentScale.Fit
@@ -313,6 +312,11 @@ private fun VideoModeLayout(
         "FULL" -> ContentScale.Crop
         "FIT" -> ContentScale.FillBounds
         else -> ContentScale.Crop
+    }
+
+    val zoomFactor: Float = when (settings.videoFrameScale) {
+        "ZOOM" -> 1.15f
+        else -> 1.0f
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -325,7 +329,9 @@ private fun VideoModeLayout(
                 .weight(1f)
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
-                // ===== PANEL KIRI (24%) — HILANG saat mode FULL =====
+                // ============================================================
+                // PANEL KIRI (24%) — HILANG saat mode FULL
+                // ============================================================
                 if (!isFullMode) {
                     Box(
                         modifier = Modifier
@@ -349,18 +355,24 @@ private fun VideoModeLayout(
                     }
                 }
 
-                // ===== PANEL KANAN (76% / 100%) — VIDEO/FOTO PENUH =====
+                // ============================================================
+                // PANEL KANAN (76% / 100%) — VIDEO STAGE FULL-BLEED
+                // Video/foto PENUH, mentok tepi kanan LAYAR
+                // Wisdom Card overlay di bawah — hanya di area panel kanan
+                // ============================================================
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(if (isFullMode) 1f else panelKananWidth)
                         .background(Color.Black)
                 ) {
+                    // ===== VIDEO STAGE =====
                     if (hasVideo) {
                         MasjidVideoPlayer(
                             videoUriString = settings.videoUri,
                             isFullscreen = true,
                             contentScale = contentScale,
+                            zoomFactor = zoomFactor,
                             onVideoEnded = onVideoEnded,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -374,15 +386,17 @@ private fun VideoModeLayout(
                         )
                     }
 
-                    // Wisdom card overlay di bawah video
+                    // ===== WISDOM CARD OVERLAY — hanya di area panel kanan =====
+                    // fillMaxWidth() → full width panel kanan (76% dari layar)
+                    // Mentok dari tepi kiri panel kanan sampai tepi kanan layar
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                             .padding(
-                                bottom = 8.dp,
-                                start = 16.dp,
-                                end = 16.dp
+                                bottom = 6.dp,
+                                start = 8.dp,
+                                end = 0.dp
                             )
                     ) {
                         WisdomCardCarousel(
@@ -406,7 +420,7 @@ private fun VideoModeLayout(
         }
 
         // ============================================================
-        // RUNNING TEXT — FIXED di paling bawah (BUKAN overlay)
+        // RUNNING TEXT — FIXED di paling bawah (tidak diubah)
         // ============================================================
         Box(
             modifier = Modifier
@@ -424,7 +438,9 @@ private fun VideoModeLayout(
 }
 
 // ============================================================
-// PANEL KIRI VIDEO MODE — COMPACT (spacing rapat)
+// PANEL KIRI VIDEO MODE — V1.04.423
+// Jadwal sholat pakai weight(1f) → isi penuh sampai tepat di atas
+// kotak "Menuju Subuh". Icon berbeda per waktu.
 // ============================================================
 @Composable
 private fun VideoModeLeftPanel(
@@ -465,7 +481,7 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // ===== KOTAK GABUNGAN JAM + TANGGAL — RAPAT =====
+        // ===== KOTAK GABUNGAN JAM + TANGGAL =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -514,7 +530,11 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // ===== LIST SHOLAT VERTIKAL =====
+        // ============================================================
+        // LIST SHOLAT VERTIKAL — V1.04.423
+        // Setiap baris pakai weight(1f) → isi penuh sisa ruang
+        // Icon berbeda per waktu sholat
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -524,12 +544,14 @@ private fun VideoModeLeftPanel(
             schedule.items.forEach { item ->
                 PrayerRowItem(
                     item = item,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 )
             }
         }
 
-        // ===== KOTAK PROGRESS — DIKECILKAN =====
+        // ===== KOTAK PROGRESS =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -592,7 +614,8 @@ private fun VideoModeLeftPanel(
 }
 
 // ============================================================
-// ITEM SHOLAT VERTIKAL — COMPACT
+// ITEM SHOLAT VERTIKAL — V1.04.423
+// Icon berbeda per waktu + weight(1f) dari parent
 // ============================================================
 @Composable
 private fun PrayerRowItem(
@@ -623,6 +646,16 @@ private fun PrayerRowItem(
         else -> TextPrimary
     }
 
+    // V1.04.423: Icon sesuai suasana waktu sholat
+    val prayerIcon: ImageVector = when (item.id) {
+        PrayerId.SUBUH -> Icons.Default.WbTwilight      // Fajar
+        PrayerId.SYURUQ -> Icons.Default.WbSunny        // Matahari terbit
+        PrayerId.DZUHUR -> Icons.Default.LightMode      // Siang terang
+        PrayerId.ASHAR -> Icons.Default.WbCloudy        // Sore berawan
+        PrayerId.MAGHRIB -> Icons.Default.NightsStay    // Senja
+        PrayerId.ISYA -> Icons.Default.Nightlight       // Malam
+    }
+
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(5.dp))
@@ -632,12 +665,12 @@ private fun PrayerRowItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.Schedule,
+            imageVector = prayerIcon,
             contentDescription = null,
             tint = if (item.isNext || item.isActive) textColor else TextSecondary.copy(alpha = 0.6f),
-            modifier = Modifier.size(10.dp)
+            modifier = Modifier.size(12.dp)
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(5.dp))
         Text(
             text = item.id.displayName,
             fontSize = 10.sp,
@@ -748,13 +781,12 @@ private fun NormalModeLayout(
     }
 
     // ============================================================
-    // V1.04.422 — COOLDOWN SLIDE
-    // Setelah user dismiss slide via OK/BACK, tunggu 5 menit
+    // COOLDOWN SLIDE — setelah user dismiss via OK/BACK, tunggu 5 menit
     // baru muncul lagi secara otomatis (sesuai jadwal).
     // ============================================================
     LaunchedEffect(userDismissedSlide) {
         if (userDismissedSlide) {
-            delay(5 * 60 * 1000L)   // cooldown 5 menit
+            delay(5 * 60 * 1000L)
             userDismissedSlide = false
         }
     }
