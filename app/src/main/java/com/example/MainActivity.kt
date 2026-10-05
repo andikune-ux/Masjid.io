@@ -50,6 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +77,7 @@ import com.example.data.model.PrayerId
 import com.example.data.model.PrayerSchedule
 import com.example.kiosk.KioskManager
 import com.example.kiosk.WatchdogService
+import com.example.ui.components.AutoOffDialog
 import com.example.ui.components.PinDialog
 import com.example.ui.components.UpdateDialog
 import com.example.ui.focus.AdzanSequenceOverlay
@@ -117,7 +121,7 @@ enum class AppScreen {
 
 private const val UPDATE_PREFS = "update_prefs"
 private const val KEY_SKIPPED_VERSION = "skipped_version"
-private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L   // 5 menit
+private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L            // 5 menit
 
 class MainActivity : ComponentActivity() {
 
@@ -198,12 +202,11 @@ class MainActivity : ComponentActivity() {
     }
 
     // ============================================================
-    // V1.04.422 BARU — PIN LOCK STATE
+    // PIN LOCK STATE
     // ============================================================
     var sessionPinVerified by remember { mutableStateOf(false) }
     var lastPinVerifiedTime by remember { mutableLongStateOf(0L) }
 
-    // Helper: cek apakah perlu minta PIN saat ini
     fun shouldRequestPin(): Boolean {
         return when (settings.pinLockMode) {
             PinLockMode.IMMEDIATE -> true
@@ -213,6 +216,152 @@ class MainActivity : ComponentActivity() {
                 val elapsed = System.currentTimeMillis() - lastPinVerifiedTime
                 elapsed >= PIN_TIMEOUT_MS
             }
+        }
+    }
+
+    // ============================================================
+    // V1.04.423 — JADWAL ON/OFF OTOMATIS + POPUP
+    // ============================================================
+
+    // Hitung jadwal sholat hari ini untuk deteksi jam ON/OFF
+    val todaySchedule = remember(
+        settings.latitude,
+        settings.longitude
+    ) {
+        PrayerTimesCalculator.calculate(
+            date = LocalDate.now(),
+            latitude = settings.latitude,
+            longitude = settings.longitude
+        )
+    }
+
+    // Helper: konversi "HH:MM" ke menit dalam sehari
+    fun timeToMinutes(timeStr: String): Int {
+        val parts = timeStr.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        return h * 60 + m
+    }
+
+    // Helper: cek apakah sekarang dalam jam OFF
+    fun isNowInOffSchedule(): Boolean {
+        if (!settings.autoOnOff) return false
+
+        val now = if (settings.isManualTimeEnabled) {
+            LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+        } else {
+            LocalDateTime.now()
+        }
+        val currentMinute = now.hour * 60 + now.minute
+
+        // ON = Subuh - X menit
+        val subuhMinute = timeToMinutes(todaySchedule.subuh)
+        val onMinute = subuhMinute - settings.autoOnMinutesBeforeSubuh
+
+        // OFF = Isya + Y menit
+        val isyaMinute = timeToMinutes(todaySchedule.isya)
+        val offMinute = isyaMinute + settings.autoOffMinutesAfterIsya
+
+        // Logika: OFF aktif antara offMinute dan onMinute (hari berikutnya)
+        return if (onMinute < offMinute) {
+            // Normal: OFF antara offMinute s/d onMinute (lintas hari)
+            currentMinute >= offMinute || currentMinute < onMinute
+        } else {
+            // ON > OFF (jadwal aneh): OFF hanya jika antara offMinute dan onMinute
+            currentMinute in offMinute until onMinute
+        }
+    }
+
+    // Helper: format menit jadi "HH:MM"
+    fun minutesToTime(minutes: Int): String {
+        val normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60)
+        val h = normalized / 60
+        val m = normalized % 60
+        return String.format("%02d:%02d", h, m)
+    }
+
+    // Hitung string jam ON & OFF untuk ditampilkan di popup
+    val autoOnTimeStr = remember(todaySchedule.subuh, settings.autoOnMinutesBeforeSubuh) {
+        minutesToTime(timeToMinutes(todaySchedule.subuh) - settings.autoOnMinutesBeforeSubuh)
+    }
+    val autoOffTimeStr = remember(todaySchedule.isya, settings.autoOffMinutesAfterIsya) {
+        minutesToTime(timeToMinutes(todaySchedule.isya) + settings.autoOffMinutesAfterIsya)
+    }
+
+    // State brightness
+    var isDimmed by remember { mutableStateOf(false) }
+    var temporaryWake by remember { mutableStateOf(false) }
+    var lastKeyPressTime by remember { mutableLongStateOf(0L) }
+    var showAutoOffDialog by remember { mutableStateOf(false) }
+
+    // ============================================================
+    // POLLING JADWAL BRIGHTNESS — setiap 30 detik
+    // ============================================================
+    LaunchedEffect(
+        settings.autoOnOff,
+        settings.autoOffMinutesAfterIsya,
+        settings.autoOnMinutesBeforeSubuh,
+        settings.isManualTimeEnabled,
+        settings.manualTimeOffsetSeconds,
+        todaySchedule.subuh,
+        todaySchedule.isya
+    ) {
+        while (true) {
+            val shouldDim = isNowInOffSchedule() && !temporaryWake
+            if (shouldDim != isDimmed) {
+                isDimmed = shouldDim
+                runOnUiThread {
+                    try {
+                        val attrs = window.attributes
+                        if (shouldDim) {
+                            attrs.screenBrightness = 0f
+                        } else {
+                            attrs.screenBrightness =
+                                WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                        }
+                        window.attributes = attrs
+                    } catch (e: Exception) {
+                        android.util.Log.e(
+                            "MainActivity",
+                            "Brightness update gagal: ${e.message}"
+                        )
+                    }
+                }
+            }
+            delay(30_000L)
+        }
+    }
+
+    // ============================================================
+    // TIMER TEMPORARY WAKE — 2 menit setelah popup di-dismiss
+    // ============================================================
+    LaunchedEffect(temporaryWake, showAutoOffDialog) {
+        if (temporaryWake && !showAutoOffDialog) {
+            delay(120_000L)  // 2 menit
+            // Cek apakah masih dalam jam OFF
+            if (isNowInOffSchedule()) {
+                temporaryWake = false
+            }
+        }
+    }
+
+    // ============================================================
+    // KETIKA POPUP DITUTUP — reset lastKeyPressTime
+    // ============================================================
+    LaunchedEffect(showAutoOffDialog) {
+        if (showAutoOffDialog) {
+            // Popup muncul — pastikan brightness normal dulu (biar popup terlihat)
+            runOnUiThread {
+                try {
+                    val attrs = window.attributes
+                    attrs.screenBrightness =
+                        WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                    window.attributes = attrs
+                } catch (_: Exception) {}
+            }
+        } else {
+            // Popup tutup — reset timer
+            lastKeyPressTime = System.currentTimeMillis()
         }
     }
 
@@ -428,7 +577,8 @@ DisposableEffect(
     settings.kioskModeEnabled,
     currentScreen,
     showRestartCountdown,
-    showStoragePermissionDialog
+    showStoragePermissionDialog,
+    showAutoOffDialog
 ) {
     val callback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
@@ -436,6 +586,7 @@ DisposableEffect(
             if (isDownloading || isInstalling) return
             if (showRestartCountdown) return
             if (showStoragePermissionDialog) return
+            if (showAutoOffDialog) return  // Popup aktif — blokir back
 
             when (currentScreen) {
                 AppScreen.ADZAN_SEQUENCE -> {
@@ -469,7 +620,6 @@ var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
 var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
 var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
 
-// ============ RAMADHAN STATE ============
 var secondsToImsak by remember { mutableLongStateOf(0L) }
 var secondsToMaghrib by remember { mutableLongStateOf(0L) }
 var userDismissedRamadhan by remember { mutableStateOf(false) }
@@ -574,189 +724,249 @@ MasjidTheme {
         modifier = Modifier.fillMaxSize(),
         color = MosqueDeepBg
     ) {
-        if (showCrashDialog) {
-            CrashLogDialog(
-                log = pendingCrashLog,
-                onDismiss = {
-                    CrashAutoShowHelper.markAsSeen(this@MainActivity)
-                    showCrashDialog = false
+        // ============================================================
+        // DETEKSI TEKAN REMOTE — trigger popup AutoOff
+        // ============================================================
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        val now = System.currentTimeMillis()
+                        // Debounce 500ms — hindari popup muncul berkali-kali
+                        if (now - lastKeyPressTime > 500L) {
+                            lastKeyPressTime = now
+
+                            // Kalau dalam jam OFF + popup enabled + belum ada popup
+                            if (isNowInOffSchedule() &&
+                                settings.autoOffDialogEnabled &&
+                                !showAutoOffDialog
+                            ) {
+                                // Set temporary wake supaya layar nyala
+                                temporaryWake = true
+                                showAutoOffDialog = true
+                            }
+                        }
+                        false // jangan consume event, teruskan ke UI
+                    } else false
                 }
-            )
-        } else {
-            Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                when (screen) {
-                    AppScreen.HOME -> HomeScreen(
-                        settings = settings,
-                        schedule = prayerSchedule,
-                        currentTimeString = currentTimeString,
-                        hijriDateString = hijriDateString,
-                        gregorianDateString = gregorianDateString,
-                        upcomingEvent = upcomingEvent,
-                        temperature = currentTemperature,
-                        weatherCondition = currentWeatherCondition,
-                        onSettingsClick = {
-                            // ============================================================
-                            // V1.04.422 — PIN LOCK LOGIC
-                            // Cek berdasarkan mode sebelum buka Settings
-                            // ============================================================
-                            if (shouldRequestPin()) {
-                                showPinDialog = true
+        ) {
+            if (showCrashDialog) {
+                CrashLogDialog(
+                    log = pendingCrashLog,
+                    onDismiss = {
+                        CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                        showCrashDialog = false
+                    }
+                )
+            } else {
+                Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                    when (screen) {
+                        AppScreen.HOME -> HomeScreen(
+                            settings = settings,
+                            schedule = prayerSchedule,
+                            currentTimeString = currentTimeString,
+                            hijriDateString = hijriDateString,
+                            gregorianDateString = gregorianDateString,
+                            upcomingEvent = upcomingEvent,
+                            temperature = currentTemperature,
+                            weatherCondition = currentWeatherCondition,
+                            onSettingsClick = {
+                                if (shouldRequestPin()) {
+                                    showPinDialog = true
+                                } else {
+                                    currentScreen = AppScreen.SETTINGS
+                                }
+                            }
+                        )
+
+                        AppScreen.ADZAN_SEQUENCE -> AdzanSequenceOverlay(
+                            prayerId = focusPrayerId,
+                            adzanDurationSeconds = settings.adzanDisplayDurationSeconds,
+                            silentPhoneDurationSeconds = settings.silentPhoneDisplayDurationSeconds,
+                            qobliyahDurationSeconds = settings.qobliyahNiatDisplayDurationSeconds,
+                            iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                            onComplete = {
+                                android.util.Log.d("MainActivity", "Adzan sequence selesai → Mode Fokus")
+                                currentScreen = AppScreen.FOCUS_MODE
+                            },
+                            onSkip = {
+                                android.util.Log.d("MainActivity", "Adzan sequence di-skip → Mode Fokus")
+                                currentScreen = AppScreen.FOCUS_MODE
+                            }
+                        )
+
+                        AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                            prayerId = focusPrayerId,
+                            prayerTimeFormatted = focusPrayerTime,
+                            totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                            iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                            qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                            settings = settings,
+                            onDismiss = {
+                                android.util.Log.d("MainActivity", "Mode Fokus selesai → Home")
+                                currentScreen = AppScreen.HOME
+                            }
+                        )
+
+                        AppScreen.SETTINGS -> SettingsScreen(
+                            currentSettings = settings,
+                            soundManager = soundManager,
+                            isRemoteServerRunning = isRemoteServerRunning,
+                            onAutoSaveSettings = { updated ->
+                                settingsRepository.updateSettings(updated)
+                            },
+                            onSaveSettings = { updated ->
+                                settingsRepository.updateSettings(updated)
+                                currentScreen = AppScreen.HOME
+                            },
+                            onBack = { currentScreen = AppScreen.HOME },
+                            onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
+                            onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
+                        )
+
+                        AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                            settings = settings,
+                            onDismiss = { currentScreen = AppScreen.SETTINGS }
+                        )
+
+                        AppScreen.RAMADHAN -> RamadhanOverlay(
+                            settings = settings,
+                            currentTimeString = currentTimeString,
+                            imsakTime = prayerSchedule.imsak,
+                            maghribTime = prayerSchedule.maghrib,
+                            secondsToImsak = secondsToImsak,
+                            secondsToMaghrib = secondsToMaghrib,
+                            onDismiss = {
+                                currentScreen = AppScreen.HOME
+                                userDismissedRamadhan = true
+                            }
+                        )
+
+                        AppScreen.IO_CONTROL -> IoControlScreen(
+                            settingsRepository = settingsRepository,
+                            deviceName = deviceName,
+                            deviceRole = deviceRole,
+                            appVersion = com.example.BuildConfig.VERSION_NAME,
+                            serverPort = settings.remoteServerPort,
+                            onBack = { currentScreen = AppScreen.SETTINGS }
+                        )
+                    }
+                }
+
+                // ============================================================
+                // PIN DIALOG
+                // ============================================================
+                if (showPinDialog) {
+                    PinDialog(
+                        correctPin = settings.pinCode,
+                        onSuccess = {
+                            showPinDialog = false
+                            sessionPinVerified = true
+                            lastPinVerifiedTime = System.currentTimeMillis()
+                            if (currentScreen == AppScreen.FOCUS_MODE) {
+                                currentScreen = AppScreen.HOME
                             } else {
                                 currentScreen = AppScreen.SETTINGS
                             }
-                        }
-                    )
-
-                    AppScreen.ADZAN_SEQUENCE -> AdzanSequenceOverlay(
-                        prayerId = focusPrayerId,
-                        adzanDurationSeconds = settings.adzanDisplayDurationSeconds,
-                        silentPhoneDurationSeconds = settings.silentPhoneDisplayDurationSeconds,
-                        qobliyahDurationSeconds = settings.qobliyahNiatDisplayDurationSeconds,
-                        iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                        onComplete = {
-                            android.util.Log.d("MainActivity", "Adzan sequence selesai → Mode Fokus")
-                            currentScreen = AppScreen.FOCUS_MODE
                         },
-                        onSkip = {
-                            android.util.Log.d("MainActivity", "Adzan sequence di-skip → Mode Fokus")
-                            currentScreen = AppScreen.FOCUS_MODE
-                        }
-                    )
-
-                    AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-                        prayerId = focusPrayerId,
-                        prayerTimeFormatted = focusPrayerTime,
-                        totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                        iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                        qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                        settings = settings,
-                        onDismiss = {
-                            android.util.Log.d("MainActivity", "Mode Fokus selesai → Home")
-                            currentScreen = AppScreen.HOME
-                        }
-                    )
-
-                    AppScreen.SETTINGS -> SettingsScreen(
-                        currentSettings = settings,
-                        soundManager = soundManager,
-                        isRemoteServerRunning = isRemoteServerRunning,
-                        onAutoSaveSettings = { updated ->
-                            settingsRepository.updateSettings(updated)
-                        },
-                        onSaveSettings = { updated ->
-                            settingsRepository.updateSettings(updated)
-                            currentScreen = AppScreen.HOME
-                        },
-                        onBack = { currentScreen = AppScreen.HOME },
-                        onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
-                        onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
-                    )
-
-                    AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-                        settings = settings,
-                        onDismiss = { currentScreen = AppScreen.SETTINGS }
-                    )
-
-                    AppScreen.RAMADHAN -> RamadhanOverlay(
-                        settings = settings,
-                        currentTimeString = currentTimeString,
-                        imsakTime = prayerSchedule.imsak,
-                        maghribTime = prayerSchedule.maghrib,
-                        secondsToImsak = secondsToImsak,
-                        secondsToMaghrib = secondsToMaghrib,
-                        onDismiss = {
-                            currentScreen = AppScreen.HOME
-                            userDismissedRamadhan = true
-                        }
-                    )
-
-                    AppScreen.IO_CONTROL -> IoControlScreen(
-                        settingsRepository = settingsRepository,
-                        deviceName = deviceName,
-                        deviceRole = deviceRole,
-                        appVersion = com.example.BuildConfig.VERSION_NAME,
-                        serverPort = settings.remoteServerPort,
-                        onBack = { currentScreen = AppScreen.SETTINGS }
+                        onDismiss = { showPinDialog = false }
                     )
                 }
-            }
 
-            // ============ PIN DIALOG ============
-            // V1.04.422: onSuccess set waktu & flag verified
-            if (showPinDialog) {
-                PinDialog(
-                    correctPin = settings.pinCode,
-                    onSuccess = {
-                        showPinDialog = false
-                        sessionPinVerified = true
-                        lastPinVerifiedTime = System.currentTimeMillis()
-                        if (currentScreen == AppScreen.FOCUS_MODE) {
-                            currentScreen = AppScreen.HOME
-                        } else {
-                            currentScreen = AppScreen.SETTINGS
-                        }
-                    },
-                    onDismiss = { showPinDialog = false }
-                )
-            }
-                                    // ============ STORAGE PERMISSION DIALOG ============
-                        if (showStoragePermissionDialog) {
-                            StoragePermissionDialog(
-                                onGrantClick = {
-                                    BackupManager.openPermissionSettings(this@MainActivity)
-                                },
-                                onSkipClick = {
-                                    showStoragePermissionDialog = false
-                                }
+                // ============================================================
+                // V1.04.423 — POPUP AUTO OFF DIALOG
+                // ============================================================
+                if (showAutoOffDialog) {
+                    AutoOffDialog(
+                        offStartTime = autoOffTimeStr,
+                        offEndTime = autoOnTimeStr,
+                        autoDismissSeconds = 120,
+                        onConfirmTrue = {
+                            // Matikan jadwal ON/OFF
+                            settingsRepository.updateSettings(
+                                settings.copy(autoOnOff = false)
                             )
+                            showAutoOffDialog = false
+                            temporaryWake = true // layar tetap nyala
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Jadwal ON/OFF dimatikan. Layar tetap nyala sampai TV dimatikan manual.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        onConfirmFalse = {
+                            // Layar redup lagi
+                            showAutoOffDialog = false
+                            temporaryWake = false
                         }
-
-                        // ============ UPDATE DIALOG ============
-                        if (showUpdateDialog && updateInfo != null) {
-                            val info = updateInfo!!
-
-                            UpdateDialog(
-                                currentVersion = info.currentVersion,
-                                latestVersion = info.latestVersion,
-                                releaseNotes = info.releaseNotes,
-                                forceUpdate = info.isForceUpdate,
-                                downloadProgress = if (isDownloading) downloadProgress else null,
-                                isDownloading = isDownloading,
-                                isInstalling = isInstalling,
-                                onUpdateClick = { startDownload() },
-                                onLaterClick = {
-                                    showUpdateDialog = false
-                                },
-                                onSkipClick = {
-                                    setSkippedVersion(info.latestVersion)
-                                    showUpdateDialog = false
-                                },
-                                onTidakClick = {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Aplikasi wajib diupdate. Menutup aplikasi...",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    scope.launch {
-                                        delay(1500)
-                                        this@MainActivity.finishAffinity()
-                                        android.os.Process.killProcess(android.os.Process.myPid())
+                    )
+                }
+                                            // ============================================================
+                            // STORAGE PERMISSION DIALOG
+                            // ============================================================
+                            if (showStoragePermissionDialog) {
+                                StoragePermissionDialog(
+                                    onGrantClick = {
+                                        BackupManager.openPermissionSettings(this@MainActivity)
+                                    },
+                                    onSkipClick = {
+                                        showStoragePermissionDialog = false
                                     }
-                                }
-                            )
-                        }
+                                )
+                            }
 
-                        // ============ RESTART COUNTDOWN OVERLAY ============
-                        if (showRestartCountdown) {
-                            RestartCountdownOverlay(
-                                countdownStart = 5,
-                                message = "Pengaturan & media baru sedang diterapkan",
-                                onComplete = {
-                                    android.util.Log.d("MainActivity", "Countdown selesai — restart sekarang")
-                                    showRestartCountdown = false
-                                    doSoftRestart()
-                                }
-                            )
+                            // ============================================================
+                            // UPDATE DIALOG
+                            // ============================================================
+                            if (showUpdateDialog && updateInfo != null) {
+                                val info = updateInfo!!
+
+                                UpdateDialog(
+                                    currentVersion = info.currentVersion,
+                                    latestVersion = info.latestVersion,
+                                    releaseNotes = info.releaseNotes,
+                                    forceUpdate = info.isForceUpdate,
+                                    downloadProgress = if (isDownloading) downloadProgress else null,
+                                    isDownloading = isDownloading,
+                                    isInstalling = isInstalling,
+                                    onUpdateClick = { startDownload() },
+                                    onLaterClick = {
+                                        showUpdateDialog = false
+                                    },
+                                    onSkipClick = {
+                                        setSkippedVersion(info.latestVersion)
+                                        showUpdateDialog = false
+                                    },
+                                    onTidakClick = {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Aplikasi wajib diupdate. Menutup aplikasi...",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        scope.launch {
+                                            delay(1500)
+                                            this@MainActivity.finishAffinity()
+                                            android.os.Process.killProcess(android.os.Process.myPid())
+                                        }
+                                    }
+                                )
+                            }
+
+                            // ============================================================
+                            // RESTART COUNTDOWN OVERLAY
+                            // ============================================================
+                            if (showRestartCountdown) {
+                                RestartCountdownOverlay(
+                                    countdownStart = 5,
+                                    message = "Pengaturan & media baru sedang diterapkan",
+                                    onComplete = {
+                                        android.util.Log.d("MainActivity", "Countdown selesai — restart sekarang")
+                                        showRestartCountdown = false
+                                        doSoftRestart()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
