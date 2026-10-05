@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,21 +42,16 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.ui.theme.IslamicGold
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
 
 /**
  * MasjidVideoPlayer — Pemutar video kegiatan masjid.
  *
- * V1.04.423:
- *   - Tambah parameter `zoomFactor` untuk mode ZOOM (beda dari POTONG)
- *   - zoomFactor = 1.0f → tidak zoom (default)
- *   - zoomFactor = 1.15f → zoom 15% (mode ZOOM)
- *
- * Mode:
- *   POTONG (Crop)  → contentScale=Crop,      zoomFactor=1.0f
- *   PAS (Fit)      → contentScale=Fit,       zoomFactor=1.0f
- *   ZOOM (Fill)    → contentScale=Crop,      zoomFactor=1.15f  ← BEDA DARI POTONG
- *   FULL (Fscreen) → contentScale=Crop,      zoomFactor=1.0f  + panel kiri hilang
- *   FIT (Stretch)  → contentScale=FillBounds, zoomFactor=1.0f
+ * V1.04.423 FIX AUTO-SWITCH:
+ *   - Video pakai REPEAT_MODE_ALL → tidak pernah trigger STATE_ENDED
+ *   - SOLUSI: polling posisi video setiap 500ms
+ *   - Deteksi LOOP saat posisi turun drastis (dari >80% ke <20%)
+ *   - Panggil onVideoLooped() setiap 1x putaran selesai
  */
 @Composable
 fun MasjidVideoPlayer(
@@ -63,16 +59,13 @@ fun MasjidVideoPlayer(
     isFullscreen: Boolean = false,
     contentScale: ContentScale = ContentScale.Crop,
     zoomFactor: Float = 1.0f,
-    onVideoEnded: (() -> Unit)? = null,
+    onVideoLooped: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(20.dp)
     val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
 
-    // ============================================================
-    // FIX BUG: rename `resizeMode` → `aspectResizeMode`
-    // ============================================================
     val aspectResizeMode: Int = when (contentScale) {
         ContentScale.Fit -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         ContentScale.Crop -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -90,17 +83,53 @@ fun MasjidVideoPlayer(
         }
     }
 
-    DisposableEffect(onVideoEnded) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) {
-                    onVideoEnded?.invoke()
+    // ============================================================
+    // V1.04.423 — POLLING POSISI VIDEO
+    // Deteksi loop: kalau posisi turun drastis dari >80% ke <20%
+    // ============================================================
+    LaunchedEffect(onVideoLooped, videoUriString) {
+        if (onVideoLooped == null) return@LaunchedEffect
+        if (videoUriString.isNullOrBlank()) return@LaunchedEffect
+
+        var lastPosition = 0L
+        var lastDuration = 0L
+        var hasStarted = false
+
+        while (true) {
+            delay(500L)
+
+            try {
+                val currentPosition = exoPlayer.currentPosition
+                val currentDuration = exoPlayer.duration
+
+                // Update durasi sekali video siap
+                if (currentDuration > 0) {
+                    lastDuration = currentDuration
                 }
+
+                // Tandai video sudah mulai (posisi > 0)
+                if (!hasStarted && currentPosition > 0) {
+                    hasStarted = true
+                }
+
+                // Deteksi LOOP:
+                // - Durasi valid (>1 detik)
+                // - Posisi sebelumnya mendekati akhir (>80% durasi)
+                // - Posisi sekarang mendekati awal (<20% durasi)
+                if (hasStarted && lastDuration > 1000L) {
+                    val wasNearEnd = lastPosition > (lastDuration * 0.80)
+                    val nowNearStart = currentPosition < (lastDuration * 0.20)
+
+                    if (wasNearEnd && nowNearStart) {
+                        // Video baru saja looping 1x putaran
+                        onVideoLooped.invoke()
+                    }
+                }
+
+                lastPosition = currentPosition
+            } catch (e: Exception) {
+                // Abaikan error polling
             }
-        }
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
         }
     }
 
@@ -167,7 +196,6 @@ fun MasjidVideoPlayer(
                 },
                 modifier = Modifier
                     .fillMaxSize()
-                    // V1.04.423: graphicsLayer untuk zoom tambahan (mode ZOOM)
                     .graphicsLayer(
                         scaleX = zoomFactor,
                         scaleY = zoomFactor
