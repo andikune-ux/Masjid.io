@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -44,19 +45,24 @@ import com.example.ui.theme.TextSecondary
 /**
  * MasjidVideoPlayer — Pemutar video kegiatan masjid.
  *
- * V1.04.422 FIX:
- *   - FIX BUG: variable lokal `resizeMode` bentrok dengan property PlayerView.resizeMode
- *     → di-rename jadi `aspectResizeMode`
- *   - FIX: fallback default ke RESIZE_MODE_ZOOM (sebelumnya FIT → bikin video letterbox)
- *   - Dukung semua 5 mode ukuran frame dengan benar:
- *     POTONG (Crop) / PAS (Fit) / ZOOM (Fill) / FULL (Fullscreen) / FIT (Stretch)
- *   - Video loop terus, callback onVideoEnded dipanggil setiap 1x putaran selesai
+ * V1.04.423:
+ *   - Tambah parameter `zoomFactor` untuk mode ZOOM (beda dari POTONG)
+ *   - zoomFactor = 1.0f → tidak zoom (default)
+ *   - zoomFactor = 1.15f → zoom 15% (mode ZOOM)
+ *
+ * Mode:
+ *   POTONG (Crop)  → contentScale=Crop,      zoomFactor=1.0f
+ *   PAS (Fit)      → contentScale=Fit,       zoomFactor=1.0f
+ *   ZOOM (Fill)    → contentScale=Crop,      zoomFactor=1.15f  ← BEDA DARI POTONG
+ *   FULL (Fscreen) → contentScale=Crop,      zoomFactor=1.0f  + panel kiri hilang
+ *   FIT (Stretch)  → contentScale=FillBounds, zoomFactor=1.0f
  */
 @Composable
 fun MasjidVideoPlayer(
     videoUriString: String?,
     isFullscreen: Boolean = false,
     contentScale: ContentScale = ContentScale.Crop,
+    zoomFactor: Float = 1.0f,
     onVideoEnded: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -65,9 +71,7 @@ fun MasjidVideoPlayer(
     val borderWidth = if (isFullscreen) 0.dp else 2.5.dp
 
     // ============================================================
-    // V1.04.422 FIX BUG: rename `resizeMode` → `aspectResizeMode`
-    // Sebelumnya nama variable lokal bentrok dengan property PlayerView.resizeMode
-    // sehingga selalu jatuh ke fallback (FIT) → video tampak letterbox.
+    // FIX BUG: rename `resizeMode` → `aspectResizeMode`
     // ============================================================
     val aspectResizeMode: Int = when (contentScale) {
         ContentScale.Fit -> AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -86,10 +90,6 @@ fun MasjidVideoPlayer(
         }
     }
 
-    // ============================================================
-    // Callback onVideoEnded — dipanggil saat video selesai 1x putaran
-    // (dipakai oleh HomeScreen untuk auto-switch mode)
-    // ============================================================
     DisposableEffect(onVideoEnded) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -155,7 +155,6 @@ fun MasjidVideoPlayer(
 
                         val playerView = PlayerView(ctx).apply {
                             useController = false
-                            // V1.04.422 FIX: pakai aspectResizeMode (variable lokal yang benar)
                             this.resizeMode = aspectResizeMode
                             layoutParams = FrameLayout.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -166,7 +165,13 @@ fun MasjidVideoPlayer(
                         addView(playerView)
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    // V1.04.423: graphicsLayer untuk zoom tambahan (mode ZOOM)
+                    .graphicsLayer(
+                        scaleX = zoomFactor,
+                        scaleY = zoomFactor
+                    )
             )
         } else {
             Column(
