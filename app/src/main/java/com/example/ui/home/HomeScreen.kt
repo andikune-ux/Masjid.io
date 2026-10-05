@@ -139,7 +139,7 @@ private fun HomeScreenContent(
     val effectiveMode = if (!hasAnyMedia) "NORMAL" else currentMode
 
     // ============================================================
-    // AUTO-SWITCH LOGIC — V1.04.422 FIX
+    // AUTO-SWITCH LOGIC — V1.04.422
     // Cara kerja:
     // 1. Tunggu durasi sesuai mode (video / normal)
     // 2. Kalau Mode Video + tungguVideoSelesai = ON
@@ -169,7 +169,6 @@ private fun HomeScreenContent(
         // Kalau dari mode video + tunggu video selesai
         if (effectiveMode == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
             videoFinishedOnce = false
-            // Tunggu sampai video benar-benar selesai 1x putaran
             while (!videoFinishedOnce) {
                 delay(500L)
             }
@@ -281,15 +280,13 @@ private fun HomeScreenContent(
     }
 }
 // ============================================================
-// MODE VIDEO (Opsi H) — V1.04.422 FIX
+// MODE VIDEO (Opsi H) — V1.04.422
 //
-// STRUKTUR BARU:
+// STRUKTUR:
 //   Column (fillMaxSize)
 //   ├── Box (weight 1f)  → Row (Panel Kiri 24% + Panel Kanan 76%)
 //   │                    → Tombol ⚙ overlay di sudut kanan atas LAYAR
 //   └── Running Text (height 52dp) → FIXED di paling bawah
-//
-// Kunci: Running text BUKAN overlay → jadwal sholat TIDAK kepotong
 // ============================================================
 @Composable
 private fun VideoModeLayout(
@@ -310,11 +307,11 @@ private fun VideoModeLayout(
 
     // Mapping mode ukuran frame → ContentScale
     val contentScale: ContentScale = when (settings.videoFrameScale) {
-        "POTONG" -> ContentScale.Crop        // crop seperti Instagram Reels
-        "PAS" -> ContentScale.Fit            // letterbox seperti Netflix
-        "ZOOM" -> ContentScale.Crop          // fill seperti TikTok
-        "FULL" -> ContentScale.Crop          // fullscreen (panel kiri hilang)
-        "FIT" -> ContentScale.FillBounds     // stretch paksa
+        "POTONG" -> ContentScale.Crop
+        "PAS" -> ContentScale.Fit
+        "ZOOM" -> ContentScale.Crop
+        "FULL" -> ContentScale.Crop
+        "FIT" -> ContentScale.FillBounds
         else -> ContentScale.Crop
     }
 
@@ -410,7 +407,6 @@ private fun VideoModeLayout(
 
         // ============================================================
         // RUNNING TEXT — FIXED di paling bawah (BUKAN overlay)
-        // Kasih height tetap biar TIDAK bikin panel kiri kepotong
         // ============================================================
         Box(
             modifier = Modifier
@@ -428,8 +424,7 @@ private fun VideoModeLayout(
 }
 
 // ============================================================
-// PANEL KIRI VIDEO MODE — V1.04.422 COMPACT
-// Spacing dirapatkan, kotak "Menuju Subuh" dikecilkan
+// PANEL KIRI VIDEO MODE — COMPACT (spacing rapat)
 // ============================================================
 @Composable
 private fun VideoModeLeftPanel(
@@ -470,7 +465,7 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // ===== KOTAK GABUNGAN JAM + TANGGAL — SPACING DIRAPATKAN =====
+        // ===== KOTAK GABUNGAN JAM + TANGGAL — RAPAT =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -597,7 +592,7 @@ private fun VideoModeLeftPanel(
 }
 
 // ============================================================
-// ITEM SHOLAT VERTIKAL — V1.04.422 COMPACT
+// ITEM SHOLAT VERTIKAL — COMPACT
 // ============================================================
 @Composable
 private fun PrayerRowItem(
@@ -697,7 +692,7 @@ private fun SettingsOverlayButton(onClick: () -> Unit) {
 }
 
 // ============================================================
-// MODE NORMAL — Layout lengkap seperti sebelumnya
+// MODE NORMAL — Layout lengkap
 // ============================================================
 @Composable
 private fun NormalModeLayout(
@@ -750,6 +745,18 @@ private fun NormalModeLayout(
 
     LaunchedEffect(settings.slideEnabled) {
         if (!settings.slideEnabled) userDismissedSlide = false
+    }
+
+    // ============================================================
+    // V1.04.422 — COOLDOWN SLIDE
+    // Setelah user dismiss slide via OK/BACK, tunggu 5 menit
+    // baru muncul lagi secara otomatis (sesuai jadwal).
+    // ============================================================
+    LaunchedEffect(userDismissedSlide) {
+        if (userDismissedSlide) {
+            delay(5 * 60 * 1000L)   // cooldown 5 menit
+            userDismissedSlide = false
+        }
     }
 
     if (settings.qrisIntervalMinutes > 0 && !showSlideOverlay) {
