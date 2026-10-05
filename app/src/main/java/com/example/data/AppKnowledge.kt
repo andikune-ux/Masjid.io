@@ -16,7 +16,7 @@ object AppKnowledge {
 
     val APP_STRUCTURE = """
 app/src/main/java/com/example/
-├── MainActivity.kt                    -> Activity utama (V1.04.422)
+├── MainActivity.kt                    -> Activity utama (V1.04.423)
 ├── audio/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
@@ -58,9 +58,10 @@ app/src/main/java/com/example/
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
 │   ├── ApkDownloader.kt               -> Download & install APK
+│   ├── QrCodeGenerator.kt             -> Generator barcode QR
 │   └── BuildHistoryFetcher.kt         -> Fetch build history GitHub
 └── ui/
-    ├── home/HomeScreen.kt             -> Tampilan utama (V1.04.422)
+    ├── home/HomeScreen.kt             -> Tampilan utama (V1.04.423)
     ├── focus/
     │   ├── AdzanSequenceOverlay.kt    -> 3 tahap alur sholat (V1.04.421)
     │   ├── PrayerFocusOverlay.kt      -> Mode Fokus 2 fase (V1.04.421)
@@ -69,7 +70,7 @@ app/src/main/java/com/example/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
     │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
     │   ├── KajianSlide.kt             -> Slide Jadwal Kajian
-    │   └── SlideManager.kt            -> Manager rotasi slide (V1.04.422 — OK/BACK exit + KIRI/KANAN)
+    │   └── SlideManager.kt            -> Manager rotasi slide (V1.04.423 — CLEAN VIEW)
     ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
     ├── cctv/CctvWidget.kt             -> Widget CCTV (RTSP/HTTP)
     ├── remote/
@@ -92,16 +93,16 @@ app/src/main/java/com/example/
     │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif
     │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
-    │   ├── PowerSettingsPane.kt       -> Daya & Booting
+    │   ├── PowerSettingsPane.kt       -> Daya & Booting (V1.04.423 — jadwal on/off otomatis)
     │   ├── QrisSettingsPane.kt        -> Donasi QRIS
     │   ├── RamadhanSettingsPane.kt    -> Mode Ramadhan
     │   ├── RunningTextSettingsPane.kt -> Running text
-    │   ├── SecuritySettingsPane.kt    -> Keamanan (V1.04.422 — + PIN LOCK 3 opsi)
+    │   ├── SecuritySettingsPane.kt    -> Keamanan (PIN LOCK 3 opsi)
     │   ├── SlideSettingsPane.kt       -> Slide Fullscreen
     │   ├── CctvSettingsPane.kt        -> CCTV Masjid
     │   ├── RemoteSettingsPane.kt      -> iO Control + Remote Server
     │   ├── TimeSettingsPane.kt        -> Waktu manual
-    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame
+    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch + Ukuran Frame (V1.04.423)
     │   ├── WeeklyOfficersSettingsPane.kt -> Petugas mingguan
     │   ├── WisdomSettingsPane.kt      -> Kartu nasihat
     │   ├── MiniCalendarPickerModal.kt -> Kalender mini
@@ -118,7 +119,7 @@ app/src/main/java/com/example/
     │   ├── FocusHelper.kt             -> Helper fokus tambahan
     │   ├── NeonFocusBorder.kt         -> Border fokus berputar
     │   ├── PhotoSlideshow.kt          -> Slideshow foto
-    │   ├── MasjidVideoPlayer.kt       -> Video player (V1.04.422 — fix resizeMode)
+    │   ├── MasjidVideoPlayer.kt       -> Video player (V1.04.423 — onVideoLooped + zoomFactor)
     │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat
@@ -132,13 +133,16 @@ app/src/main/java/com/example/
     │   ├── ArabesquePattern.kt        -> Pola arabesque
     │   ├── IslamicEventCard.kt        -> Kartu event Islam
     │   ├── WeatherAmbientOverlay.kt   -> Efek cuaca ambient
-    │   └── WisdomCardCarousel.kt      -> Karusel kartu nasihat
+    │   ├── WisdomCardCarousel.kt      -> Karusel kartu nasihat (V1.04.423 — auto-shrink)
+    │   ├── VideoFilePickerDialog.kt   -> Custom file picker TV (V1.04.423 — BARU)
+    │   └── AutoOffDialog.kt           -> Popup konfirmasi jadwal off (V1.04.423 — BARU)
     └── theme/                          -> Warna & tipografi
     """.trimIndent()
         val APP_FEATURES = """
 1. JADWAL SHOLAT
    - 6 waktu: Subuh, Syuruq, Dzuhur, Ashar, Maghrib, Isya
    - Countdown + progress bar visual
+   - Icon berbeda per waktu (bukan emoji)
 
 2. TAMPILAN UTAMA (Responsive)
    - Jam digital besar + tanggal Hijriah/Masehi
@@ -175,24 +179,22 @@ app/src/main/java/com/example/
    - Tahap 2: Overlay Himbauan HP fullscreen
    - Tahap 3: Overlay Niat Qobliyah + Countdown Iqomah
    - Tahap 4: Mode Fokus (Niat Fardhu → Dzikir)
-   - Semua durasi bisa diatur user
 
 7. MODE FOKUS SHOLAT (V1.04.421)
    - 2 fase baru: Niat Fardhu + Dzikir
-   - Fase ADZAN & QOBLIYAH dipindah ke AdzanSequenceOverlay
    - Niat sholat fardhu (arab + latin + arti) - 5 waktu
    - Tombol OK: skip ke fase berikutnya
    - Tombol BACK: keluar dari Mode Fokus
-   - Tidak tampilkan slide QRIS/Laporan saat Mode Fokus aktif
 
 8. AUDIO
    - Mode Beep Only / Full Adzan / Silent
 
-9. SLIDE FULLSCREEN
+9. SLIDE FULLSCREEN (V1.04.423 — CLEAN VIEW)
    - Slide QRIS / Laporan / Kajian auto-rotate
-   - FULLSCREEN — terpisah dari Mode Video
+   - Tampilan BERSIH tanpa overlay navigasi
    - Tidak muncul saat Mode Fokus aktif
-   - V1.04.422: OK/BACK keluar, tombol KIRI/KANAN pindah slide
+   - OK/BACK keluar, KIRI/KANAN pindah slide (fungsi remote tetap)
+   - Cooldown 5 menit setelah dismiss
 
 10. CCTV MASJID
     - Widget PiP (RTSP + HTTP)
@@ -274,52 +276,39 @@ app/src/main/java/com/example/
     - File TIDAK dihapus otomatis
     - Daftar file template di menu Tampilan & Background
     - 3 tombol per file: GUNAKAN / INFO / HAPUS
-    - Apply template → media lama DITAMBAH
-    - Setelah apply → dialog konfirmasi restart
 
 32. STORAGE PERMISSION DIALOG (V1.04.418)
     - Muncul otomatis saat pertama buka app
     - Dialog penjelasan izin akses file
     - Tombol BERI IZIN → buka Manage All Files Access
-    - Auto-detect kalau izin sudah diberikan
-    - Cek permission sebelum download update
 
 33. LAYOUT OPSI H — MODE VIDEO (V1.04.420)
     - Panel kiri 24%: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar
     - Panel kanan 76%: video/foto dengan lock frame
     - List sholat vertikal 6 baris (Subuh → Isya)
     - Highlight NEXT: emas + border tebal + pulse animation
-    - Kotak gabungan jam + tanggal (1 kotak)
-    - Icon sholat pakai Material Icon (bukan emoji)
-    - Overlay wisdom card di bawah video (bar tipis)
-    - Tombol Settings overlay mengambang kanan atas
-    - Running text full width bawah
-    - Mode NORMAL: layout lengkap seperti sebelumnya
 
-34. AUTO-SWITCH MODE (V1.04.420 + V1.04.422)
+34. AUTO-SWITCH MODE (V1.04.420 + V1.04.423)
     - Bolak-balik Mode Video ↔ Mode Normal otomatis
     - Interval video (1-60 menit)
     - Durasi normal (1-30 menit)
-    - V1.04.422: Tunggu video selesai 1x putaran sebelum switch
+    - V1.04.423: Tunggu video selesai 1x putaran sebelum switch
+    - V1.04.423: Polling posisi video (500ms) deteksi loop
     - Kalau belum ada video/foto → mode normal permanen
-    - JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
-    - Berjalan 24 jam nonstop
 
-35. PENGATURAN UKURAN FRAME (V1.04.420 + V1.04.422)
+35. PENGATURAN UKURAN FRAME (V1.04.420 + V1.04.423)
     - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
     - POTONG (Crop) seperti Instagram Reels
     - PAS (Fit/Letterbox) seperti Netflix
-    - ZOOM (Fill) seperti TikTok
+    - ZOOM (Fill) - V1.04.423: pakai zoomFactor 1.15f (beda dari POTONG)
     - FULL (Fullscreen) panel kiri hilang
     - FIT (Stretch) paksa video/foto sesuaikan frame
     - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
-    - V1.04.422: Semua 5 mode sekarang benar-benar bekerja (fix bug resizeMode)
 
 36. MEDIA PERSISTENCE (V1.04.421)
     - File foto/video di-copy ke filesDir/masjid_io/ (folder permanen)
     - Fix masalah file hilang setelah app tutup/update/reboot
     - Support: QRIS, Logo, Background, Video, Foto Slideshow, Foto Petugas
-    - Hapus file lama otomatis saat user ganti/hapus
     - File baru: MediaPersistenceHelper.kt
 
 37. FIX MODE VIDEO FULL-FRAME (V1.04.422) — BARU
@@ -329,8 +318,8 @@ app/src/main/java/com/example/
     - 5 mode ukuran frame (POTONG/PAS/ZOOM/FULL/FIT) benar-benar beda
     - Struktur root Mode Video: Box → Column (running text bagian Column)
     - Jadwal sholat di panel kiri TIDAK LAGI kepotong running text
-    - Tombol ⚙ Settings overlay di sudut kanan atas LAYAR (bukan panel kanan)
-    - Panel kiri di-compact: font jam 26sp, list sholat 10sp, spacing rapat
+    - Tombol ⚙ Settings overlay di sudut kanan atas LAYAR
+    - Panel pakai weight() bukan fillMaxWidth(fraction) → 100% presisi
 
 38. PIN LOCK MODE (V1.04.422) — BARU
     - 3 opsi di Settings → Keamanan → PIN LOCK:
@@ -341,13 +330,13 @@ app/src/main/java/com/example/
     - Field pinLockMode di AppSettings (default UNTIL_EXIT)
     - Logic di MainActivity: sessionPinVerified + lastPinVerifiedTime
     - shouldRequestPin() cek mode + flag + waktu
-    - UI 3 radio button di SecuritySettingsPane
 
-39. SLIDE NAVIGASI REMOTE (V1.04.422) — BARU
+39. SLIDE NAVIGASI REMOTE (V1.04.422 + V1.04.423) — BARU
     - Tekan OK / BACK / ENTER / DPAD_CENTER → keluar slide kembali ke Home
     - Tekan KIRI / KANAN → pindah slide (Qris ↔ Laporan ↔ Kajian)
-    - Panah navigasi kiri/kanan di sisi slide (visual hint)
-    - Hint tombol remote di pojok kiri bawah
+    - V1.04.423: CLEAN VIEW — hapus semua overlay navigasi visual
+    - Hapus tombol X, panah, indicator dot, hint remote
+    - Fungsi tombol remote TETAP JALAN
     - Cooldown 5 menit setelah dismiss → slide muncul lagi sesuai jadwal
 
 40. STRUKTUR MODE VIDEO BARU (V1.04.422) — BARU
@@ -356,8 +345,71 @@ app/src/main/java/com/example/
     - Running Text (height 52dp) = fixed di paling bawah
     - Video/foto full hingga tepi kanan panel (no outer padding)
     - Layout identik dengan mode normal untuk tombol ⚙ di sudut kanan atas layar
+
+41. JADWAL ON/OFF OTOMATIS (V1.04.423) — BARU
+    - ON otomatis = Subuh - X menit (X bisa diatur 5-120, default 15)
+    - OFF otomatis = Isya + Y menit (Y bisa diatur 5-120, default 30)
+    - Brightness 0 (layar redup total) saat jam OFF
+    - Brightness normal saat jam ON
+    - Polling jadwal setiap 30 detik — real-time ikut waktu
+    - Tampil kartu 'Jadwal Hari Ini' di menu Daya & Booting
+    - 2 slider: 'Nyala Sebelum Subuh' & 'Redup Setelah Isya'
+    - SEMUA OTOMATIS dari jadwal sholat, tidak perlu input jam manual
+    - File: PowerSettingsPane.kt (UI) + MainActivity.kt (logic)
+
+42. AUTO-OFF DIALOG (V1.04.423) — BARU
+    - Popup konfirmasi saat user tekan remote di jam OFF
+    - Pertanyaan: 'Apakah Anda bersedia MEMATIKAN JADWAL ON/OFF?'
+    - Tombol YA (kiri, hijau) = matikan jadwal → layar nyala terus
+    - Tombol TIDAK (kanan, abu-abu) = popup hilang, layar redup lagi
+    - Auto-dismiss 2 menit → dianggap TIDAK
+    - Back button = TIDAK
+    - Focus D-pad otomatis ke tombol TIDAK (default aman)
+    - File baru: AutoOffDialog.kt
+
+43. VIDEO FILE PICKER CUSTOM (V1.04.423) — BARU
+    - Custom file picker dalam app (TV friendly, D-pad navigasi)
+    - Scan rekursif /sdcard/ + semua subfolder
+    - Skip folder sistem (Android, .cache, .thumbnails)
+    - 3 mode: VIDEO / IMAGE / ALL
+    - Icon berbeda per tipe (video/foto/audio/dok/unknown)
+    - Tampilkan size + ekstensi file
+    - Navigasi masuk folder dengan klik, pilih file dengan tombol PILIH
+    - Fix: tombol GALERI + FILE di VideoSettingsPane sekarang berfungsi
+    - File baru: VideoFilePickerDialog.kt
+
+44. WISDOM CARD AUTO-SHRINK (V1.04.423) — BARU
+    - Fix tulisan terpotong dengan auto-shrink font + multi-line dinamis
+    - Strategi: ≤60 char 14sp/1 baris, ≤100 13sp/2 baris, ≤150 12sp/2 baris
+    - ≤200 11sp/3 baris, >200 10sp/3 baris
+    - Ganti TextOverflow.Ellipsis → TextOverflow.Clip (teks utuh tanpa '...')
+    - Padding 12x4dp (lebih lega)
+    - Line height dinamis
+    - AnimatedContent pakai fillMaxWidth() → tidak wrap content
+    - Wisdom card full sampai tepi kanan layar (76% panel kanan)
+
+45. ICON JADWAL SHOLAT BERBEDA (V1.04.423) — BARU
+    - Icon berbeda per waktu sholat (bukan emoji)
+    - Subuh → WbTwilight (fajar)
+    - Syuruq → WbSunny (matahari terbit)
+    - Dzuhur → LightMode (siang terang)
+    - Ashar → WbCloudy (sore berawan)
+    - Maghrib → NightsStay (senja)
+    - Isya → Nightlight (malam)
+    - Kunci: PrayerRowItem pakai weight(1f) → isi penuh panel
     """.trimIndent()
         val UPDATE_HISTORY = """
+V1.04.423 (06 Oktober 2026)
+- Jadwal On/Off Otomatis + File Picker Custom + Fix Video Stage + Wisdom Card Full
+- Jadwal On/Off otomatis dari jadwal sholat (ON=Subuh-X, OFF=Isya+X)
+- Popup konfirmasi AutoOffDialog saat tekan remote di jam OFF
+- Custom file picker VideoFilePickerDialog (TV friendly, rekursif)
+- Fix video stage full-bleed sampai tepi kanan
+- Fix wisdom card full sampai tepi kanan (auto-shrink)
+- Fix Auto-Switch dengan polling posisi video (deteksi loop)
+- Slide CLEAN VIEW (hapus semua overlay navigasi)
+- Icon jadwal sholat berbeda per waktu
+
 V1.04.422 (06 Oktober 2026)
 - Fix Mode Video Full-Frame + Auto-Switch + PIN Lock Options + Slide Navigasi
 - Video sekarang PENUH sampai tepi kanan (fix bug resizeMode)
@@ -507,6 +559,12 @@ V1.28.0 (27 September 2026)
 48. Auto-Switch tidak jalan → reset videoFinishedOnce + tunggu video selesai 1x putaran
 49. Slide tidak bisa keluar via remote → tambah onKeyEvent di SlideManager
 50. PIN tidak diminta kembali setelah keluar Settings → tambah field pinLockMode + logic di MainActivity
+51. Video tidak pernah trigger STATE_ENDED (karena REPEAT_MODE_ALL) → polling posisi video 500ms
+52. Wisdom card tulisan terpotong → auto-shrink font + multi-line dinamis + TextOverflow.Clip
+53. Wisdom card tidak full ke kanan → hapus Box wrapper + AnimatedContent fillMaxWidth
+54. Panel kiri tidak presisi 100% → pakai weight() bukan fillMaxWidth(fraction)
+55. Tombol GALERI & FILE di TV tidak bisa pilih file → custom VideoFilePickerDialog
+56. Jadwal on/off tidak berfungsi (hanya UI) → logic brightness otomatis dari jadwal sholat
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -521,6 +579,36 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[06-10-2026] - V1.04.423
+Error: Video tidak pernah trigger STATE_ENDED untuk auto-switch
+File: app/src/main/java/com/example/ui/components/MasjidVideoPlayer.kt
+Solusi: Video pakai REPEAT_MODE_ALL → tidak pernah STATE_ENDED. Solusi: polling posisi video setiap 500ms deteksi loop (posisi turun drastis dari >80% ke <20%).
+
+[06-10-2026] - V1.04.423
+Error: Compile error 'Unresolved reference videoFinishedOnce' + 'onVideoEnded not found'
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: Rename field state videoFinishedOnce → videoLoopedOnce, parameter onVideoEnded → onVideoLooped. Kirim file FULL TIMPA supaya tidak campuran.
+
+[06-10-2026] - V1.04.423
+Error: Tombol GALERI & FILE di TV muncul 'Anda tidak memiliki aplikasi untuk melakukan tindakan ini'
+File: app/src/main/java/com/example/ui/settings/VideoSettingsPane.kt
+Solusi: ActivityResultContracts butuh DocumentsUI yang tidak ada di TV. Buat custom VideoFilePickerDialog (file picker dalam app, D-pad friendly, rekursif scan /sdcard/).
+
+[06-10-2026] - V1.04.423
+Error: Wisdom card tidak full sampai tepi kanan
+File: app/src/main/java/com/example/ui/components/WisdomCardCarousel.kt
+Solusi: AnimatedContent tidak dikasih Modifier.fillMaxWidth(). Fix: hapus Box wrapper + AnimatedContent langsung pakai modifier.fillMaxWidth() dari caller.
+
+[06-10-2026] - V1.04.423
+Error: Panel video tidak presisi 100% (masih ada gap)
+File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+Solusi: fillMaxWidth(fraction) punya rounding error di Compose. Fix: pakai weight(fraction) di Row — dijamin total tepat 100%.
+
+[06-10-2026] - V1.04.423
+Error: Video file picker custom tidak bisa dibaca (path lokal vs URI)
+File: app/src/main/java/com/example/util/MediaTransferHelper.kt
+Solusi: Support path lokal (starts with "/" atau "file://") selain content:// URI. Tambah isLocalPath() + localPathFromUri() helper.
 
 [06-10-2026] - V1.04.422
 Error: Video tidak full ke kanan (gap hitam di sisi kanan panel)
@@ -711,7 +799,7 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : com.example
 - Application ID : com.aistudio.masjidio.tkvpmz
-- Versi saat ini : V1.04.422
+- Versi saat ini : V1.04.423
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
@@ -749,7 +837,7 @@ RIWAYAT KEJADIAN:
 - Solusi: restore debug.keystore dari commit lama
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.04.422)
+- Tidak ada (semua fitur selesai per V1.04.423)
     """.trimIndent()
 
     val MEMORY_INSTRUCTION = """
@@ -787,7 +875,7 @@ STRUKTUR MENU SETTINGS (20 Kategori):
 12. Audio & Adzan
 13. Mode Ramadhan
 14. Keamanan (V1.04.422 — + PIN LOCK 3 opsi)
-15. Daya & Booting
+15. Daya & Booting (V1.04.423 — jadwal on/off otomatis)
 16. Slide Fullscreen
 17. CCTV Masjid
 18. iO Control
@@ -878,7 +966,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : com.example
   Application ID : com.aistudio.masjidio.tkvpmz
-  Versi saat ini : V1.04.422
+  Versi saat ini : V1.04.423
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -896,8 +984,8 @@ APLIKASI:
 11. Running Text
 12. Audio & Adzan
 13. Mode Ramadhan
-14. Keamanan (V1.04.422 — + PIN LOCK 3 opsi)
-15. Daya & Booting
+14. Keamanan (PIN LOCK 3 opsi)
+15. Daya & Booting (jadwal on/off otomatis)
 16. Slide Fullscreen
 17. CCTV Masjid
 18. iO Control
@@ -1118,26 +1206,25 @@ RIWAYAT KEJADIAN:
 - Running text full width bawah
 - Mode Normal: layout lengkap seperti sebelumnya
 
-=== BAGIAN 30 — FITUR AUTO-SWITCH MODE (V1.04.420 + V1.04.422) ===
+=== BAGIAN 30 — FITUR AUTO-SWITCH MODE (V1.04.420 + V1.04.423) ===
 
 - Bolak-balik Mode Video <-> Mode Normal
 - Interval video: 1-60 menit
 - Durasi normal: 1-30 menit
-- V1.04.422: Tunggu video selesai 1x putaran sebelum switch
+- V1.04.423: Tunggu video selesai 1x putaran sebelum switch
+- V1.04.423: Polling posisi video (500ms) deteksi loop
 - Kalau belum ada video/foto -> mode normal permanen
 - JEDA otomatis saat: Mode Fokus / Slide Fullscreen / Ramadhan aktif
-- Berjalan 24 jam nonstop
 
-=== BAGIAN 31 — FITUR UKURAN FRAME (V1.04.420 + V1.04.422) ===
+=== BAGIAN 31 — FITUR UKURAN FRAME (V1.04.420 + V1.04.423) ===
 
 - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
 - POTONG (Crop) seperti Instagram Reels
 - PAS (Fit/Letterbox) seperti Netflix
-- ZOOM (Fill) seperti TikTok
+- ZOOM (Fill) - V1.04.423: pakai zoomFactor 1.15f (beda dari POTONG)
 - FULL (Fullscreen) panel kiri hilang
 - FIT (Stretch) paksa video/foto sesuaikan frame
 - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
-- V1.04.422: Semua 5 mode sekarang benar-benar bekerja (fix bug resizeMode)
 
 === BAGIAN 32 — ALUR SHOLAT BARU (V1.04.421) ===
 
@@ -1157,8 +1244,6 @@ Tombol remote:
 - BACK di Adzan Sequence: skip ke Mode Fokus
 - OK di Mode Fokus: skip ke fase berikutnya
 - BACK di Mode Fokus: keluar (kalau diizinkan)
-
-Semua durasi bisa diatur user via Settings -> Durasi & Hitungan Mundur.
 
 === BAGIAN 33 — FITUR MEDIA PERSISTENCE (V1.04.421) ===
 
@@ -1189,8 +1274,6 @@ Masalah yang diperbaiki:
    - Penyebab: videoFinishedOnce tidak di-reset
    - Solusi: reset sebelum tunggu + tunggu video selesai 1x putaran
 
-File terkait: MasjidVideoPlayer.kt + HomeScreen.kt
-
 === BAGIAN 35 — FITUR PIN LOCK MODE (V1.04.422) ===
 
 3 opsi di Settings → Keamanan → PIN LOCK:
@@ -1206,15 +1289,87 @@ File terkait:
 
 Lokasi UI: PIN Akses (bawah PIN Saat Ini) → sebelum Mode Kiosk
 
-=== BAGIAN 36 — SLIDE NAVIGASI REMOTE (V1.04.422) ===
+=== BAGIAN 36 — SLIDE NAVIGASI REMOTE (V1.04.422 + V1.04.423) ===
 
 - Tekan OK / BACK / ENTER / DPAD_CENTER → keluar slide, kembali ke Home
 - Tekan KIRI / KANAN → pindah slide (Qris ↔ Laporan ↔ Kajian)
-- Panah navigasi kiri/kanan di sisi slide (visual hint)
-- Hint tombol remote di pojok kiri bawah slide
+- V1.04.423: CLEAN VIEW — hapus semua overlay navigasi
+- Hapus: tombol X, panah ◀▶, indicator dot, hint remote
+- Fungsi tombol remote TETAP JALAN
 - Cooldown 5 menit setelah dismiss → slide muncul lagi sesuai jadwal
 
-File terkait: SlideManager.kt
+=== BAGIAN 37 — FITUR JADWAL ON/OFF OTOMATIS (V1.04.423) ===
+
+Cara kerja:
+- ON  otomatis = Subuh - X menit (X: 5-120, default 15)
+- OFF otomatis = Isya  + Y menit (Y: 5-120, default 30)
+- Brightness 0 saat jam OFF (layar redup total)
+- Brightness normal saat jam ON
+- Polling jadwal setiap 30 detik
+- Tampil kartu 'Jadwal Hari Ini' di menu Daya & Booting
+- 2 slider: 'Nyala Sebelum Subuh' & 'Redup Setelah Isya'
+
+File terkait:
+- AppSettings.kt (autoOnMinutesBeforeSubuh + autoOffMinutesAfterIsya + autoOffDialogEnabled)
+- SettingsRepository.kt (load/save)
+- PowerSettingsPane.kt (UI + kartu jadwal + slider)
+- MainActivity.kt (logic brightness + deteksi jam OFF)
+- AutoOffDialog.kt (popup konfirmasi)
+
+Field lama DIHAPUS: autoOnTime & autoOffTime (diganti otomatis dari jadwal sholat)
+
+=== BAGIAN 38 — AUTO-OFF DIALOG (V1.04.423) ===
+
+- Popup muncul saat user tekan remote di jam OFF
+- Pertanyaan: 'Apakah Anda bersedia MEMATIKAN JADWAL ON/OFF?'
+- Tombol YA (kiri, hijau) = matikan jadwal on/off → layar nyala terus
+- Tombol TIDAK (kanan, abu-abu) = popup hilang, layar redup lagi
+- Auto-dismiss 2 menit → dianggap TIDAK
+- Back button = TIDAK
+- Focus D-pad otomatis ke tombol TIDAK
+- File baru: AutoOffDialog.kt
+- Trigger: di MainActivity, onKeyEvent di root Box
+- Debounce 500ms — hindari popup muncul berkali-kali
+
+=== BAGIAN 39 — VIDEO FILE PICKER CUSTOM (V1.04.423) ===
+
+- File baru: VideoFilePickerDialog.kt
+- Custom file picker dalam app (TV friendly)
+- Scan rekursif /sdcard/ + semua subfolder
+- Skip folder sistem (Android, .cache, .thumbnails, LOST.DIR)
+- 3 mode: VIDEO / IMAGE / ALL (fleksibel)
+- Icon berbeda per tipe (video/foto/audio/dok)
+- Navigasi D-pad remote TV
+- Tombol PILIH untuk konfirmasi
+- Fix: tombol GALERI & FILE di TV tidak berfungsi
+  (ActivityResultContracts butuh DocumentsUI yang tidak ada di TV)
+- Dipakai di VideoSettingsPane (mode VIDEO & IMAGE)
+
+=== BAGIAN 40 — WISDOM CARD AUTO-SHRINK (V1.04.423) ===
+
+- Fix tulisan terpotong di wisdom card
+- Auto-shrink font berdasarkan panjang teks:
+  • ≤60 char  → 14sp, 1 baris
+  • ≤100 char → 13sp, 2 baris
+  • ≤150 char → 12sp, 2 baris
+  • ≤200 char → 11sp, 3 baris
+  • >200 char → 10sp, 3 baris
+- TextOverflow.Clip (bukan Ellipsis) → teks utuh tanpa '...'
+- AnimatedContent pakai fillMaxWidth() → tidak wrap content
+- Wisdom card full sampai tepi kanan layar (76% panel kanan)
+
+=== BAGIAN 41 — ICON JADWAL SHOLAT BERBEDA (V1.04.423) ===
+
+Icon Material berbeda per waktu sholat:
+- Subuh   → WbTwilight (fajar)
+- Syuruq  → WbSunny (matahari terbit)
+- Dzuhur  → LightMode (siang terang)
+- Ashar   → WbCloudy (sore berawan)
+- Maghrib → NightsStay (senja)
+- Isya    → Nightlight (malam)
+
+Kunci: PrayerRowItem pakai weight(1f) → isi penuh panel
+File: HomeScreen.kt
 
 ============================================================
 END OF MEMORY KNOWLEDGE
