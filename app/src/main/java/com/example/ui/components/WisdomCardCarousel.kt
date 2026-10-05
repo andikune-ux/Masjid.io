@@ -29,14 +29,10 @@ import com.example.ui.theme.UrgentRedBg
 import kotlinx.coroutines.delay
 
 /**
- * WisdomCardCarousel — Karusel kartu nasihat/mutiara.
+ * WisdomCardCarousel — V1.04.423
  *
- * V1.04.423:
- *   - FIX HOTFIX: AnimatedContent sekarang pakai Modifier.fillMaxWidth()
- *     → wisdom card FULL sampai tepi kanan layar (sebelumnya wrap content)
- *   - AUTO-SHRINK FONT: ukuran teks mengecil otomatis sesuai panjang teks
- *   - MULTI-LINE DINAMIS: 1-3 baris otomatis
- *   - TextOverflow.Clip (bukan Ellipsis) → teks utuh, tidak ada "..."
+ * HOTFIX 2: Hapus Box wrapper + AnimatedContent langsung pakai
+ * modifier dari caller (fillMaxWidth) → wisdom card full ke tepi kanan.
  */
 @Composable
 fun WisdomCardCarousel(
@@ -85,144 +81,129 @@ fun WisdomCardCarousel(
                 (scaleIn(initialScale = 0.85f, animationSpec = tween(500)) + fadeIn(tween(500))) togetherWith
                         (scaleOut(targetScale = 1.1f, animationSpec = tween(500)) + fadeOut(tween(500)))
             }
-            else -> { // Fade
+            else -> {
                 fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
             }
         }
     }
 
-    Box(
+    // HOTFIX: AnimatedContent langsung, tanpa Box wrapper
+    AnimatedContent(
+        targetState = currentIndex,
+        transitionSpec = transitionSpec,
         modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        // ============================================================
-        // FIX HOTFIX: AnimatedContent dikasih Modifier.fillMaxWidth()
-        // Sebelumnya tidak ada → wrap content → wisdom card tidak full
-        // ============================================================
-        AnimatedContent(
-            targetState = currentIndex,
-            transitionSpec = transitionSpec,
-            modifier = Modifier.fillMaxWidth(),
-            label = "wisdom_anim"
-        ) { index ->
-            if (upcomingEvent != null && index == wisdomList.size) {
-                // ============================================================
-                // KARTU EVENT — Countdown hari besar Islam
-                // ============================================================
-                val isUrgent = upcomingEvent.isUrgent
-                val bgColor = if (isUrgent) UrgentRedBg else Color(0x660A1822)
-                val borderColor = if (isUrgent) UrgentRed else Color(0x44FFD700)
+        label = "wisdom_anim"
+    ) { index ->
+        if (upcomingEvent != null && index == wisdomList.size) {
+            // Kartu Event
+            val isUrgent = upcomingEvent.isUrgent
+            val bgColor = if (isUrgent) UrgentRedBg else Color(0x660A1822)
+            val borderColor = if (isUrgent) UrgentRed else Color(0x44FFD700)
 
-                Row(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(bgColor)
+                    .border(if (isUrgent) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(text = "📅 ", fontSize = 14.sp)
+                Text(
+                    text = "${upcomingEvent.daysRemaining} hari ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (isUrgent) UrgentRed else IslamicGoldLight
+                )
+                Text(
+                    text = "menuju ",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+                Text(
+                    text = upcomingEvent.title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isUrgent) Color.White else IslamicGold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        } else if (wisdomList.isNotEmpty()) {
+            // Kartu Wisdom
+            val item = wisdomList[index % wisdomList.size]
+            val displayText = "${item.title}: ${item.translation}"
+            val textLength = displayText.length
+
+            val (adaptiveFontSize, adaptiveMaxLines) = when {
+                textLength <= 60 -> 14.sp to 1
+                textLength <= 100 -> 13.sp to 2
+                textLength <= 150 -> 12.sp to 2
+                textLength <= 200 -> 11.sp to 3
+                else -> 10.sp to 3
+            }
+
+            val adaptiveLineHeight = when {
+                textLength <= 60 -> 18.sp
+                textLength <= 100 -> 17.sp
+                textLength <= 150 -> 16.sp
+                textLength <= 200 -> 15.sp
+                else -> 14.sp
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x880C1B26))
+                    .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(bgColor)
-                        .border(if (isUrgent) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(IslamicGold.copy(alpha = 0.2f))
+                        .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
-                    Text(text = "📅 ", fontSize = 14.sp)
                     Text(
-                        text = "${upcomingEvent.daysRemaining} hari ",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isUrgent) UrgentRed else IslamicGoldLight
-                    )
-                    Text(
-                        text = "menuju ",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = upcomingEvent.title,
-                        fontSize = 14.sp,
+                        text = item.category.uppercase(),
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isUrgent) Color.White else IslamicGold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = IslamicGoldLight,
+                        maxLines = 1
                     )
                 }
-            } else if (wisdomList.isNotEmpty()) {
-                // ============================================================
-                // KARTU WISDOM — Auto-shrink font + multi-line
-                // ============================================================
-                val item = wisdomList[index % wisdomList.size]
-                val displayText = "${item.title}: ${item.translation}"
-                val textLength = displayText.length
 
-                val (adaptiveFontSize, adaptiveMaxLines) = when {
-                    textLength <= 60 -> 14.sp to 1
-                    textLength <= 100 -> 13.sp to 2
-                    textLength <= 150 -> 12.sp to 2
-                    textLength <= 200 -> 11.sp to 3
-                    else -> 10.sp to 3
-                }
+                Spacer(modifier = Modifier.width(10.dp))
 
-                val adaptiveLineHeight = when {
-                    textLength <= 60 -> 18.sp
-                    textLength <= 100 -> 17.sp
-                    textLength <= 150 -> 16.sp
-                    textLength <= 200 -> 15.sp
-                    else -> 14.sp
-                }
+                Text(
+                    text = displayText,
+                    fontSize = adaptiveFontSize,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary,
+                    maxLines = adaptiveMaxLines,
+                    lineHeight = adaptiveLineHeight,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center
+                )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x880C1B26))
-                        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // ===== CATEGORY BADGE =====
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(IslamicGold.copy(alpha = 0.2f))
-                            .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = item.category.uppercase(),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = IslamicGoldLight,
-                            maxLines = 1
-                        )
-                    }
+                Spacer(modifier = Modifier.width(10.dp))
 
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    // ===== TEKS UTAMA — auto-shrink + multi-line =====
-                    Text(
-                        text = displayText,
-                        fontSize = adaptiveFontSize,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary,
-                        maxLines = adaptiveMaxLines,
-                        lineHeight = adaptiveLineHeight,
-                        overflow = TextOverflow.Clip,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    // ===== SOURCE =====
-                    Text(
-                        text = item.source,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = IslamicGold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = item.source,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IslamicGold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
