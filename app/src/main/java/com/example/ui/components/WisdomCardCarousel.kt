@@ -31,18 +31,12 @@ import kotlinx.coroutines.delay
 /**
  * WisdomCardCarousel — Karusel kartu nasihat/mutiara.
  *
- * V1.04.423 — Fix Tulisan Terpotong:
+ * V1.04.423:
+ *   - FIX HOTFIX: AnimatedContent sekarang pakai Modifier.fillMaxWidth()
+ *     → wisdom card FULL sampai tepi kanan layar (sebelumnya wrap content)
  *   - AUTO-SHRINK FONT: ukuran teks mengecil otomatis sesuai panjang teks
  *   - MULTI-LINE DINAMIS: 1-3 baris otomatis
  *   - TextOverflow.Clip (bukan Ellipsis) → teks utuh, tidak ada "..."
- *   - Padding dioptimalkan agar teks punya ruang maksimal
- *
- * Strategi berdasarkan panjang teks (jumlah karakter):
- *   ≤ 60  char → 14sp, 1 baris
- *   ≤ 100 char → 13sp, 2 baris
- *   ≤ 150 char → 12sp, 2 baris
- *   ≤ 200 char → 11sp, 3 baris
- *   > 200 char → 10sp, 3 baris
  */
 @Composable
 fun WisdomCardCarousel(
@@ -98,13 +92,17 @@ fun WisdomCardCarousel(
     }
 
     Box(
-        modifier = modifier
-            .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
+        // ============================================================
+        // FIX HOTFIX: AnimatedContent dikasih Modifier.fillMaxWidth()
+        // Sebelumnya tidak ada → wrap content → wisdom card tidak full
+        // ============================================================
         AnimatedContent(
             targetState = currentIndex,
             transitionSpec = transitionSpec,
+            modifier = Modifier.fillMaxWidth(),
             label = "wisdom_anim"
         ) { index ->
             if (upcomingEvent != null && index == wisdomList.size) {
@@ -155,7 +153,6 @@ fun WisdomCardCarousel(
                 val displayText = "${item.title}: ${item.translation}"
                 val textLength = displayText.length
 
-                // V1.04.423: Auto-shrink font + maxLines dinamis
                 val (adaptiveFontSize, adaptiveMaxLines) = when {
                     textLength <= 60 -> 14.sp to 1
                     textLength <= 100 -> 13.sp to 2
@@ -164,7 +161,6 @@ fun WisdomCardCarousel(
                     else -> 10.sp to 3
                 }
 
-                // Tinggi baris dinamis sesuai font size
                 val adaptiveLineHeight = when {
                     textLength <= 60 -> 18.sp
                     textLength <= 100 -> 17.sp
@@ -210,7 +206,6 @@ fun WisdomCardCarousel(
                         color = TextPrimary,
                         maxLines = adaptiveMaxLines,
                         lineHeight = adaptiveLineHeight,
-                        // V1.04.423: Clip (bukan Ellipsis) → teks utuh tanpa "..."
                         overflow = TextOverflow.Clip,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center
