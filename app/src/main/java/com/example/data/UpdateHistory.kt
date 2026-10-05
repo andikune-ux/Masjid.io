@@ -14,6 +14,42 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.04.422",
+            date = "06 Oktober 2026",
+            title = "Fix Mode Video Full-Frame + Auto-Switch + PIN Lock Options + Slide Navigasi",
+            features = listOf(
+                "Fix CRITICAL: video tidak full ke kanan (gap hitam di sisi kanan panel video)",
+                "Fix CRITICAL: bug resizeMode shadowing di MasjidVideoPlayer → 5 mode ukuran frame sekarang benar-benar bekerja",
+                "Fix CRITICAL: mode POTONG/PAS/ZOOM/FIT hasilnya sama saja sebelum perbaikan",
+                "Fix: struktur root Mode Video berubah Box → Column, running text jadi bagian Column (bukan overlay)",
+                "Fix: jadwal sholat di panel kiri TIDAK LAGI kepotong oleh running text",
+                "Fix: tombol ⚙ Settings overlay sekarang di sudut kanan atas LAYAR (bukan di dalam panel kanan)",
+                "Fix: Auto-Switch Mode sekarang berfungsi — tunggu video selesai 1x putaran sebelum switch",
+                "Fix: tanpa media (tanpa video & tanpa foto) → otomatis Mode Normal permanen",
+                "Improve: panel kiri Mode Video di-compact (spacing dirapatkan, kotak jam/tanggal dirapatkan)",
+                "Improve: font jam di panel kiri 32sp → 26sp, font list sholat 11sp → 10sp",
+                "Improve: kotak MENUJU SUBUH dikecilkan (padding 8x6dp)",
+                "Improve: contentScale video/foto diteruskan dari settings.videoFrameScale ke MasjidVideoPlayer & PhotoSlideshow",
+                "Improve: mode FULL (Fullscreen) panel kiri otomatis hilang (width 0%)",
+                "Fitur BARU: SlideManager — tekan OK/BACK/ENTER/DPAD_CENTER untuk keluar slide kembali ke Home",
+                "Fitur BARU: SlideManager — tombol KIRI/KANAN untuk pindah slide (Qris ↔ Laporan ↔ Kajian)",
+                "Fitur BARU: panah navigasi kiri/kanan di sisi slide (visual hint)",
+                "Fitur BARU: hint tombol remote di pojok kiri bawah slide",
+                "Fitur BARU: PIN Lock Mode 3 opsi — IMMEDIATE / TIMEOUT_5MIN / UNTIL_EXIT",
+                "Fitur BARU: section KEAMANAN di Settings → PIN LOCK (setelah PIN Saat Ini, sebelum Mode Kiosk)",
+                "Fitur BARU: 3 radio opsi PIN Lock dengan ikon + judul + deskripsi",
+                "Fitur BARU: sessionPinVerified + lastPinVerifiedTime di MainActivity",
+                "Fitur BARU: shouldRequestPin() — cek mode + flag + waktu untuk decide minta PIN atau tidak",
+                "Fitur BARU: Export summary sekarang menyertakan section KEAMANAN",
+                "Fitur BARU: Cooldown slide 5 menit setelah user dismiss via OK/BACK",
+                "Fitur BARU: enum PinLockMode di AppSettings.kt (IMMEDIATE/TIMEOUT_5MIN/UNTIL_EXIT)",
+                "Fitur BARU: field pinLockMode di AppSettings (default UNTIL_EXIT = behavior lama)",
+                "Update: AppKnowledge.kt — tambah BUILD_ERROR_HISTORY entri bug resizeMode shadowing",
+                "Update: AppKnowledge.kt — tambah APP_FEATURES nomor 37-40 (Mode Video fix, PIN Lock, Slide navigasi)",
+                "Update: AppKnowledge.kt — tambah KNOWN_ISSUES entri 44-48"
+            )
+        ),
+        UpdateEntry(
             version = "V1.04.421",
             date = "04 Oktober 2026",
             title = "Alur Sholat Baru + Media Persistence + Fix Mode Fokus",
@@ -100,9 +136,8 @@ object UpdateHistory {
                 "RemoteServer: hapus fonnteToken & fonnteGroupId dari web dashboard",
                 "Tambah info-box di tab Sistem: token hanya bisa diatur via Opsi Developer"
             )
-        )
-                ,
-        UpdateEntry(
+        ),
+                UpdateEntry(
             version = "V1.30.7",
             date = "03 Oktober 2026",
             title = "Verifikasi Transfer + Konfirmasi Restart Manual + File Template .iO",
