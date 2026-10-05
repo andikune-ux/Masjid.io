@@ -135,10 +135,25 @@ private fun HomeScreenContent(
     val hasPhotos = settings.photoSlideshowEnabled && settings.photoSlideshowUris.isNotEmpty()
     val hasAnyMedia = hasVideo || hasPhotos
 
+    // Tanpa media → Mode Normal permanen
     val effectiveMode = if (!hasAnyMedia) "NORMAL" else currentMode
 
-    // Auto-switch logic
-    LaunchedEffect(settings.autoSwitchEnabled, effectiveMode, hasAnyMedia) {
+    // ============================================================
+    // AUTO-SWITCH LOGIC — V1.04.422 FIX
+    // Cara kerja:
+    // 1. Tunggu durasi sesuai mode (video / normal)
+    // 2. Kalau Mode Video + tungguVideoSelesai = ON
+    //    → tunggu video selesai 1x putaran (callback onVideoEnded)
+    // 3. Baru switch ke mode berikutnya
+    // ============================================================
+    LaunchedEffect(
+        settings.autoSwitchEnabled,
+        effectiveMode,
+        hasAnyMedia,
+        settings.videoModeIntervalMinutes,
+        settings.normalModeDurationMinutes,
+        settings.waitVideoFinishBeforeSwitch
+    ) {
         if (!settings.autoSwitchEnabled) return@LaunchedEffect
         if (!hasAnyMedia) return@LaunchedEffect
 
@@ -147,27 +162,22 @@ private fun HomeScreenContent(
         } else {
             settings.normalModeDurationMinutes
         }
-        val durationMs = durationMin * 60 * 1000L
+        val durationMs = durationMin.coerceAtLeast(1) * 60_000L
 
         delay(durationMs)
 
+        // Kalau dari mode video + tunggu video selesai
         if (effectiveMode == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
             videoFinishedOnce = false
-            val maxWait = 300_000L
-            var waited = 0L
-            while (!videoFinishedOnce && waited < maxWait) {
-                delay(1000L)
-                waited += 1000L
+            // Tunggu sampai video benar-benar selesai 1x putaran
+            while (!videoFinishedOnce) {
+                delay(500L)
             }
         }
 
+        // Switch mode berikutnya
         currentMode = if (effectiveMode == "VIDEO") "NORMAL" else "VIDEO"
-    }
-
-    LaunchedEffect(effectiveMode) {
-        if (effectiveMode == "VIDEO") {
-            videoFinishedOnce = false
-        }
+        videoFinishedOnce = false
     }
 
     Box(
@@ -175,6 +185,7 @@ private fun HomeScreenContent(
             .fillMaxSize()
             .background(Color(0xFF071219))
     ) {
+        // ===== BACKGROUND =====
         when (settings.backgroundMode) {
             BackgroundMode.MAKKAH_DYNAMIC -> {
                 MakkahDynamicBackground(
@@ -239,6 +250,7 @@ private fun HomeScreenContent(
             )
         }
 
+        // ===== KONTEN SESUAI MODE =====
         if (effectiveMode == "VIDEO" && hasAnyMedia) {
             VideoModeLayout(
                 settings = settings,
@@ -270,6 +282,14 @@ private fun HomeScreenContent(
 }
 // ============================================================
 // MODE VIDEO (Opsi H) — V1.04.422 FIX
+//
+// STRUKTUR BARU:
+//   Column (fillMaxSize)
+//   ├── Box (weight 1f)  → Row (Panel Kiri 24% + Panel Kanan 76%)
+//   │                    → Tombol ⚙ overlay di sudut kanan atas LAYAR
+//   └── Running Text (height 52dp) → FIXED di paling bawah
+//
+// Kunci: Running text BUKAN overlay → jadwal sholat TIDAK kepotong
 // ============================================================
 @Composable
 private fun VideoModeLayout(
@@ -288,93 +308,114 @@ private fun VideoModeLayout(
     val panelKiriWidth = if (isFullMode) 0f else 0.24f
     val panelKananWidth = 1f - panelKiriWidth
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            // PANEL KIRI (24%)
-            if (!isFullMode) {
+    // Mapping mode ukuran frame → ContentScale
+    val contentScale: ContentScale = when (settings.videoFrameScale) {
+        "POTONG" -> ContentScale.Crop        // crop seperti Instagram Reels
+        "PAS" -> ContentScale.Fit            // letterbox seperti Netflix
+        "ZOOM" -> ContentScale.Crop          // fill seperti TikTok
+        "FULL" -> ContentScale.Crop          // fullscreen (panel kiri hilang)
+        "FIT" -> ContentScale.FillBounds     // stretch paksa
+        else -> ContentScale.Crop
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // ============================================================
+        // BARIS UTAMA — Row ambil SISA ruang (di atas running text)
+        // ============================================================
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                // ===== PANEL KIRI (24%) — HILANG saat mode FULL =====
+                if (!isFullMode) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(panelKiriWidth)
+                            .background(Color(0xDD071219))
+                            .border(
+                                width = 1.dp,
+                                color = IslamicGold.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(0.dp)
+                            )
+                            .padding(8.dp)
+                    ) {
+                        VideoModeLeftPanel(
+                            settings = settings,
+                            schedule = schedule,
+                            currentTimeString = currentTimeString,
+                            hijriDateString = hijriDateString,
+                            gregorianDateString = gregorianDateString
+                        )
+                    }
+                }
+
+                // ===== PANEL KANAN (76% / 100%) — VIDEO/FOTO PENUH =====
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .fillMaxWidth(panelKiriWidth)
-                        .background(Color(0xDD071219))
-                        .border(
-                            width = 1.dp,
-                            color = IslamicGold.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(0.dp)
-                        )
-                        .padding(12.dp)
+                        .fillMaxWidth(if (isFullMode) 1f else panelKananWidth)
+                        .background(Color.Black)
                 ) {
-                    VideoModeLeftPanel(
-                        settings = settings,
-                        schedule = schedule,
-                        currentTimeString = currentTimeString,
-                        hijriDateString = hijriDateString,
-                        gregorianDateString = gregorianDateString
-                    )
+                    if (hasVideo) {
+                        MasjidVideoPlayer(
+                            videoUriString = settings.videoUri,
+                            isFullscreen = true,
+                            contentScale = contentScale,
+                            onVideoEnded = onVideoEnded,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (hasPhotos) {
+                        PhotoSlideshow(
+                            photoUris = settings.photoSlideshowUris,
+                            intervalSeconds = settings.photoSlideshowIntervalSeconds,
+                            isFullscreen = true,
+                            contentScale = contentScale,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    // Wisdom card overlay di bawah video
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(
+                                bottom = 8.dp,
+                                start = 16.dp,
+                                end = 16.dp
+                            )
+                    ) {
+                        WisdomCardCarousel(
+                            upcomingEvent = null,
+                            intervalSeconds = settings.wisdomCardIntervalSeconds,
+                            animationType = settings.wisdomCardAnimation,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 
-            // PANEL KANAN (76%)
+            // ===== TOMBOL ⚙ OVERLAY — SUDUT KANAN ATAS LAYAR =====
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(if (isFullMode) 1f else panelKananWidth)
-                    .background(Color.Black)
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
             ) {
-                if (hasVideo) {
-                    MasjidVideoPlayer(
-                        videoUriString = settings.videoUri,
-                        isFullscreen = true,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else if (hasPhotos) {
-                    PhotoSlideshow(
-                        photoUris = settings.photoSlideshowUris,
-                        intervalSeconds = settings.photoSlideshowIntervalSeconds,
-                        isFullscreen = true,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-
-                // Overlay wisdom di bawah video (dengan batas bawah untuk running text)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(
-                            bottom = 60.dp,  // ruang untuk running text
-                            start = 16.dp,
-                            end = 16.dp
-                        )
-                ) {
-                    WisdomCardCarousel(
-                        upcomingEvent = null,
-                        intervalSeconds = settings.wisdomCardIntervalSeconds,
-                        animationType = settings.wisdomCardAnimation,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // Tombol Settings overlay kanan atas
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
-                ) {
-                    SettingsOverlayButton(onClick = onSettingsClick)
-                }
+                SettingsOverlayButton(onClick = onSettingsClick)
             }
         }
 
         // ============================================================
-        // Running text full width di bawah — V1.04.422 FIX
-        // Kasih height tetap biar TIDAK fullscreen
+        // RUNNING TEXT — FIXED di paling bawah (BUKAN overlay)
+        // Kasih height tetap biar TIDAK bikin panel kiri kepotong
         // ============================================================
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(52.dp)  // ← FIX: height tetap, tidak fillMaxSize
+                .height(52.dp)
         ) {
             RunningTextMarquee(
                 text = settings.runningText,
@@ -387,7 +428,8 @@ private fun VideoModeLayout(
 }
 
 // ============================================================
-// PANEL KIRI VIDEO MODE
+// PANEL KIRI VIDEO MODE — V1.04.422 COMPACT
+// Spacing dirapatkan, kotak "Menuju Subuh" dikecilkan
 // ============================================================
 @Composable
 private fun VideoModeLeftPanel(
@@ -399,88 +441,90 @@ private fun VideoModeLeftPanel(
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        // LOGO + NAMA MASJID
+        // ===== LOGO + NAMA MASJID =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xCC091620))
-                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                .padding(10.dp),
+                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "🕌", fontSize = 24.sp)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "🕌", fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = settings.mosqueName.uppercase(),
-                    fontSize = 13.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = IslamicGoldLight,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    letterSpacing = 0.5.sp,
-                    lineHeight = 16.sp
+                    letterSpacing = 0.3.sp,
+                    lineHeight = 13.sp
                 )
             }
         }
 
-        // KOTAK GABUNGAN JAM + TANGGAL
+        // ===== KOTAK GABUNGAN JAM + TANGGAL — SPACING DIRAPATKAN =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xCC091620))
-                .border(1.5.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                .padding(10.dp)
+                .border(1.5.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
                 Text(
                     text = currentTimeString,
-                    fontSize = 32.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
-                    letterSpacing = 1.sp,
+                    letterSpacing = 0.5.sp,
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.6f)
+                        .fillMaxWidth(0.55f)
                         .height(1.dp)
                         .background(IslamicGold.copy(alpha = 0.7f))
                 )
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = hijriDateString,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = IslamicGoldLight,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 12.sp
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = gregorianDateString,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     color = TextSecondary,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 11.sp
                 )
             }
         }
 
-        // LIST SHOLAT VERTIKAL
+        // ===== LIST SHOLAT VERTIKAL =====
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             schedule.items.forEach { item ->
                 PrayerRowItem(
@@ -490,57 +534,56 @@ private fun VideoModeLeftPanel(
             }
         }
 
-        // PROGRESS BAR
+        // ===== KOTAK PROGRESS — DIKECILKAN =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xCC091620))
-                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                .padding(10.dp)
+                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Schedule,
                         contentDescription = null,
                         tint = IslamicGold,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(11.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "MENUJU ${schedule.nextPrayer?.id?.displayName?.uppercase() ?: "SHOLAT"}",
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = IslamicGoldLight,
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 0.3.sp,
+                        maxLines = 1
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
                 val h = schedule.secondsToNext / 3600
                 val m = (schedule.secondsToNext % 3600) / 60
                 val s = schedule.secondsToNext % 60
                 Text(
                     text = String.format("%02d:%02d:%02d", h, m, s),
-                    fontSize = 18.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
                         .background(Color(0x33FFFFFF))
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(schedule.progressToNext.coerceIn(0f, 1f))
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(3.dp))
+                            .clip(RoundedCornerShape(2.dp))
                             .background(
                                 Brush.horizontalGradient(
                                     listOf(IslamicGold, IslamicGoldLight)
@@ -554,7 +597,7 @@ private fun VideoModeLeftPanel(
 }
 
 // ============================================================
-// ITEM SHOLAT VERTIKAL
+// ITEM SHOLAT VERTIKAL — V1.04.422 COMPACT
 // ============================================================
 @Composable
 private fun PrayerRowItem(
@@ -574,8 +617,8 @@ private fun PrayerRowItem(
         else -> Color(0x44264A66)
     }
     val borderWidth = when {
-        item.isNext -> 2.dp
-        item.isActive -> 2.dp
+        item.isNext -> 1.5.dp
+        item.isActive -> 1.5.dp
         else -> 1.dp
     }
     val textColor = when {
@@ -587,22 +630,22 @@ private fun PrayerRowItem(
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(5.dp))
             .background(bgColor)
-            .border(borderWidth, borderColor, RoundedCornerShape(6.dp))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .border(borderWidth, borderColor, RoundedCornerShape(5.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Default.Schedule,
             contentDescription = null,
             tint = if (item.isNext || item.isActive) textColor else TextSecondary.copy(alpha = 0.6f),
-            modifier = Modifier.size(12.dp)
+            modifier = Modifier.size(10.dp)
         )
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = item.id.displayName,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = if (item.isNext || item.isActive) FontWeight.Bold else FontWeight.Medium,
             color = textColor,
             maxLines = 1,
@@ -611,7 +654,7 @@ private fun PrayerRowItem(
         )
         Text(
             text = item.timeFormatted,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.ExtraBold,
             color = textColor,
             fontFamily = FontFamily.Monospace,
@@ -619,9 +662,8 @@ private fun PrayerRowItem(
         )
     }
 }
-
 // ============================================================
-// TOMBOL SETTINGS OVERLAY
+// TOMBOL SETTINGS OVERLAY — Sudut kanan atas layar
 // ============================================================
 @Composable
 private fun SettingsOverlayButton(onClick: () -> Unit) {
@@ -653,6 +695,7 @@ private fun SettingsOverlayButton(onClick: () -> Unit) {
         )
     }
 }
+
 // ============================================================
 // MODE NORMAL — Layout lengkap seperti sebelumnya
 // ============================================================
@@ -830,7 +873,6 @@ private fun NormalModeLayout(
         }
     }
 }
-
 // ============================================================
 // KONTEN ROTASI
 // ============================================================
