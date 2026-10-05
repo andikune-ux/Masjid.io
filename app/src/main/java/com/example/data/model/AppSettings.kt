@@ -60,8 +60,6 @@ enum class CctvPosition {
 /**
  * Mode PIN Lock setelah keluar dari Settings.
  *
- * V1.04.422 BARU.
- *
  *   IMMEDIATE      = Setiap kali tekan tombol Settings → langsung minta PIN
  *   TIMEOUT_5MIN   = PIN diminta kembali 5 menit setelah kembali ke menu utama
  *   UNTIL_EXIT     = PIN hanya diminta saat pertama buka, tidak minta lagi
@@ -200,7 +198,7 @@ data class AppSettings(
     val videoFrameScale: String = "POTONG",
     val waitVideoFinishBeforeSwitch: Boolean = true,
     // ============================================================
-    // V1.04.421 — ALUR SHOLAT BARU (Adzan → Doa → Iqomah → Mode Fokus)
+    // ALUR SHOLAT BARU
     // ============================================================
     val adzanDisplayDurationSeconds: Int = 8,
     val silentPhoneDisplayDurationSeconds: Int = 8,
@@ -260,9 +258,19 @@ data class AppSettings(
     val isManualTimeEnabled: Boolean = false,
     val manualTimeOffsetSeconds: Long = 0L,
     val keepScreenOn: Boolean = true,
+    // ============================================================
+    // V1.04.423 — JADWAL ON/OFF OTOMATIS DARI JADWAL SHOLAT
+    //   ON  = Subuh - 15 menit  (auto)
+    //   OFF = Isya  + 30 menit  (auto)
+    //
+    // Field lama autoOnTime & autoOffTime DIHAPUS.
+    // Field baru: autoOffDialogEnabled untuk popup konfirmasi.
+    // ============================================================
     val autoOnOff: Boolean = false,
-    val autoOnTime: String = "04:00",
-    val autoOffTime: String = "22:30",
+    val autoOffMinutesAfterIsya: Int = 30,       // OFF = Isya + 30 menit
+    val autoOnMinutesBeforeSubuh: Int = 15,      // ON  = Subuh - 15 menit
+    val autoOffDialogEnabled: Boolean = true,    // Popup saat tekan remote
+    // ============================================================
     val idleScreenOff: Boolean = true,
     val idleTimeoutMinutes: Int = 30,
     val autoBrightness: Boolean = true,
@@ -271,7 +279,7 @@ data class AppSettings(
     val fonnteGroupId: String = "",
     val whatsappReportEnabled: Boolean = true,
     // ============================================================
-    // V1.04.422 BARU — PIN LOCK MODE
+    // PIN LOCK MODE
     // ============================================================
     val pinLockMode: PinLockMode = PinLockMode.UNTIL_EXIT
 ) {
