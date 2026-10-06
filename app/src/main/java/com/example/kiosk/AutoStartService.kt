@@ -1,4 +1,4 @@
-package com.example.kiosk
+package dev.andikune.masjidio.kiosk
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -10,7 +10,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
-import com.example.MainActivity
+import dev.andikune.masjidio.MainActivity
 
 class AutoStartService : Service() {
 

@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -16,7 +16,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 
 // Extension untuk memperjelas fokus D-pad di Android TV.
 // Efek: tombol membesar + border tebal saat fokus.

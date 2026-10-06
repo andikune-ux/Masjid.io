@@ -1,6 +1,6 @@
-package com.example.data.local
+package dev.andikune.masjidio.data.local
 
-import com.example.ui.theme.*
+import dev.andikune.masjidio.ui.theme.*
 import java.time.LocalTime
 
 object DynamicSkyTheme {

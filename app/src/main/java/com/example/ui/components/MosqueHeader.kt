@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -12,8 +12,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 
 @Composable
 fun MosqueHeader(

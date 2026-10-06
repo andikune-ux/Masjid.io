@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -40,14 +40,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.data.model.AppSettings
-import com.example.data.model.DailyOfficerItem
-import com.example.data.model.OfficerSchedule
-import com.example.data.model.PrayerId
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.data.model.DailyOfficerItem
+import dev.andikune.masjidio.data.model.OfficerSchedule
+import dev.andikune.masjidio.data.model.PrayerId
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
 import java.time.LocalDate
 
 private val AVATAR_SHAPE = RoundedCornerShape(24.dp)

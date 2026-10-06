@@ -1,4 +1,4 @@
-package com.example.audio
+package dev.andikune.masjidio.audio
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -7,7 +7,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.ToneGenerator
 import android.util.Log
-import com.example.data.model.AudioMode
+import dev.andikune.masjidio.data.model.AudioMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

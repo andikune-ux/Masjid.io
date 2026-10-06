@@ -1,8 +1,8 @@
-package com.example.data.local
+package dev.andikune.masjidio.data.local
 
-import com.example.data.model.PrayerId
-import com.example.data.model.PrayerItem
-import com.example.data.model.PrayerSchedule
+import dev.andikune.masjidio.data.model.PrayerId
+import dev.andikune.masjidio.data.model.PrayerItem
+import dev.andikune.masjidio.data.model.PrayerSchedule
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime

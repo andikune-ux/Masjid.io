@@ -37,14 +37,14 @@ val versionCodeInt = if (githubRunNumber != null) {
 }
 
 android {
-    namespace = "com.example"
+    namespace = "dev.andikune.masjidio"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
         }
     }
     defaultConfig {
-        applicationId = "com.aistudio.masjidio.tkvpmz"
+        applicationId = "dev.andikune.masjidio.tv"
         minSdk = 24
         targetSdk = 36
         versionCode = versionCodeInt

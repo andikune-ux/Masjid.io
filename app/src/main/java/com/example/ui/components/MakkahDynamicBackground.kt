@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import com.example.data.local.SunMoonCalculator
+import dev.andikune.masjidio.data.local.SunMoonCalculator
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import kotlin.math.PI

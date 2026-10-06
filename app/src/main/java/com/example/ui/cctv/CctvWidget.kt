@@ -1,4 +1,4 @@
-package com.example.ui.cctv
+package dev.andikune.masjidio.ui.cctv
 
 import android.annotation.SuppressLint
 import android.net.Uri
@@ -40,10 +40,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.example.data.model.AppSettings
-import com.example.data.model.CctvPosition
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.data.model.CctvPosition
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 
 /**
  * Widget CCTV PiP (Picture in Picture) di sudut layar.

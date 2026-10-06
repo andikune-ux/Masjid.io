@@ -1,4 +1,4 @@
-package com.example.data.model
+package dev.andikune.masjidio.data.model
 
 enum class PrayerId(
     val arabicName: String,

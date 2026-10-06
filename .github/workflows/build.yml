@@ -70,7 +70,7 @@ jobs:
 
       - name: Create google-services.json
         run: |
-          PKG="com.example"
+          PKG="dev.andikune.masjidio.tv"
           if [ -f app/build.gradle.kts ]; then
             DETECTED=$(grep -E 'applicationId\s*=' app/build.gradle.kts | head -1 | grep -o '"[^"]*"' | head -1 | tr -d '"')
             if [ -n "$DETECTED" ]; then PKG="$DETECTED"; fi
@@ -79,8 +79,8 @@ jobs:
           {
             "project_info": {
               "project_number": "000000000000",
-              "project_id": "placeholder-project",
-              "storage_bucket": "placeholder-project.appspot.com"
+              "project_id": "masjidio-andikune-dev",
+              "storage_bucket": "masjidio-andikune-dev.appspot.com"
             },
             "client": [
               {

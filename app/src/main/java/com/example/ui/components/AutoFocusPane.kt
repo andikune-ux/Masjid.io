@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box

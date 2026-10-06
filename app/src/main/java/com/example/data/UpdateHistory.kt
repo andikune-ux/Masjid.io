@@ -1,4 +1,4 @@
-package com.example.data
+package dev.andikune.masjidio.data
 
 /**
  * UpdateHistory — Riwayat update aplikasi MASJID.IO.

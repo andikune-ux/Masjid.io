@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -32,8 +32,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
 /**

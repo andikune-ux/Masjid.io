@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,10 +36,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGreen
+import dev.andikune.masjidio.ui.theme.TextSecondary
 
 @Composable
 fun TvToggle(

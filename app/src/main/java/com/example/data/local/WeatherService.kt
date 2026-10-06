@@ -1,4 +1,4 @@
-package com.example.data.local
+package dev.andikune.masjidio.data.local
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers

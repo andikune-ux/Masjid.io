@@ -1,4 +1,4 @@
-package com.example.data.content
+package dev.andikune.masjidio.data.content
 
 data class DzikirItem(
     val title: String,

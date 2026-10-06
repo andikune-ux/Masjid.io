@@ -1,4 +1,4 @@
-package com.example.kiosk
+package dev.andikune.masjidio.kiosk
 
 import android.app.Activity
 import android.app.ActivityManager
