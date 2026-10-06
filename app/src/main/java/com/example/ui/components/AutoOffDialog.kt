@@ -46,36 +46,54 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
+// ============================================================
+// WARNA (mengikuti tema aplikasi)
+// ============================================================
 private val GOLD = Color(0xFFE6C25A)
+private val GOLD_LIGHT = Color(0xFFFFE08A)
 private val DARK_BG = Color(0xFF0E1621)
 private val RED_WARN_BG = Color(0xFF3A1216)
 private val RED_WARN_BORDER = Color(0xFFFF4D4D)
 private val RED_WARN_TEXT = Color(0xFFFFC7C7)
 
+// ============================================================
+// AUTO-OFF DIALOG
+// V1.04.427 — Fix D-pad remote tidak bisa pilih YA/TIDAK
+//
+// PERUBAHAN:
+// 1. Tambah FocusRequester ke tombol YA (default fokus masuk dialog)
+// 2. Tombol: focusable + onFocusChanged + border fokus visual
+// 3. DialogProperties: usePlatformDefaultWidth=false, back=false, outside=false
+// 4. Auto-dismiss dihitung dari autoDismissSeconds (bukan ms)
+// 5. Layout sesuai screenshot TV
+// ============================================================
 @Composable
 fun AutoOffDialog(
-    autoOffSinceFormatted: String = "19:28",
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    onAutoDismiss: () -> Unit = onDismiss,
-    autoDismissMillis: Long = 120_000L
+    offStartTime: String,
+    offEndTime: String,
+    autoDismissSeconds: Int,
+    onConfirmTrue: () -> Unit,
+    onConfirmFalse: () -> Unit
 ) {
+    // ⭐ FocusRequester untuk tombol YA (default fokus pertama)
     val yaFocusRequester = remember { FocusRequester() }
 
-    // Auto-dismiss 2 menit -> dianggap TIDAK
+    // ⭐ Paksa fokus masuk ke tombol YA saat dialog muncul
     LaunchedEffect(Unit) {
-        delay(autoDismissMillis)
-        onAutoDismiss()
-    }
-
-    // ⭐ KUNCI PERBAIKAN: paksa fokus ke tombol YA saat dialog muncul
-    LaunchedEffect(Unit) {
-        delay(100L) // kasih waktu layout selesai dulu
+        delay(150L) // tunggu layout selesai
         runCatching { yaFocusRequester.requestFocus() }
     }
 
+    // Auto-dismiss setelah N detik -> dianggap TIDAK
+    LaunchedEffect(Unit) {
+        if (autoDismissSeconds > 0) {
+            delay(autoDismissSeconds * 1000L)
+            onConfirmFalse()
+        }
+    }
+
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { onConfirmFalse() },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             dismissOnBackPress = false,
@@ -97,19 +115,19 @@ fun AutoOffDialog(
                     .padding(36.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ── Icon bulan ──
+                // ── Icon bulan (bulan sabit) ──
                 Box(
                     modifier = Modifier
                         .size(110.dp)
                         .clip(CircleShape)
-                        .background(GOLD.copy(alpha = 0.15f))
+                        .background(GOLD.copy(alpha = 0.12f))
                         .border(3.dp, GOLD, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.NightsStay,
                         contentDescription = null,
-                        tint = GOLD,
+                        tint = GOLD_LIGHT,
                         modifier = Modifier.size(56.dp)
                     )
                 }
@@ -119,7 +137,7 @@ fun AutoOffDialog(
                 // ── Judul ──
                 Text(
                     text = "JADWAL OFF AKTIF",
-                    color = GOLD,
+                    color = GOLD_LIGHT,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
@@ -127,6 +145,7 @@ fun AutoOffDialog(
 
                 Spacer(Modifier.height(10.dp))
 
+                // ── Garis pemisah ──
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -136,24 +155,28 @@ fun AutoOffDialog(
 
                 Spacer(Modifier.height(20.dp))
 
-                // ── Info "Layar redup sejak ..." ──
+                // ── Badge "Layar redup sejak ..." ──
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color.White.copy(alpha = 0.06f))
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                        .border(
+                            1.dp,
+                            Color.White.copy(alpha = 0.2f),
+                            RoundedCornerShape(20.dp)
+                        )
                         .padding(horizontal = 18.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Schedule,
                         contentDescription = null,
-                        tint = GOLD,
+                        tint = GOLD_LIGHT,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        text = "Layar redup sejak $autoOffSinceFormatted",
+                        text = "Layar redup sejak $offStartTime",
                         color = Color.White,
                         fontSize = 16.sp
                     )
@@ -168,6 +191,7 @@ fun AutoOffDialog(
                     fontSize = 22.sp,
                     textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = "MEMATIKAN JADWAL ON/OFF?",
                     color = Color.White,
@@ -178,7 +202,7 @@ fun AutoOffDialog(
 
                 Spacer(Modifier.height(22.dp))
 
-                // ── Warning box ──
+                // ── Warning box merah ──
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -215,14 +239,14 @@ fun AutoOffDialog(
                         isConfirm = true,
                         modifier = Modifier
                             .weight(1f)
-                            .focusRequester(yaFocusRequester),
-                        onClick = onConfirm
+                            .focusRequester(yaFocusRequester), // ⭐ default fokus
+                        onClick = onConfirmTrue
                     )
                     AutoOffButton(
                         text = "TIDAK",
                         isConfirm = false,
                         modifier = Modifier.weight(1f),
-                        onClick = onDismiss
+                        onClick = onConfirmFalse
                     )
                 }
             }
@@ -230,6 +254,9 @@ fun AutoOffDialog(
     }
 }
 
+// ============================================================
+// TOMBOL DIALOG (focusable + border fokus visual)
+// ============================================================
 @Composable
 private fun AutoOffButton(
     text: String,
