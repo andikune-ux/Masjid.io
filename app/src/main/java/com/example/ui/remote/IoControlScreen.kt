@@ -76,6 +76,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.data.local.SettingsRepository
+import dev.andikune.masjidio.kiosk.TransferForegroundService
 import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
@@ -87,9 +88,6 @@ import dev.andikune.masjidio.util.SettingsTransferHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// ============================================================
-// WARNA TEMA iO CONTROL
-// ============================================================
 private val IoBlue = Color(0xFF2196F3)
 private val IoBlueLight = Color(0xFF64B5F6)
 private val IoBlueDark = Color(0xFF0D47A1)
@@ -101,9 +99,6 @@ private val IoCard = Color(0xFF132F4C)
 private val IoAmber = Color(0xFFFFA726)
 private val IoPurple = Color(0xFFBB86FC)
 
-// ============================================================
-// STATE MACHINE
-// ============================================================
 enum class IoPhase {
     SCANNING,
     CONNECTING,
@@ -117,11 +112,6 @@ enum class IoPhase {
     ERROR
 }
 
-// ============================================================
-// MAIN COMPOSABLE
-// V1.04.423: Hapus tombol Scan Barcode dari iO Control
-// (fokus ke web remote lewat RemoteSettingsPane saja)
-// ============================================================
 @Composable
 fun IoControlScreen(
     settingsRepository: SettingsRepository,
@@ -138,7 +128,6 @@ fun IoControlScreen(
     val isScanning by DeviceDiscovery.isScanning.collectAsState()
     val currentSettings by settingsRepository.settingsFlow.collectAsState()
 
-    // ===== STATE UTAMA =====
     var phase by remember { mutableStateOf(IoPhase.SCANNING) }
     var selectedDevice by remember { mutableStateOf<DiscoveredDevice?>(null) }
     var transferProgress by remember { mutableStateOf(0f) }
@@ -232,7 +221,8 @@ fun IoControlScreen(
         }
     }
         // ============================================================
-    // LAUNCHER: Kirim Settings + Media
+    // PHASE LOGIC — KIRIM SETTINGS + MEDIA
+    // V1.04.426 — Aktifkan Foreground Service saat kirim media
     // ============================================================
     LaunchedEffect(phase) {
         when (phase) {
@@ -281,6 +271,16 @@ fun IoControlScreen(
                     return@LaunchedEffect
                 }
 
+                // ============================================================
+                // V1.04.426 — START FOREGROUND SERVICE (WiFi + CPU lock)
+                // ============================================================
+                try {
+                    TransferForegroundService.start(context)
+                    Log.d("IoControlScreen", "Foreground service started untuk transfer")
+                } catch (e: Exception) {
+                    Log.e("IoControlScreen", "Gagal start foreground service: ${e.message}")
+                }
+
                 val mediaResult = RemoteControlClient.sendMediaFilesChunked(
                     context = context,
                     targetIp = target.ip,
@@ -291,6 +291,16 @@ fun IoControlScreen(
                         statusMessage = progress.message
                     }
                 )
+
+                // ============================================================
+                // V1.04.426 — STOP FOREGROUND SERVICE setelah selesai
+                // ============================================================
+                try {
+                    TransferForegroundService.stop(context)
+                    Log.d("IoControlScreen", "Foreground service stopped")
+                } catch (e: Exception) {
+                    Log.e("IoControlScreen", "Gagal stop foreground service: ${e.message}")
+                }
 
                 transferResult = mediaResult
                 failedFieldKeys = mediaResult.failures.map { it.fieldKey }
@@ -317,7 +327,7 @@ fun IoControlScreen(
             }
 
             IoPhase.READY_TO_RESTART -> {
-                // Tidak ada aksi otomatis.
+                // Tidak ada aksi otomatis
             }
 
             else -> { /* no-op */ }
@@ -450,6 +460,9 @@ fun IoControlScreen(
                         scope.launch {
                             statusMessage = "Mengirim ulang ${failedKeys.size} file gagal..."
 
+                            // V1.04.426 — Start service lagi untuk retry
+                            try { TransferForegroundService.start(context) } catch (_: Exception) {}
+
                             val retryResult = RemoteControlClient.retryFailedMedia(
                                 context = context,
                                 targetIp = target.ip,
@@ -461,6 +474,9 @@ fun IoControlScreen(
                                     statusMessage = progress.message
                                 }
                             )
+
+                            // V1.04.426 — Stop service
+                            try { TransferForegroundService.stop(context) } catch (_: Exception) {}
 
                             isRetrying = false
 
@@ -513,7 +529,6 @@ fun IoControlScreen(
             }
         }
 
-        // ===== DIALOG LOG KEGAGALAN =====
         if (showFailureDialog) {
             FailureLogDialog(
                 log = transferResult?.allFailuresLog ?: "(tidak ada log)",
@@ -523,7 +538,7 @@ fun IoControlScreen(
     }
 }
 // ============================================================
-// TOP BAR — V1.04.423: Hapus tombol Scan Barcode
+// TOP BAR
 // ============================================================
 @Composable
 private fun IoTopBar(
@@ -615,7 +630,7 @@ private fun IoTopBar(
 }
 
 // ============================================================
-// INFO BAR JARINGAN — V1.04.423: Hapus tombol QR
+// NETWORK INFO BAR
 // ============================================================
 @Composable
 private fun NetworkInfoBar(
@@ -659,7 +674,7 @@ private fun NetworkInfoBar(
 }
 
 // ============================================================
-// SCANNING VIEW — V1.04.423: Hapus tombol Web Remote QR
+// SCANNING VIEW
 // ============================================================
 @Composable
 private fun ScanningView(
@@ -772,6 +787,7 @@ private fun ScanButton(onClick: () -> Unit, focusRequester: FocusRequester) {
         }
     }
 }
+
 // ============================================================
 // RADAR VIEW
 // ============================================================
@@ -841,7 +857,6 @@ private fun RadarView(devices: List<DiscoveredDevice>, isScanning: Boolean) {
         )
     }
 }
-
 // ============================================================
 // DEVICE CARD
 // ============================================================
@@ -899,6 +914,7 @@ private fun DeviceCard(
         }
     }
 }
+
 // ============================================================
 // CONNECTED VIEW
 // ============================================================
@@ -1560,8 +1576,9 @@ private fun ReadyToRestartView(
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
+
 // ============================================================
-// ROW RINGKASAN
+// SUMMARY ROW
 // ============================================================
 @Composable
 private fun SummaryRow(
@@ -1584,9 +1601,8 @@ private fun SummaryRow(
         )
     }
 }
-
 // ============================================================
-// READY ACTION BUTTON (tombol besar)
+// READY ACTION BUTTON
 // ============================================================
 @Composable
 private fun ReadyActionButton(
@@ -1648,7 +1664,7 @@ private fun ReadyActionButton(
 }
 
 // ============================================================
-// SMALL OUTLINE BUTTON (tombol kecil untuk lewati)
+// SMALL OUTLINE BUTTON
 // ============================================================
 @Composable
 private fun SmallOutlineButton(
@@ -1696,154 +1712,7 @@ private fun SmallOutlineButton(
         }
     }
 }
-// ============================================================
-// FAILURE LOG DIALOG (popup log error Kotlin)
-// ============================================================
-@Composable
-private fun FailureLogDialog(
-    log: String,
-    onDismiss: () -> Unit
-) {
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
 
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(2000)
-            copied = false
-        }
-    }
-
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.9f)
-                .clip(RoundedCornerShape(18.dp))
-                .background(IoBg)
-                .border(2.dp, IoRed.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // ===== HEADER =====
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = IoRed,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "LOG KEGAGALAN TRANSFER",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = IoRed
-                        )
-                        Text(
-                            text = "Stack trace Kotlin lengkap",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(IoCard)
-                        .clickable { onDismiss() }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "TUTUP",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                }
-            }
-
-            // ===== LOG CONTENT =====
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF000000))
-                    .border(1.dp, IoRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                    .padding(14.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text(
-                    text = log.ifBlank { "(tidak ada log)" },
-                    fontSize = 11.sp,
-                    color = Color(0xFF80E080),
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
-                )
-            }
-
-            // ===== TOMBOL SALIN =====
-            val copyInteraction = remember { MutableInteractionSource() }
-            val copyFocused by copyInteraction.collectIsFocusedAsState()
-            val copyPressed by copyInteraction.collectIsPressedAsState()
-
-            NeonFocusBorder(
-                focused = copyFocused,
-                pressed = copyPressed,
-                borderWidth = 5.dp,
-                cornerRadius = 12.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (copied) IoGreen.copy(alpha = 0.3f) else IoBlue.copy(alpha = 0.2f)
-                        )
-                        .border(
-                            1.5.dp,
-                            if (copied) IoGreen else IoBlue,
-                            RoundedCornerShape(12.dp)
-                        )
-                        .focusable(interactionSource = copyInteraction)
-                        .clickable(
-                            interactionSource = copyInteraction,
-                            indication = null
-                        ) {
-                            clipboard.setText(AnnotatedString(log))
-                            copied = true
-                        }
-                        .padding(vertical = 14.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (copied) Icons.Default.CheckCircle else Icons.Default.Info,
-                        contentDescription = null,
-                        tint = if (copied) IoGreen else IoBlueLight,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = if (copied) "✓ TERSALIN KE CLIPBOARD" else "📋 SALIN LOG KE CLIPBOARD",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (copied) IoGreen else IoBlueLight
-                    )
-                }
-            }
-        }
-    }
-}
 // ============================================================
 // WAITING RECEIVE VIEW
 // ============================================================
@@ -2063,5 +1932,151 @@ private fun ErrorView(message: String, onRetry: () -> Unit, onBackToScan: () -> 
         }
 
         Spacer(modifier = Modifier.height(48.dp))
+    }
+}
+
+// ============================================================
+// FAILURE LOG DIALOG
+// ============================================================
+@Composable
+private fun FailureLogDialog(
+    log: String,
+    onDismiss: () -> Unit
+) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000)
+            copied = false
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.9f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(IoBg)
+                .border(2.dp, IoRed.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = IoRed,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "LOG KEGAGALAN TRANSFER",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IoRed
+                        )
+                        Text(
+                            text = "Stack trace Kotlin lengkap",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(IoCard)
+                        .clickable { onDismiss() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "TUTUP",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF000000))
+                    .border(1.dp, IoRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = log.ifBlank { "(tidak ada log)" },
+                    fontSize = 11.sp,
+                    color = Color(0xFF80E080),
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 16.sp
+                )
+            }
+
+            val copyInteraction = remember { MutableInteractionSource() }
+            val copyFocused by copyInteraction.collectIsFocusedAsState()
+            val copyPressed by copyInteraction.collectIsPressedAsState()
+
+            NeonFocusBorder(
+                focused = copyFocused,
+                pressed = copyPressed,
+                borderWidth = 5.dp,
+                cornerRadius = 12.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (copied) IoGreen.copy(alpha = 0.3f) else IoBlue.copy(alpha = 0.2f)
+                        )
+                        .border(
+                            1.5.dp,
+                            if (copied) IoGreen else IoBlue,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .focusable(interactionSource = copyInteraction)
+                        .clickable(
+                            interactionSource = copyInteraction,
+                            indication = null
+                        ) {
+                            clipboard.setText(AnnotatedString(log))
+                            copied = true
+                        }
+                        .padding(vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (copied) Icons.Default.CheckCircle else Icons.Default.Info,
+                        contentDescription = null,
+                        tint = if (copied) IoGreen else IoBlueLight,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (copied) "✓ TERSALIN KE CLIPBOARD" else "📋 SALIN LOG KE CLIPBOARD",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (copied) IoGreen else IoBlueLight
+                    )
+                }
+            }
+        }
     }
 }
