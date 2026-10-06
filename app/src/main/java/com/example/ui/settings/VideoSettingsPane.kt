@@ -1,5 +1,8 @@
-package dev.andikune.masjidio.ui.settings
+package com.example.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -26,12 +29,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
@@ -59,19 +62,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.ui.components.FilePickerMode
-import dev.andikune.masjidio.ui.components.MasjidVideoPlayer
-import dev.andikune.masjidio.ui.components.TvSlider
-import dev.andikune.masjidio.ui.components.TvToggle
-import dev.andikune.masjidio.ui.components.VideoFilePickerDialog
-import dev.andikune.masjidio.ui.theme.IslamicGold
-import dev.andikune.masjidio.ui.theme.IslamicGoldLight
-import dev.andikune.masjidio.ui.theme.IslamicGreen
-import dev.andikune.masjidio.ui.theme.TextPrimary
-import dev.andikune.masjidio.ui.theme.TextSecondary
-import dev.andikune.masjidio.ui.theme.UrgentRed
-import dev.andikune.masjidio.util.MediaPersistenceHelper
+import com.example.data.model.AppSettings
+import com.example.ui.components.FilePickerMode
+import com.example.ui.components.MasjidVideoPlayer
+import com.example.ui.components.TvSlider
+import com.example.ui.components.TvToggle
+import com.example.ui.components.VideoFilePickerDialog
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.IslamicGreen
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -87,13 +90,13 @@ fun VideoSettingsPane(
     val scope = rememberCoroutineScope()
 
     // ============================================================
-    // V1.04.423 — State Dialog Custom File Picker
+    // V1.04.425 — State Dialog Custom File Picker
     // ============================================================
     var showVideoPicker by remember { mutableStateOf(false) }
     var showPhotoPicker by remember { mutableStateOf(false) }
 
     // ============================================================
-    // Helper: proses file video terpilih (copy ke folder permanen)
+    // V1.04.425 — Helper: proses file video terpilih
     // ============================================================
     fun processVideoFile(file: File) {
         scope.launch {
@@ -113,15 +116,11 @@ fun VideoSettingsPane(
                 )
                 onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
             } else {
-                // Fallback: pakai path asli
                 onUpdate(settings.copy(videoUri = file.absolutePath, videoEnabled = true))
             }
         }
     }
 
-    // ============================================================
-    // Helper: proses file foto terpilih (copy + tambah ke list)
-    // ============================================================
     fun processPhotoFile(file: File) {
         scope.launch {
             val localPath = withContext(Dispatchers.IO) {
@@ -148,6 +147,63 @@ fun VideoSettingsPane(
                         photoSlideshowEnabled = true
                     )
                 )
+            }
+        }
+    }
+
+    // ============================================================
+    // V1.04.425 BARU — GALERI LAUNCHER (Android Native)
+    // Tombol GALERI pakai galeri bawaan HP — lebih mudah untuk user HP
+    // ============================================================
+
+    // Video dari Galeri
+    val videoGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val localPath = withContext(Dispatchers.IO) {
+                    MediaPersistenceHelper.copyVideoToPermanent(context, uri.toString())
+                }
+                if (localPath != null) {
+                    MediaPersistenceHelper.cleanupFolder(
+                        context,
+                        MediaPersistenceHelper.FOLDER_VIDEO,
+                        3
+                    )
+                    onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
+                } else {
+                    onUpdate(settings.copy(videoUri = uri.toString(), videoEnabled = true))
+                }
+            }
+        }
+    }
+
+    // Foto dari Galeri (multi-select)
+    val photoGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            scope.launch {
+                val localPaths = withContext(Dispatchers.IO) {
+                    uris.mapNotNull { uri ->
+                        MediaPersistenceHelper.copyToPermanent(
+                            context = context,
+                            sourceUri = uri.toString(),
+                            folder = MediaPersistenceHelper.FOLDER_SLIDESHOW,
+                            fileNamePrefix = "foto"
+                        )
+                    }
+                }
+                if (localPaths.isNotEmpty()) {
+                    val newUris = settings.photoSlideshowUris + localPaths
+                    onUpdate(
+                        settings.copy(
+                            photoSlideshowUris = newUris,
+                            photoSlideshowEnabled = true
+                        )
+                    )
+                }
             }
         }
     }
@@ -203,7 +259,7 @@ fun VideoSettingsPane(
         }
 
         // ============================================================
-        // 2. VIDEO PICKER — dengan Custom File Picker
+        // 2. VIDEO PICKER — 2 tombol: GALERI + FILE MANAGER
         // ============================================================
         Column(
             modifier = Modifier
@@ -267,12 +323,21 @@ fun VideoSettingsPane(
                     )
 
                     // ============================================================
-                    // V1.04.423 — Tombol BUKA PICKER (custom, TV friendly)
+                    // V1.04.425 — 2 TOMBOL: GALERI + FILE
                     // ============================================================
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Tombol GALERI (buka galeri bawaan HP)
+                        TvActionButton(
+                            icon = Icons.Default.PhotoLibrary,
+                            label = "GALERI",
+                            backgroundColor = IslamicGold,
+                            textColor = Color(0xFF09141D),
+                            onClick = { videoGalleryLauncher.launch("video/*") }
+                        )
+                        // Tombol FILE (buka custom picker)
                         TvActionButton(
                             icon = Icons.Default.FolderOpen,
-                            label = "PILIH VIDEO",
+                            label = "FILE",
                             backgroundColor = IslamicGold,
                             textColor = Color(0xFF09141D),
                             onClick = { showVideoPicker = true }
@@ -295,7 +360,7 @@ fun VideoSettingsPane(
             }
 
             Text(
-                text = "💡 Tombol PILIH VIDEO akan membuka picker khusus TV. Scan otomatis semua folder di /sdcard/",
+                text = "💡 GALERI = pakai aplikasi galeri HP. FILE = pilih dari folder (cocok untuk TV).",
                 fontSize = 11.sp,
                 color = TextSecondary.copy(alpha = 0.8f)
             )
@@ -509,7 +574,7 @@ Column(
     }
 }
         // ============================================================
-        // 5. FOTO SLIDESHOW
+        // 5. FOTO SLIDESHOW — V1.04.425 (2 tombol: GALERI + FILE)
         // ============================================================
         Text(
             text = "Foto Kegiatan Masjid (Slideshow)",
@@ -666,12 +731,21 @@ Column(
             }
 
             // ============================================================
-            // V1.04.423 — Tombol TAMBAH FOTO (custom picker)
+            // V1.04.425 — 2 TOMBOL: GALERI + FILE
             // ============================================================
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Tombol GALERI (buka galeri bawaan HP, multi-select)
+                TvActionButton(
+                    icon = Icons.Default.PhotoLibrary,
+                    label = "GALERI",
+                    backgroundColor = IslamicGold,
+                    textColor = Color(0xFF09141D),
+                    onClick = { photoGalleryLauncher.launch("image/*") }
+                )
+                // Tombol FILE (buka custom picker)
                 TvActionButton(
                     icon = Icons.Default.Add,
-                    label = "TAMBAH FOTO",
+                    label = "FILE",
                     backgroundColor = IslamicGold,
                     textColor = Color(0xFF09141D),
                     onClick = { showPhotoPicker = true }
@@ -679,9 +753,10 @@ Column(
             }
 
             Text(
-                text = "💡 Pilih foto dari folder mana saja di /sdcard/. Bisa pilih 1 per 1.",
+                text = "💡 GALERI = pakai galeri HP (bisa pilih banyak foto sekaligus). FILE = pilih satu per satu dari folder.",
                 fontSize = 11.sp,
-                color = TextSecondary.copy(alpha = 0.8f)
+                color = TextSecondary.copy(alpha = 0.8f),
+                lineHeight = 15.sp
             )
         }
 
@@ -722,7 +797,7 @@ Column(
         }
 
         // ============================================================
-        // V1.04.423 — PICKER DIALOG CALLERS
+        // PICKER DIALOG CALLERS (custom file picker)
         // ============================================================
         if (showVideoPicker) {
             VideoFilePickerDialog(
