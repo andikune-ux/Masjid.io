@@ -22,6 +22,7 @@ import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.BindException
@@ -50,6 +51,8 @@ class RemoteServer(
         private const val MAX_RETRY = 3
         private const val RETRY_DELAY_MS = 500L
         private const val SESSION_TTL_MS = 24 * 60 * 60 * 1000L
+        // V1.04.426 — buffer streaming
+        private const val STREAM_BUFFER_SIZE = 64 * 1024  // 64 KB
     }
 
     private var serverSocket: ServerSocket? = null
@@ -68,9 +71,6 @@ class RemoteServer(
 
     private val sessions = ConcurrentHashMap<String, Long>()
 
-    // ============================================================
-    // V1.30.7 BARU — Simpan info pengirim terakhir untuk bundle
-    // ============================================================
     @Volatile
     private var lastSenderDevice: String = "Pengirim"
     @Volatile
@@ -78,6 +78,9 @@ class RemoteServer(
     @Volatile
     private var lastSenderRole: String = "HP"
 
+    // ============================================================
+    // State lama — untuk chunk upload (backward compat)
+    // ============================================================
     private data class MediaTransferState(
         val fileId: String,
         val fieldKey: String,
@@ -91,6 +94,24 @@ class RemoteServer(
     )
 
     private val mediaTransfers = ConcurrentHashMap<String, MediaTransferState>()
+
+    // ============================================================
+    // V1.04.426 BARU — Streaming transfer state
+    // ============================================================
+    data class StreamingTransferState(
+        val fileId: String,
+        val fieldKey: String,
+        val fileName: String,
+        val fileType: String,
+        val totalBytes: Long,
+        val mimeType: String,
+        var bytesReceived: Long = 0L,
+        var isFinished: Boolean = false,
+        var savedPath: String? = null,
+        var failureReason: String? = null
+    )
+
+    private val streamingTransfers = ConcurrentHashMap<String, StreamingTransferState>()
 
     private fun createSession(): String {
         val id = UUID.randomUUID().toString()
@@ -113,84 +134,85 @@ class RemoteServer(
         val now = System.currentTimeMillis()
         sessions.entries.removeAll { it.value < now }
     }
-
     fun start(scope: CoroutineScope) {
-        if (isRunning) return
-        serverJob = scope.launch(Dispatchers.IO) {
-            cleanupSocket()
-            var bound: ServerSocket? = null
-            var lastException: Exception? = null
-
-            for (attempt in 1..MAX_RETRY) {
-                try {
-                    val socket = ServerSocket()
-                    socket.reuseAddress = true
-                    socket.bind(InetSocketAddress(port))
-                    bound = socket
-                    break
-                } catch (e: Exception) {
-                    lastException = e
-                    delay(RETRY_DELAY_MS)
-                }
-            }
-
-            if (bound == null) {
-                isRunning = false
-                actualPort = -1
-                lastError = buildErrorMessage(lastException)
-                return@launch
-            }
-
-            serverSocket = bound
-            isRunning = true
-            actualPort = port
-            lastError = null
-
-            while (isRunning) {
-                try {
-                    val client = serverSocket?.accept() ?: break
-                    handleClient(client)
-                } catch (e: Exception) {
-                    if (isRunning) Log.e(TAG, "Accept error: ${e.message}")
-                }
-            }
-        }
-    }
-
-    fun stop() {
-        isRunning = false
+    if (isRunning) return
+    serverJob = scope.launch(Dispatchers.IO) {
         cleanupSocket()
-        serverJob?.cancel()
-        serverJob = null
-        sessions.clear()
-        mediaTransfers.clear()
-    }
+        var bound: ServerSocket? = null
+        var lastException: Exception? = null
 
-    private fun cleanupSocket() {
-        try {
-            serverSocket?.let { if (!it.isClosed) it.close() }
-        } catch (_: Exception) {}
-        serverSocket = null
-        actualPort = -1
-    }
-
-    private fun buildErrorMessage(e: Exception?): String {
-        if (e == null) return "Server gagal start tanpa error jelas"
-        return when (e) {
-            is BindException -> {
-                val msg = e.message ?: ""
-                if (msg.contains("Address already in use", true) ||
-                    msg.contains("EADDRINUSE", true)) {
-                    "Port $port SUDAH DIPAKAI aplikasi lain.\n\nSolusi: Force close aplikasi lain / restart HP/TV."
-                } else "Gagal bind port $port: $msg"
+        for (attempt in 1..MAX_RETRY) {
+            try {
+                val socket = ServerSocket()
+                socket.reuseAddress = true
+                socket.bind(InetSocketAddress(port))
+                bound = socket
+                break
+            } catch (e: Exception) {
+                lastException = e
+                delay(RETRY_DELAY_MS)
             }
-            is SocketException -> "Socket error di port $port: ${e.message}"
-            else -> "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+        }
+
+        if (bound == null) {
+            isRunning = false
+            actualPort = -1
+            lastError = buildErrorMessage(lastException)
+            return@launch
+        }
+
+        serverSocket = bound
+        isRunning = true
+        actualPort = port
+        lastError = null
+
+        while (isRunning) {
+            try {
+                val client = serverSocket?.accept() ?: break
+                handleClient(client)
+            } catch (e: Exception) {
+                if (isRunning) Log.e(TAG, "Accept error: ${e.message}")
+            }
         }
     }
+}
 
-    fun isRunning(): Boolean = isRunning
-    private fun handleClient(client: Socket) {
+fun stop() {
+    isRunning = false
+    cleanupSocket()
+    serverJob?.cancel()
+    serverJob = null
+    sessions.clear()
+    mediaTransfers.clear()
+    streamingTransfers.clear()
+}
+
+private fun cleanupSocket() {
+    try {
+        serverSocket?.let { if (!it.isClosed) it.close() }
+    } catch (_: Exception) {}
+    serverSocket = null
+    actualPort = -1
+}
+
+private fun buildErrorMessage(e: Exception?): String {
+    if (e == null) return "Server gagal start tanpa error jelas"
+    return when (e) {
+        is BindException -> {
+            val msg = e.message ?: ""
+            if (msg.contains("Address already in use", true) ||
+                msg.contains("EADDRINUSE", true)) {
+                "Port $port SUDAH DIPAKAI aplikasi lain.\n\nSolusi: Force close aplikasi lain / restart HP/TV."
+            } else "Gagal bind port $port: $msg"
+        }
+        is SocketException -> "Socket error di port $port: ${e.message}"
+        else -> "${e.javaClass.simpleName}: ${e.message ?: "unknown"}"
+    }
+}
+
+fun isRunning(): Boolean = isRunning
+
+private fun handleClient(client: Socket) {
     try {
         val reader = BufferedReader(InputStreamReader(client.getInputStream()))
         val writer = OutputStreamWriter(client.getOutputStream())
@@ -214,11 +236,37 @@ class RemoteServer(
             if (hp.size == 2) headers[hp[0].trim().lowercase()] = hp[1].trim()
         }
 
-        val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
+        val contentLength = headers["content-length"]?.toLongOrNull() ?: 0L
+        val isStreamingUpload = pathOnly == "/api/io/upload-stream"
+
+        // ============================================================
+        // V1.04.426 — STREAMING UPLOAD (BARU)
+        // Body langsung ditulis ke disk (tidak buffer semua di memori)
+        // ============================================================
+        if (isStreamingUpload) {
+            handleStreamingUpload(
+                client = client,
+                reader = reader,
+                writer = writer,
+                headers = headers,
+                contentLength = contentLength,
+                method = method
+            )
+            return
+        }
+
+        // ============================================================
+        // Route lama — baca body sebagai string (untuk endpoint kecil)
+        // ============================================================
         val body = if (contentLength > 0) {
-            val buf = CharArray(contentLength)
-            reader.read(buf, 0, contentLength)
-            String(buf)
+            val buf = CharArray(contentLength.toInt())
+            var read = 0
+            while (read < contentLength) {
+                val r = reader.read(buf, read, (contentLength - read).toInt())
+                if (r < 0) break
+                read += r
+            }
+            String(buf, 0, read)
         } else ""
 
         val cookieHeader = headers["cookie"] ?: ""
@@ -237,6 +285,8 @@ class RemoteServer(
                 pathOnly == "/api/io/receive-media-start" ||
                 pathOnly == "/api/io/receive-media-chunk" ||
                 pathOnly == "/api/io/receive-media-finish" ||
+                pathOnly == "/api/io/upload-stream" ||
+                pathOnly == "/api/io/upload-status" ||
                 pathOnly == "/api/io/finalize" ||
                 pathOnly == "/api/io/media-status" ||
                 pathOnly == "/api/io/list-bundles" ||
@@ -254,8 +304,7 @@ class RemoteServer(
             client.close()
             return
         }
-
-        when {
+                when {
             method == "GET" && pathOnly == "/login" -> {
                 sendResponse(writer, 200, "text/html", getLoginHtml())
             }
@@ -294,7 +343,6 @@ class RemoteServer(
                     settingsRepository.updateSettings(updated)
                     sendResponse(writer, 200, "application/json", """{"success":true}""")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Update settings error: ${e.message}")
                     sendResponse(writer, 400, "application/json",
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
@@ -356,181 +404,75 @@ class RemoteServer(
                 }, 1000)
                 return
             }
-
-            // ============================================================
-            // ENDPOINT iO CONTROL
-            // ============================================================
             method == "POST" && pathOnly == "/api/io/handshake" -> {
                 sendResponse(writer, 200, "application/json",
                     """{"success":true,"app":"MASJID.IO","port":$actualPort}""")
             }
-
             method == "POST" && pathOnly == "/api/io/receive" -> {
                 try {
-                    Log.d(TAG, "📥 Menerima settings dari pengirim")
-
-                    // V1.30.7 BARU: Coba extract info pengirim dari body
+                    Log.d(TAG, "Menerima settings dari pengirim")
                     tryExtractSenderInfo(body)
-
                     if (onSettingsReceived != null) {
                         onSettingsReceived.invoke(body)
                     }
                     sendResponse(writer, 200, "application/json",
-                        """{"success":true,"message":"Settings diterima, menunggu media..."}""")
-                    Log.d(TAG, "✅ Settings di-apply. Menunggu media + finalize.")
+                        """{"success":true,"message":"Settings diterima"}""")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Gagal apply settings: ${e.message}")
                     sendResponse(writer, 500, "application/json",
                         """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
                 }
             }
-
             // ============================================================
-            // MEDIA TRANSFER — START
+            // V1.04.426 — GET STATUS STREAMING (untuk progress di HP)
+            // ============================================================
+            method == "GET" && pathOnly == "/api/io/upload-status" -> {
+                val fileId = headers["x-file-id"] ?: ""
+                val state = streamingTransfers[fileId]
+                if (state == null) {
+                    sendResponse(writer, 404, "application/json",
+                        """{"success":false,"error":"fileId tidak ditemukan"}""")
+                } else {
+                    val json = JSONObject().apply {
+                        put("fileId", state.fileId)
+                        put("fileName", state.fileName)
+                        put("bytesReceived", state.bytesReceived)
+                        put("totalBytes", state.totalBytes)
+                        put("isFinished", state.isFinished)
+                        put("savedPath", state.savedPath ?: "")
+                        put("failureReason", state.failureReason ?: "")
+                    }
+                    sendResponse(writer, 200, "application/json", json.toString())
+                }
+            }
+            method == "POST" && pathOnly == "/api/io/finalize" -> {
+                Log.d(TAG, "Menerima sinyal FINALIZE dari pengirim")
+                val bundlePath = tryCreateBundleFromServerState()
+                sendResponse(writer, 200, "application/json",
+                    """{"success":true,"message":"Finalize diterima","bundlePath":"${bundlePath ?: ""}"}""")
+                writer.flush(); client.close()
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        if (onFinalize != null) onFinalize.invoke()
+                        else if (onRestart != null) onRestart.invoke()
+                        else android.os.Process.killProcess(android.os.Process.myPid())
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Finalize error: ${e.message}")
+                    }
+                }, 300)
+                return
+            }
+            // ============================================================
+            // Route lama — chunk upload (backward compat)
             // ============================================================
             method == "POST" && pathOnly == "/api/io/receive-media-start" -> {
-                try {
-                    val json = JSONObject(body)
-                    val fileId = json.optString("fileId", "")
-                    val fieldKey = json.optString("fieldKey", "")
-                    val fileName = json.optString("fileName", "")
-                    val fileType = json.optString("fileType", "photo")
-                    val totalChunks = json.optInt("totalChunks", 0)
-                    val mimeType = json.optString("mimeType", "application/octet-stream")
-
-                    if (fileId.isBlank() || totalChunks <= 0) {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"fileId atau totalChunks invalid"}""")
-                    } else {
-                        mediaTransfers[fileId] = MediaTransferState(
-                            fileId = fileId,
-                            fieldKey = fieldKey,
-                            fileName = fileName,
-                            fileType = fileType,
-                            totalChunks = totalChunks,
-                            mimeType = mimeType
-                        )
-                        Log.d(TAG, "Media start: $fileId ($fileName, $totalChunks chunks)")
-                        sendResponse(writer, 200, "application/json",
-                            """{"success":true,"fileId":"$fileId"}""")
-                    }
-                } catch (e: Exception) {
-                    sendResponse(writer, 400, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                }
+                handleMediaStart(body, writer)
             }
-
-            // ============================================================
-            // MEDIA TRANSFER — CHUNK
-            // ============================================================
             method == "POST" && pathOnly == "/api/io/receive-media-chunk" -> {
-                try {
-                    val fileId = headers["x-file-id"] ?: ""
-                    val chunkIndex = headers["x-chunk-index"]?.toIntOrNull() ?: -1
-
-                    if (fileId.isBlank() || chunkIndex < 0) {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"Header invalid"}""")
-                    } else {
-                        val state = mediaTransfers[fileId]
-                        if (state == null) {
-                            sendResponse(writer, 404, "application/json",
-                                """{"success":false,"error":"fileId tidak ditemukan"}""")
-                        } else {
-                            val chunkBytes = try {
-                                Base64.decode(body, Base64.NO_WRAP)
-                            } catch (e: Exception) {
-                                ByteArray(0)
-                            }
-
-                            if (chunkBytes.isEmpty()) {
-                                sendResponse(writer, 400, "application/json",
-                                    """{"success":false,"error":"Chunk kosong"}""")
-                            } else {
-                                state.receivedChunks[chunkIndex] = chunkBytes
-                                Log.d(TAG, "Chunk $chunkIndex/${state.totalChunks} untuk ${state.fileName} (${chunkBytes.size} bytes)")
-                                sendResponse(writer, 200, "application/json",
-                                    """{"success":true,"received":${state.receivedChunks.size},"total":${state.totalChunks}}""")
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                }
+                handleMediaChunk(body, headers, writer)
             }
-                        // ============================================================
-            // MEDIA TRANSFER — FINISH
-            // ============================================================
             method == "POST" && pathOnly == "/api/io/receive-media-finish" -> {
-                try {
-                    val json = JSONObject(body)
-                    val fileId = json.optString("fileId", "")
-                    val state = mediaTransfers[fileId]
-
-                    if (state == null) {
-                        sendResponse(writer, 404, "application/json",
-                            """{"success":false,"error":"fileId tidak ditemukan"}""")
-                    } else if (state.receivedChunks.size < state.totalChunks) {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"Chunk belum lengkap: ${state.receivedChunks.size}/${state.totalChunks}"}""")
-                    } else {
-                        val fullBytes = try {
-                            val output = ByteArrayOutputStream()
-                            for (i in 0 until state.totalChunks) {
-                                val chunk = state.receivedChunks[i]
-                                if (chunk == null) {
-                                    sendResponse(writer, 400, "application/json",
-                                        """{"success":false,"error":"Chunk $i hilang"}""")
-                                    writer.flush()
-                                    return
-                                }
-                                output.write(chunk)
-                            }
-                            output.toByteArray()
-                        } catch (e: Exception) {
-                            sendResponse(writer, 500, "application/json",
-                                """{"success":false,"error":"Gagal gabung chunk: ${e.message}"}""")
-                            writer.flush()
-                            return
-                        }
-
-                        val folder = when {
-                            state.fieldKey.contains("video", true) -> "video"
-                            state.fieldKey.contains("qris", true) -> "qris"
-                            state.fieldKey.contains("officer", true) -> "logo"
-                            state.fieldKey.contains("background", true) -> "background"
-                            state.fieldKey.contains("prayer", true) -> "prayer_card"
-                            state.fieldKey.contains("slideshow", true) -> "slideshow"
-                            else -> "media"
-                        }
-
-                        val savedPath = saveMediaFile(context, folder, state.fileName, fullBytes)
-
-                        if (savedPath != null) {
-                            state.isFinished = true
-                            state.savedPath = savedPath
-                            Log.d(TAG, "Media finish: ${state.fileName} → $savedPath")
-
-                            // Update path lokal di settings TV
-                            applyMediaPathToSettings(state.fieldKey, savedPath)
-
-                            sendResponse(writer, 200, "application/json",
-                                """{"success":true,"path":"$savedPath","size":${fullBytes.size}}""")
-                        } else {
-                            sendResponse(writer, 500, "application/json",
-                                """{"success":false,"error":"Gagal simpan file"}""")
-                        }
-                    }
-                } catch (e: Exception) {
-                    sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                }
+                handleMediaFinish(body, writer)
             }
-
-            // ============================================================
-            // MEDIA TRANSFER — STATUS
-            // ============================================================
             method == "GET" && pathOnly == "/api/io/media-status" -> {
                 val arr = JSONArray()
                 mediaTransfers.values.forEach { st ->
@@ -545,137 +487,15 @@ class RemoteServer(
                 }
                 sendResponse(writer, 200, "application/json", arr.toString())
             }
-
-            // ============================================================
-            // FINALIZE — dipanggil HP setelah semua terkirim
-            // V1.30.7: Bikin bundle .iO dulu, baru trigger onFinalize
-            // ============================================================
-            method == "POST" && pathOnly == "/api/io/finalize" -> {
-                Log.d(TAG, "🎬 Menerima sinyal FINALIZE dari pengirim")
-
-                // V1.30.7 BARU: Bikin bundle .iO dari state server
-                val bundlePath = tryCreateBundleFromServerState()
-                Log.d(TAG, "Bundle path: $bundlePath")
-
-                sendResponse(writer, 200, "application/json",
-                    """{"success":true,"message":"Finalize diterima","bundlePath":"${bundlePath ?: ""}"}""")
-                writer.flush(); client.close()
-
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try {
-                        if (onFinalize != null) {
-                            onFinalize.invoke()
-                            Log.d(TAG, "✅ onFinalize dipanggil — countdown dimulai")
-                        } else {
-                            Log.w(TAG, "⚠️ onFinalize null — fallback restart langsung")
-                            if (onRestart != null) onRestart.invoke()
-                            else android.os.Process.killProcess(android.os.Process.myPid())
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Finalize error: ${e.message}")
-                    }
-                }, 300)
-                return
-            }
-
-            // ============================================================
-            // V1.30.7 BARU — ENDPOINT BUNDLE .iO
-            // ============================================================
             method == "GET" && pathOnly == "/api/io/list-bundles" -> {
-                try {
-                    val bundles = IoBundleHelper.listBundles(context)
-                    val arr = JSONArray()
-                    bundles.forEach { info ->
-                        arr.put(JSONObject().apply {
-                            put("fileName", info.fileName)
-                            put("filePath", info.filePath)
-                            put("fileSizeBytes", info.fileSizeBytes)
-                            put("fileSizeText", info.fileSizeText)
-                            put("lastModified", info.lastModified)
-                            put("summaryLine", info.summaryLine)
-                            info.metadata?.let { m ->
-                                put("senderDevice", m.senderDevice)
-                                put("receivedAt", m.receivedAt)
-                                put("mediaTotal", m.mediaTotal)
-                                put("mediaSuccess", m.mediaSuccess)
-                                put("mediaFailed", m.mediaFailed)
-                                put("photoCount", m.photoCount)
-                                put("videoCount", m.videoCount)
-                                val failArr = JSONArray()
-                                m.failedFiles.forEach { f ->
-                                    failArr.put(JSONObject().apply {
-                                        put("displayName", f.displayName)
-                                        put("fieldKey", f.fieldKey)
-                                        put("reason", f.reason)
-                                        put("exceptionClass", f.exceptionClass)
-                                        put("stackTrace", f.stackTrace)
-                                    })
-                                }
-                                put("failedFiles", failArr)
-                            }
-                        })
-                    }
-                    sendResponse(writer, 200, "application/json", arr.toString())
-                } catch (e: Exception) {
-                    sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                }
+                handleListBundles(writer)
             }
-
             method == "POST" && pathOnly == "/api/io/delete-bundle" -> {
-                try {
-                    val json = JSONObject(body)
-                    val filePath = json.optString("filePath", "")
-                    if (filePath.isBlank()) {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"filePath kosong"}""")
-                    } else {
-                        val ok = IoBundleHelper.deleteBundleByPath(filePath)
-                        sendResponse(writer, 200, "application/json",
-                            """{"success":$ok}""")
-                    }
-                } catch (e: Exception) {
-                    sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                }
+                handleDeleteBundle(body, writer)
             }
-
             method == "POST" && pathOnly == "/api/io/restore-bundle" -> {
-                try {
-                    val json = JSONObject(body)
-                    val filePath = json.optString("filePath", "")
-                    if (filePath.isBlank()) {
-                        sendResponse(writer, 400, "application/json",
-                            """{"success":false,"error":"filePath kosong"}""")
-                    } else {
-                        val bundleFile = File(filePath)
-                        if (!bundleFile.exists()) {
-                            sendResponse(writer, 404, "application/json",
-                                """{"success":false,"error":"File tidak ditemukan"}""")
-                        } else {
-                            val currentSettings = settingsRepository.settingsFlow.value
-                            val result = IoBundleHelper.restoreBundleWithLocalPaths(
-                                context = context,
-                                bundleFile = bundleFile,
-                                currentSettings = currentSettings
-                            )
-                            if (result.success && result.settings != null) {
-                                settingsRepository.updateSettings(result.settings)
-                                sendResponse(writer, 200, "application/json",
-                                    """{"success":true,"restoredMedia":${result.restoredMediaCount}}""")
-                                Log.d(TAG, "✅ Restore bundle sukses: ${result.restoredMediaCount} file")
-                            } else {
-                                sendResponse(writer, 500, "application/json",
-                                    """{"success":false,"error":"${result.errorMessage?.replace("\"", "\\\"")}"}""")
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    sendResponse(writer, 500, "application/json",
-                        """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
-                }
+                handleRestoreBundle(body, writer)
             }
-
             else -> {
                 sendResponse(writer, 404, "text/plain", "Not Found: $pathOnly")
             }
@@ -690,122 +510,390 @@ class RemoteServer(
 }
 
 // ============================================================
-// V1.30.7 BARU — EXTRACT INFO PENGIRIM dari JSON settings
+// V1.04.426 — STREAMING UPLOAD HANDLER (BARU)
+// Baca body langsung ke disk, tidak buffer semua di memori.
+// Header yang dibutuhkan:
+//   X-File-Id     : UUID unik
+//   X-Field-Key   : qrisPhotoUri / officerPhotoUri / videoUri / dll
+//   X-File-Name   : nama file asli
+//   X-File-Type   : photo / video / other
+//   X-Total-Bytes : ukuran total file
+//   X-Mime-Type   : mime type file
 // ============================================================
-private fun tryExtractSenderInfo(body: String) {
+private fun handleStreamingUpload(
+    client: Socket,
+    reader: BufferedReader,
+    writer: OutputStreamWriter,
+    headers: Map<String, String>,
+    contentLength: Long,
+    method: String
+) {
     try {
-        val root = JSONObject(body)
-        val senderDevice = root.optString("senderDevice", "")
-        val senderVersion = root.optString("senderVersion", "")
-        val senderRole = root.optString("senderRole", "")
+        if (method != "POST") {
+            sendResponse(writer, 405, "application/json",
+                """{"success":false,"error":"Method harus POST"}""")
+            writer.flush()
+            client.close()
+            return
+        }
 
-        if (senderDevice.isNotBlank()) lastSenderDevice = senderDevice
-        if (senderVersion.isNotBlank()) lastSenderVersion = senderVersion
-        if (senderRole.isNotBlank()) lastSenderRole = senderRole
+        val fileId = headers["x-file-id"] ?: ""
+        val fieldKey = headers["x-field-key"] ?: ""
+        val fileName = headers["x-file-name"] ?: "file_${System.currentTimeMillis()}"
+        val fileType = headers["x-file-type"] ?: "other"
+        val totalBytes = headers["x-total-bytes"]?.toLongOrNull() ?: contentLength
+        val mimeType = headers["x-mime-type"] ?: "application/octet-stream"
 
-        Log.d(TAG, "Sender info: $lastSenderDevice ($lastSenderVersion, $lastSenderRole)")
+        if (fileId.isBlank() || fieldKey.isBlank()) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"Header X-File-Id atau X-Field-Key kosong"}""")
+            writer.flush()
+            client.close()
+            return
+        }
+
+        if (contentLength <= 0) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"Content-Length kosong"}""")
+            writer.flush()
+            client.close()
+            return
+        }
+
+        // Tentukan folder tujuan berdasarkan fieldKey
+        val folder = determineFolderFromFieldKey(fieldKey)
+        val dir = File(context.filesDir, "masjid_io/$folder")
+        if (!dir.exists()) dir.mkdirs()
+
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val targetFile = File(dir, "${System.currentTimeMillis()}_$safeName")
+
+        // Simpan state
+        val state = StreamingTransferState(
+            fileId = fileId,
+            fieldKey = fieldKey,
+            fileName = fileName,
+            fileType = fileType,
+            totalBytes = totalBytes,
+            mimeType = mimeType
+        )
+        streamingTransfers[fileId] = state
+
+        Log.d(TAG, "Streaming upload START: $fileName ($totalBytes bytes) → $fieldKey")
+
+        // ============================================================
+        // BACA BODY STREAMING — langsung tulis ke disk
+        // ============================================================
+        val inputStream: InputStream = client.getInputStream()
+        val outputStream = FileOutputStream(targetFile)
+
+        val buffer = ByteArray(STREAM_BUFFER_SIZE)
+        var totalRead: Long = 0
+        var remaining = contentLength
+
+        try {
+            while (remaining > 0) {
+                val toRead = minOf(buffer.size.toLong(), remaining).toInt()
+                val read = inputStream.read(buffer, 0, toRead)
+                if (read < 0) break
+                outputStream.write(buffer, 0, read)
+                totalRead += read
+                remaining -= read
+                state.bytesReceived = totalRead
+            }
+            outputStream.flush()
+        } finally {
+            try { outputStream.close() } catch (_: Exception) {}
+        }
+
+        Log.d(TAG, "Streaming upload DONE: $fileName ($totalRead/$contentLength bytes)")
+
+        // Verifikasi ukuran
+        if (totalRead != contentLength) {
+            state.failureReason = "Ukuran tidak cocok: $totalRead vs $contentLength"
+            targetFile.delete()
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"Ukuran file tidak cocok"}""")
+            writer.flush()
+            client.close()
+            return
+        }
+
+        state.isFinished = true
+        state.savedPath = targetFile.absolutePath
+
+        // Update settings otomatis (path lokal)
+        applyMediaPathToSettings(fieldKey, targetFile.absolutePath)
+
+        // Respon sukses
+        val json = JSONObject().apply {
+            put("success", true)
+            put("fileId", fileId)
+            put("savedPath", targetFile.absolutePath)
+            put("bytesReceived", totalRead)
+        }
+        sendResponse(writer, 200, "application/json", json.toString())
+        writer.flush()
+        client.close()
+
     } catch (e: Exception) {
-        Log.w(TAG, "Tidak bisa extract sender info: ${e.message}")
+        Log.e(TAG, "Streaming upload error: ${e.message}", e)
+        try {
+            sendResponse(writer, 500, "application/json",
+                """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+            writer.flush()
+        } catch (_: Exception) {}
+        try { client.close() } catch (_: Exception) {}
     }
 }
 
 // ============================================================
-// V1.30.7 BARU — BIKIN BUNDLE .iO DARI STATE SERVER
+// Tentukan folder dari fieldKey
 // ============================================================
-private fun tryCreateBundleFromServerState(): String? {
-    return try {
-        val settings = settingsRepository.settingsFlow.value
+private fun determineFolderFromFieldKey(fieldKey: String): String {
+    return when {
+        fieldKey.contains("video", true) -> "video"
+        fieldKey.contains("qris", true) -> "qris"
+        fieldKey.contains("officer", true) -> "officer"
+        fieldKey.contains("background", true) -> "background"
+        fieldKey.contains("prayer", true) -> "prayer_card"
+        fieldKey.contains("slideshow", true) -> "slideshow"
+        else -> "media"
+    }
+}
+// ============================================================
+// HANDLER LAMA — Chunk upload (backward compat)
+// ============================================================
+private fun handleMediaStart(body: String, writer: OutputStreamWriter) {
+    try {
+        val json = JSONObject(body)
+        val fileId = json.optString("fileId", "")
+        val fieldKey = json.optString("fieldKey", "")
+        val fileName = json.optString("fileName", "")
+        val fileType = json.optString("fileType", "photo")
+        val totalChunks = json.optInt("totalChunks", 0)
+        val mimeType = json.optString("mimeType", "application/octet-stream")
 
-        // ===== 1. KUMPULKAN FILE MEDIA DARI filesDir/masjid_io =====
-        val mediaFiles = mutableMapOf<String, File>()
-        val filesRoot = File(context.filesDir, "masjid_io")
-
-        // QRIS
-        findLatestIn(File(filesRoot, "qris"))?.let { mediaFiles["qrisPhotoUri"] = it }
-        // Logo
-        findLatestIn(File(filesRoot, "logo"))?.let { mediaFiles["officerPhotoUri"] = it }
-        // Background
-        findLatestIn(File(filesRoot, "background"))?.let { mediaFiles["customBackgroundUri"] = it }
-        // Video
-        findLatestIn(File(filesRoot, "video"))?.let { mediaFiles["videoUri"] = it }
-        // Prayer card
-        findLatestIn(File(filesRoot, "prayer_card"))?.let { mediaFiles["prayerCardPhotoUri"] = it }
-        // Slideshow — multiple
-        val slidesDir = File(filesRoot, "slideshow")
-        if (slidesDir.exists()) {
-            slidesDir.listFiles()
-                ?.filter { it.isFile }
-                ?.sortedBy { it.lastModified() }
-                ?.forEachIndexed { idx, f ->
-                    mediaFiles["photoSlideshowUris[$idx]"] = f
-                }
+        if (fileId.isBlank() || totalChunks <= 0) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"fileId atau totalChunks invalid"}""")
+        } else {
+            mediaTransfers[fileId] = MediaTransferState(
+                fileId = fileId,
+                fieldKey = fieldKey,
+                fileName = fileName,
+                fileType = fileType,
+                totalChunks = totalChunks,
+                mimeType = mimeType
+            )
+            Log.d(TAG, "Media start: $fileId ($fileName, $totalChunks chunks)")
+            sendResponse(writer, 200, "application/json",
+                """{"success":true,"fileId":"$fileId"}""")
         }
+    } catch (e: Exception) {
+        sendResponse(writer, 400, "application/json",
+            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+    }
+}
 
-        // ===== 2. HITUNG SUMMARY TRANSFER =====
-        var successCount = 0
-        var failedCount = 0
-        var photoCount = 0
-        var videoCount = 0
+private fun handleMediaChunk(
+    body: String,
+    headers: Map<String, String>,
+    writer: OutputStreamWriter
+) {
+    try {
+        val fileId = headers["x-file-id"] ?: ""
+        val chunkIndex = headers["x-chunk-index"]?.toIntOrNull() ?: -1
 
-        mediaTransfers.values.forEach { st ->
-            if (st.isFinished) {
-                successCount++
-                if (st.fileType == "photo") photoCount++ else if (st.fileType == "video") videoCount++
+        if (fileId.isBlank() || chunkIndex < 0) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"Header invalid"}""")
+        } else {
+            val state = mediaTransfers[fileId]
+            if (state == null) {
+                sendResponse(writer, 404, "application/json",
+                    """{"success":false,"error":"fileId tidak ditemukan"}""")
             } else {
-                failedCount++
+                val chunkBytes = try {
+                    Base64.decode(body, Base64.NO_WRAP)
+                } catch (e: Exception) {
+                    ByteArray(0)
+                }
+
+                if (chunkBytes.isEmpty()) {
+                    sendResponse(writer, 400, "application/json",
+                        """{"success":false,"error":"Chunk kosong"}""")
+                } else {
+                    state.receivedChunks[chunkIndex] = chunkBytes
+                    Log.d(TAG, "Chunk $chunkIndex/${state.totalChunks} untuk ${state.fileName}")
+                    sendResponse(writer, 200, "application/json",
+                        """{"success":true,"received":${state.receivedChunks.size},"total":${state.totalChunks}}""")
+                }
             }
         }
-
-        // ===== 3. BIKIN METADATA =====
-        val nowStr = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
-        val metadata = IoBundleHelper.BundleMetadata(
-            senderDevice = lastSenderDevice,
-            senderRole = lastSenderRole,
-            senderVersion = lastSenderVersion,
-            receivedAt = nowStr,
-            settingsSuccess = true,
-            mediaTotal = successCount + failedCount,
-            mediaSuccess = successCount,
-            mediaFailed = failedCount,
-            photoCount = photoCount,
-            videoCount = videoCount,
-            failedFiles = emptyList() // Detail stack trace tidak tersimpan di sisi server
-        )
-
-        // ===== 4. BIKIN BUNDLE =====
-        val result = IoBundleHelper.createBundle(
-            context = context,
-            settings = settings,
-            metadata = metadata,
-            mediaFiles = mediaFiles
-        )
-
-        if (result.success) {
-            Log.d(TAG, "✅ Bundle .iO dibuat: ${result.filePath}")
-            result.filePath
-        } else {
-            Log.w(TAG, "⚠️ Bundle gagal: ${result.errorMessage}")
-            null
-        }
     } catch (e: Exception) {
-        Log.e(TAG, "tryCreateBundleFromServerState error: ${e.message}", e)
-        null
+        sendResponse(writer, 500, "application/json",
+            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
     }
 }
 
-private fun findLatestIn(dir: File): File? {
-    if (!dir.exists() || !dir.isDirectory) return null
-    return dir.listFiles()
-        ?.filter { it.isFile }
-        ?.maxByOrNull { it.lastModified() }
+private fun handleMediaFinish(body: String, writer: OutputStreamWriter) {
+    try {
+        val json = JSONObject(body)
+        val fileId = json.optString("fileId", "")
+        val state = mediaTransfers[fileId]
+
+        if (state == null) {
+            sendResponse(writer, 404, "application/json",
+                """{"success":false,"error":"fileId tidak ditemukan"}""")
+        } else if (state.receivedChunks.size < state.totalChunks) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"Chunk belum lengkap: ${state.receivedChunks.size}/${state.totalChunks}"}""")
+        } else {
+            val fullBytes = try {
+                val output = ByteArrayOutputStream()
+                for (i in 0 until state.totalChunks) {
+                    val chunk = state.receivedChunks[i]
+                    if (chunk == null) {
+                        sendResponse(writer, 400, "application/json",
+                            """{"success":false,"error":"Chunk $i hilang"}""")
+                        return
+                    }
+                    output.write(chunk)
+                }
+                output.toByteArray()
+            } catch (e: Exception) {
+                sendResponse(writer, 500, "application/json",
+                    """{"success":false,"error":"Gagal gabung chunk: ${e.message}"}""")
+                return
+            }
+
+            val folder = determineFolderFromFieldKey(state.fieldKey)
+            val savedPath = saveMediaFile(context, folder, state.fileName, fullBytes)
+
+            if (savedPath != null) {
+                state.isFinished = true
+                state.savedPath = savedPath
+                Log.d(TAG, "Media finish: ${state.fileName} -> $savedPath")
+                applyMediaPathToSettings(state.fieldKey, savedPath)
+                sendResponse(writer, 200, "application/json",
+                    """{"success":true,"path":"$savedPath","size":${fullBytes.size}}""")
+            } else {
+                sendResponse(writer, 500, "application/json",
+                    """{"success":false,"error":"Gagal simpan file"}""")
+            }
+        }
+    } catch (e: Exception) {
+        sendResponse(writer, 500, "application/json",
+            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+    }
+}
+
+// ============================================================
+// HANDLER — List/Delete/Restore Bundle .iO
+// ============================================================
+private fun handleListBundles(writer: OutputStreamWriter) {
+    try {
+        val bundles = IoBundleHelper.listBundles(context)
+        val arr = JSONArray()
+        bundles.forEach { info ->
+            arr.put(JSONObject().apply {
+                put("fileName", info.fileName)
+                put("filePath", info.filePath)
+                put("fileSizeBytes", info.fileSizeBytes)
+                put("fileSizeText", info.fileSizeText)
+                put("lastModified", info.lastModified)
+                put("summaryLine", info.summaryLine)
+                info.metadata?.let { m ->
+                    put("senderDevice", m.senderDevice)
+                    put("receivedAt", m.receivedAt)
+                    put("mediaTotal", m.mediaTotal)
+                    put("mediaSuccess", m.mediaSuccess)
+                    put("mediaFailed", m.mediaFailed)
+                    put("photoCount", m.photoCount)
+                    put("videoCount", m.videoCount)
+                    val failArr = JSONArray()
+                    m.failedFiles.forEach { f ->
+                        failArr.put(JSONObject().apply {
+                            put("displayName", f.displayName)
+                            put("fieldKey", f.fieldKey)
+                            put("reason", f.reason)
+                            put("exceptionClass", f.exceptionClass)
+                            put("stackTrace", f.stackTrace)
+                        })
+                    }
+                    put("failedFiles", failArr)
+                }
+            })
+        }
+        sendResponse(writer, 200, "application/json", arr.toString())
+    } catch (e: Exception) {
+        sendResponse(writer, 500, "application/json",
+            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+    }
+}
+
+private fun handleDeleteBundle(body: String, writer: OutputStreamWriter) {
+    try {
+        val json = JSONObject(body)
+        val filePath = json.optString("filePath", "")
+        if (filePath.isBlank()) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"filePath kosong"}""")
+        } else {
+            val ok = IoBundleHelper.deleteBundleByPath(filePath)
+            sendResponse(writer, 200, "application/json",
+                """{"success":$ok}""")
+        }
+    } catch (e: Exception) {
+        sendResponse(writer, 500, "application/json",
+            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+    }
+}
+
+private fun handleRestoreBundle(body: String, writer: OutputStreamWriter) {
+    try {
+        val json = JSONObject(body)
+        val filePath = json.optString("filePath", "")
+        if (filePath.isBlank()) {
+            sendResponse(writer, 400, "application/json",
+                """{"success":false,"error":"filePath kosong"}""")
+        } else {
+            val bundleFile = File(filePath)
+            if (!bundleFile.exists()) {
+                sendResponse(writer, 404, "application/json",
+                    """{"success":false,"error":"File tidak ditemukan"}""")
+            } else {
+                val currentSettings = settingsRepository.settingsFlow.value
+                val result = IoBundleHelper.restoreBundleWithLocalPaths(
+                    context = context,
+                    bundleFile = bundleFile,
+                    currentSettings = currentSettings
+                )
+                if (result.success && result.settings != null) {
+                    settingsRepository.updateSettings(result.settings)
+                    sendResponse(writer, 200, "application/json",
+                        """{"success":true,"restoredMedia":${result.restoredMediaCount}}""")
+                    Log.d(TAG, "Restore bundle sukses: ${result.restoredMediaCount} file")
+                } else {
+                    sendResponse(writer, 500, "application/json",
+                        """{"success":false,"error":"${result.errorMessage?.replace("\"", "\\\"")}"}""")
+                }
+            }
+        }
+    } catch (e: Exception) {
+        sendResponse(writer, 500, "application/json",
+            """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
+    }
 }
 // ============================================================
-// SEND RESPONSE HELPERS
+// HTTP RESPONSE HELPERS
 // ============================================================
 private fun sendResponse(writer: OutputStreamWriter, code: Int, contentType: String, body: String) {
     val statusText = when (code) {
         200 -> "OK"; 400 -> "Bad Request"; 401 -> "Unauthorized"
-        404 -> "Not Found"; 500 -> "Internal Server Error"; else -> "Unknown"
+        404 -> "Not Found"; 405 -> "Method Not Allowed"; 500 -> "Internal Server Error"
+        else -> "Unknown"
     }
     val bodyBytes = body.toByteArray(Charsets.UTF_8)
     writer.write("HTTP/1.1 $code $statusText\r\n")
@@ -840,9 +928,6 @@ private fun sendRedirect(writer: OutputStreamWriter, location: String) {
     writer.write("Connection: close\r\n\r\n")
 }
 
-// ============================================================
-// PARSE FORM DATA
-// ============================================================
 private fun parseFormData(body: String): Map<String, String> {
     val result = mutableMapOf<String, String>()
     body.split("&").forEach { pair ->
@@ -857,7 +942,203 @@ private fun parseFormData(body: String): Map<String, String> {
 }
 
 // ============================================================
-// APPLY SETTINGS UPDATE (endpoint /api/settings)
+// EXTRACT SENDER INFO
+// ============================================================
+private fun tryExtractSenderInfo(body: String) {
+    try {
+        val root = JSONObject(body)
+        val senderDevice = root.optString("senderDevice", "")
+        val senderVersion = root.optString("senderVersion", "")
+        val senderRole = root.optString("senderRole", "")
+
+        if (senderDevice.isNotBlank()) lastSenderDevice = senderDevice
+        if (senderVersion.isNotBlank()) lastSenderVersion = senderVersion
+        if (senderRole.isNotBlank()) lastSenderRole = senderRole
+
+        Log.d(TAG, "Sender info: $lastSenderDevice ($lastSenderVersion, $lastSenderRole)")
+    } catch (e: Exception) {
+        Log.w(TAG, "Tidak bisa extract sender info: ${e.message}")
+    }
+}
+
+// ============================================================
+// FILE SAVE HELPERS
+// ============================================================
+private fun saveUploadedFile(type: String, fileName: String, base64Data: String): String? {
+    return try {
+        val bytes = Base64.decode(base64Data, Base64.NO_WRAP)
+        val dirName = when (type) {
+            "qris" -> "qris"; "logo" -> "logo"
+            "officer" -> "officer"; "background" -> "background"
+            else -> "upload"
+        }
+        val dir = File(context.filesDir, "masjid_io/$dirName")
+        if (!dir.exists()) dir.mkdirs()
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val file = File(dir, "upload_${System.currentTimeMillis()}_$safeName")
+        FileOutputStream(file).use { it.write(bytes) }
+        file.absolutePath
+    } catch (e: Exception) {
+        Log.e(TAG, "Save file error: ${e.message}")
+        null
+    }
+}
+
+private fun saveMediaFile(
+    context: Context,
+    folder: String,
+    fileName: String,
+    bytes: ByteArray
+): String? {
+    return try {
+        val dir = File(context.filesDir, "masjid_io/$folder")
+        if (!dir.exists()) dir.mkdirs()
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val file = File(dir, "${System.currentTimeMillis()}_$safeName")
+        FileOutputStream(file).use { it.write(bytes) }
+        file.absolutePath
+    } catch (e: Exception) {
+        Log.e(TAG, "saveMediaFile error: ${e.message}")
+        null
+    }
+}
+
+// ============================================================
+// APPLY MEDIA PATH TO SETTINGS
+// ============================================================
+private fun applyMediaPathToSettings(fieldKey: String, localPath: String) {
+    try {
+        val current = settingsRepository.settingsFlow.value
+        var updated = current
+
+        when {
+            fieldKey == "qrisPhotoUri" -> {
+                updated = current.copy(qrisPhotoUri = localPath)
+            }
+            fieldKey == "officerPhotoUri" -> {
+                updated = current.copy(officerPhotoUri = localPath)
+            }
+            fieldKey == "customBackgroundUri" -> {
+                updated = current.copy(customBackgroundUri = localPath)
+            }
+            fieldKey == "prayerCardPhotoUri" -> {
+                updated = current.copy(prayerCardPhotoUri = localPath)
+            }
+            fieldKey == "videoUri" -> {
+                updated = current.copy(videoUri = localPath)
+            }
+            fieldKey.startsWith("photoSlideshowUris[") -> {
+                val indexStr = fieldKey.substringAfter("[").substringBefore("]")
+                val index = indexStr.toIntOrNull()
+                if (index != null && index >= 0) {
+                    val list = current.photoSlideshowUris.toMutableList()
+                    while (list.size <= index) list.add("")
+                    list[index] = localPath
+                    updated = current.copy(photoSlideshowUris = list)
+                }
+            }
+            else -> {
+                return
+            }
+        }
+
+        settingsRepository.updateSettings(updated)
+    } catch (e: Exception) {
+        Log.e(TAG, "applyMediaPathToSettings error: ${e.message}")
+    }
+}
+// ============================================================
+// CREATE BUNDLE .iO DARI SERVER STATE
+// ============================================================
+private fun tryCreateBundleFromServerState(): String? {
+    return try {
+        val settings = settingsRepository.settingsFlow.value
+        val mediaFiles = mutableMapOf<String, File>()
+        val filesRoot = File(context.filesDir, "masjid_io")
+
+        findLatestIn(File(filesRoot, "qris"))?.let { mediaFiles["qrisPhotoUri"] = it }
+        findLatestIn(File(filesRoot, "logo"))?.let { mediaFiles["officerPhotoUri"] = it }
+        findLatestIn(File(filesRoot, "background"))?.let { mediaFiles["customBackgroundUri"] = it }
+        findLatestIn(File(filesRoot, "video"))?.let { mediaFiles["videoUri"] = it }
+        findLatestIn(File(filesRoot, "prayer_card"))?.let { mediaFiles["prayerCardPhotoUri"] = it }
+
+        val slidesDir = File(filesRoot, "slideshow")
+        if (slidesDir.exists()) {
+            slidesDir.listFiles()
+                ?.filter { it.isFile }
+                ?.sortedBy { it.lastModified() }
+                ?.forEachIndexed { idx, f ->
+                    mediaFiles["photoSlideshowUris[$idx]"] = f
+                }
+        }
+
+        var successCount = 0
+        var failedCount = 0
+        var photoCount = 0
+        var videoCount = 0
+
+        streamingTransfers.values.forEach { st ->
+            if (st.isFinished) {
+                successCount++
+                if (st.fileType == "photo") photoCount++ else if (st.fileType == "video") videoCount++
+            } else {
+                failedCount++
+            }
+        }
+
+        mediaTransfers.values.forEach { st ->
+            if (st.isFinished) {
+                successCount++
+                if (st.fileType == "photo") photoCount++ else if (st.fileType == "video") videoCount++
+            } else {
+                failedCount++
+            }
+        }
+
+        val nowStr = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+        val metadata = IoBundleHelper.BundleMetadata(
+            senderDevice = lastSenderDevice,
+            senderRole = lastSenderRole,
+            senderVersion = lastSenderVersion,
+            receivedAt = nowStr,
+            settingsSuccess = true,
+            mediaTotal = successCount + failedCount,
+            mediaSuccess = successCount,
+            mediaFailed = failedCount,
+            photoCount = photoCount,
+            videoCount = videoCount,
+            failedFiles = emptyList()
+        )
+
+        val result = IoBundleHelper.createBundle(
+            context = context,
+            settings = settings,
+            metadata = metadata,
+            mediaFiles = mediaFiles
+        )
+
+        if (result.success) {
+            Log.d(TAG, "Bundle .iO dibuat: ${result.filePath}")
+            result.filePath
+        } else {
+            Log.w(TAG, "Bundle gagal: ${result.errorMessage}")
+            null
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "tryCreateBundleFromServerState error: ${e.message}", e)
+        null
+    }
+}
+
+private fun findLatestIn(dir: File): File? {
+    if (!dir.exists() || !dir.isDirectory) return null
+    return dir.listFiles()
+        ?.filter { it.isFile }
+        ?.maxByOrNull { it.lastModified() }
+}
+
+// ============================================================
+// APPLY SETTINGS UPDATE (dari JSON)
 // ============================================================
 private fun applySettingsUpdate(json: JSONObject): dev.andikune.masjidio.data.model.AppSettings {
     var s = settingsRepository.settingsFlow.value
@@ -965,8 +1246,6 @@ private fun applySettingsUpdate(json: JSONObject): dev.andikune.masjidio.data.mo
                 "kioskModeEnabled" -> s = s.copy(kioskModeEnabled = json.getBoolean(key))
                 "autoStartOnBoot" -> s = s.copy(autoStartOnBoot = json.getBoolean(key))
                 "whatsappReportEnabled" -> s = s.copy(whatsappReportEnabled = json.getBoolean(key))
-                "fonnteToken" -> s = s.copy(fonnteToken = json.getString(key))
-                "fonnteGroupId" -> s = s.copy(fonnteGroupId = json.getString(key))
             }
         } catch (e: Exception) {
             Log.w(TAG, "Field $key error: ${e.message}")
@@ -975,9 +1254,6 @@ private fun applySettingsUpdate(json: JSONObject): dev.andikune.masjidio.data.mo
     return s
 }
 
-// ============================================================
-// PARSE WEEKLY OFFICERS
-// ============================================================
 private fun parseWeeklyOfficers(arr: JSONArray): List<DailyOfficerItem> {
     val result = mutableListOf<DailyOfficerItem>()
     for (i in 0 until arr.length()) {
@@ -1002,110 +1278,8 @@ private fun parseWeeklyOfficers(arr: JSONArray): List<DailyOfficerItem> {
     }
     return result.ifEmpty { settingsRepository.settingsFlow.value.weeklyOfficers }
 }
-
 // ============================================================
-// SAVE UPLOADED FILE (endpoint /api/upload lama)
-// ============================================================
-private fun saveUploadedFile(type: String, fileName: String, base64Data: String): String? {
-    return try {
-        val bytes = Base64.decode(base64Data, Base64.NO_WRAP)
-        val dirName = when (type) {
-            "qris" -> "qris"; "logo" -> "logo"
-            "officer" -> "officer"; "background" -> "background"
-            else -> "upload"
-        }
-        val dir = File(context.filesDir, "masjid_io/$dirName")
-        if (!dir.exists()) dir.mkdirs()
-        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val file = File(dir, "upload_${System.currentTimeMillis()}_$safeName")
-        FileOutputStream(file).use { it.write(bytes) }
-        file.absolutePath
-    } catch (e: Exception) {
-        Log.e(TAG, "Save file error: ${e.message}")
-        null
-    }
-}
-
-// ============================================================
-// SAVE MEDIA FILE (hasil chunk dari HP)
-// ============================================================
-private fun saveMediaFile(
-    context: Context,
-    folder: String,
-    fileName: String,
-    bytes: ByteArray
-): String? {
-    return try {
-        val dir = File(context.filesDir, "masjid_io/$folder")
-        if (!dir.exists()) dir.mkdirs()
-        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val file = File(dir, "${System.currentTimeMillis()}_$safeName")
-        FileOutputStream(file).use { it.write(bytes) }
-        Log.d(TAG, "saveMediaFile OK: ${file.absolutePath} (${bytes.size} bytes)")
-        file.absolutePath
-    } catch (e: Exception) {
-        Log.e(TAG, "saveMediaFile error: ${e.message}")
-        null
-    }
-}
-
-// ============================================================
-// V1.30.6 — UPDATE SETTINGS SETELAH MEDIA MASUK
-// Ganti path lama (dari HP) dengan path lokal (di TV)
-//
-// ⚠️ FUNGSI INI HANYA ADA 1 — JANGAN DUPLIKAT
-// ============================================================
-private fun applyMediaPathToSettings(fieldKey: String, localPath: String) {
-    try {
-        val current = settingsRepository.settingsFlow.value
-        var updated = current
-
-        when {
-            fieldKey == "qrisPhotoUri" -> {
-                updated = current.copy(qrisPhotoUri = localPath)
-                Log.d(TAG, "✅ qrisPhotoUri updated: $localPath")
-            }
-            fieldKey == "officerPhotoUri" -> {
-                updated = current.copy(officerPhotoUri = localPath)
-                Log.d(TAG, "✅ officerPhotoUri updated: $localPath")
-            }
-            fieldKey == "customBackgroundUri" -> {
-                updated = current.copy(customBackgroundUri = localPath)
-                Log.d(TAG, "✅ customBackgroundUri updated: $localPath")
-            }
-            fieldKey == "prayerCardPhotoUri" -> {
-                updated = current.copy(prayerCardPhotoUri = localPath)
-                Log.d(TAG, "✅ prayerCardPhotoUri updated: $localPath")
-            }
-            fieldKey == "videoUri" -> {
-                updated = current.copy(videoUri = localPath)
-                Log.d(TAG, "✅ videoUri updated: $localPath")
-            }
-            fieldKey.startsWith("photoSlideshowUris[") -> {
-                val indexStr = fieldKey.substringAfter("[").substringBefore("]")
-                val index = indexStr.toIntOrNull()
-                if (index != null && index >= 0) {
-                    val list = current.photoSlideshowUris.toMutableList()
-                    while (list.size <= index) list.add("")
-                    list[index] = localPath
-                    updated = current.copy(photoSlideshowUris = list)
-                    Log.d(TAG, "✅ photoSlideshowUris[$index] updated: $localPath")
-                }
-            }
-            else -> {
-                Log.w(TAG, "⚠️ fieldKey tidak dikenal: $fieldKey")
-                return
-            }
-        }
-
-        settingsRepository.updateSettings(updated)
-        Log.d(TAG, "🎉 Settings TV berhasil diupdate dengan path lokal")
-    } catch (e: Exception) {
-        Log.e(TAG, "applyMediaPathToSettings error: ${e.message}")
-    }
-}
-// ============================================================
-// STATUS JSON (endpoint /api/status)
+// STATUS JSON
 // ============================================================
 private fun getStatusJson(): String {
     val s = settingsRepository.settingsFlow.value
@@ -1119,11 +1293,12 @@ private fun getStatusJson(): String {
         put("running", isRunning)
         put("lastError", lastError ?: "")
         put("activeMediaTransfers", mediaTransfers.size)
+        put("activeStreamingTransfers", streamingTransfers.size)
     }.toString()
 }
 
 // ============================================================
-// FULL SETTINGS JSON (endpoint /api/settings GET)
+// FULL SETTINGS JSON (untuk dashboard web)
 // ============================================================
 private fun getFullSettingsJson(): String {
     val s = settingsRepository.settingsFlow.value
@@ -1213,8 +1388,7 @@ private fun getFullSettingsJson(): String {
         put("kioskModeEnabled", s.kioskModeEnabled)
         put("autoStartOnBoot", s.autoStartOnBoot)
         put("whatsappReportEnabled", s.whatsappReportEnabled)
-        put("fonnteToken", s.fonnteToken)
-        put("fonnteGroupId", s.fonnteGroupId)
+        // V1.04.418: fonnteToken & fonnteGroupId TIDAK dikirim ke web
         val arr = JSONArray()
         s.weeklyOfficers.forEach { o ->
             arr.put(JSONObject().apply {
@@ -1307,7 +1481,7 @@ if (e.key === 'Enter') doLogin();
 </html>
     """.trimIndent()
         // ============================================================
-    // DASHBOARD HTML (bagian 1 dari 2)
+    // DASHBOARD HTML
     // ============================================================
     private fun getDashboardHtml(): String = """
 <!DOCTYPE html>
@@ -1349,6 +1523,7 @@ button.danger { background: #FF5252; color: #fff; }
 .toast.show { opacity: 1; }
 .toast.error { background: #FF5252; }
 .divider { border-top: 1px solid #1E3A5F; margin: 12px 0; }
+.info-box { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 8px; padding: 12px; font-size: 12px; color: #90A4AE; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -1369,7 +1544,6 @@ button.danger { background: #FF5252; color: #fff; }
 <button class="tab" onclick="showTab(event,'sistem')">🔧 Sistem</button>
 </div>
 <div class="content">
-
 <div class="panel active" id="panel-masjid">
 <div class="card">
 <h3>🏛️ Identitas Masjid</h3>
@@ -1442,7 +1616,6 @@ button.danger { background: #FF5252; color: #fff; }
 <button class="save" onclick="saveFields(['backgroundMode','animationsEnabled','showBirdsAnimation','keepScreenOn','tvAutoScaleEnabled','tvSafeAreaPercent','tvLayoutPreset'])">SIMPAN</button>
 </div>
 </div>
-
 <div class="panel" id="panel-petugas">
 <div class="card">
 <h3>👤 Jadwal Petugas</h3>
@@ -1534,9 +1707,13 @@ button.danger { background: #FF5252; color: #fff; }
 <div class="toggle-wrap"><span>Kiosk Mode</span><div class="toggle" id="kioskModeEnabled" onclick="this.classList.toggle('on')"></div></div>
 <div class="toggle-wrap"><span>Auto Start on Boot</span><div class="toggle" id="autoStartOnBoot" onclick="this.classList.toggle('on')"></div></div>
 <div class="toggle-wrap"><span>WhatsApp Report</span><div class="toggle" id="whatsappReportEnabled" onclick="this.classList.toggle('on')"></div></div>
-<label>Fonnte Token</label><input type="text" id="fonnteToken">
-<label>Fonnte Group ID</label><input type="text" id="fonnteGroupId">
-<button class="save" onclick="saveFields(['kioskModeEnabled','autoStartOnBoot','whatsappReportEnabled','fonnteToken','fonnteGroupId'])">SIMPAN</button>
+<button class="save" onclick="saveFields(['kioskModeEnabled','autoStartOnBoot','whatsappReportEnabled'])">SIMPAN</button>
+<div class="divider"></div>
+<div class="info-box">
+🔒 <strong>Token Fonnte & Group ID</strong> hanya bisa diatur dari aplikasi TV
+melalui <strong>Pengaturan → Opsi Developer</strong> (PIN 140399).<br>
+Tidak ditampilkan di halaman ini demi keamanan.
+</div>
 </div>
 <div class="card">
 <h3>🔐 Keamanan</h3>
@@ -1552,7 +1729,6 @@ button.danger { background: #FF5252; color: #fff; }
 </div>
 </div>
 <div class="toast" id="toast"></div>
-
 <script>
 let currentSettings = {};
 
@@ -1605,8 +1781,8 @@ async function saveFields(keys) {
 async function uploadFile(input, type) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('File terlalu besar (max 5MB)', true);
+    if (file.size > 50 * 1024 * 1024) {
+        showToast('⚠️ File ini ' + (file.size / 1024 / 1024).toFixed(1) + ' MB. Maksimal per file 50 MB. Untuk file lebih besar, pakai iO Control dari HP.', true);
         return;
     }
     showToast('Mengunggah...');
