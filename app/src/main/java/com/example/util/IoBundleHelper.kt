@@ -19,20 +19,10 @@ import java.util.zip.ZipOutputStream
 /**
  * IoBundleHelper — Bikin & baca file template .iO
  *
- * File .iO sebenarnya adalah file ZIP yang di-rename.
- * Isinya:
- *   ├── settings.json    → semua pengaturan
- *   ├── metadata.json    → info pengirim + riwayat transfer
- *   └── media/
- *       ├── qris.jpg
- *       ├── logo.png
- *       ├── background.jpg
- *       ├── video.mp4
- *       └── slideshow/
- *           ├── foto_1.jpg
- *           └── foto_2.jpg
- *
- * Lokasi simpan: /sdcard/masjid.io/Terima/{Merk HP}-{dd-MM-yyyy HH.mm}.iO
+ * V1.04.426:
+ *   - Namespace dev.andikune.masjidio
+ *   - Fix hitung success percentage (untuk color coding tombol)
+ *   - Auto-hapus file temp setelah dipakai
  */
 object IoBundleHelper {
 
@@ -83,6 +73,35 @@ object IoBundleHelper {
                 "${m.mediaSuccess} sukses · ${m.mediaFailed} gagal · " +
                         "📷 ${m.photoCount} foto · 🎬 ${m.videoCount} video"
             } ?: "(metadata tidak terbaca)"
+
+        /**
+         * V1.04.426 — Hitung persentase keberhasilan transfer.
+         * Return: 0-100
+         */
+        val successPercentage: Int
+            get() {
+                val m = metadata ?: return 0
+                if (m.mediaTotal <= 0) return if (m.settingsSuccess) 100 else 0
+                return ((m.mediaSuccess.toFloat() / m.mediaTotal.toFloat()) * 100f).toInt()
+            }
+
+        /**
+         * Kategori warna tombol berdasarkan persentase.
+         * "HITAM"   = 0% (gagal total)
+         * "MERAH"   = 1-49%
+         * "KUNING"  = 50-99%
+         * "HIJAU"   = 100%
+         */
+        val colorCategory: String
+            get() {
+                val pct = successPercentage
+                return when {
+                    pct <= 0 -> "HITAM"
+                    pct < 50 -> "MERAH"
+                    pct < 100 -> "KUNING"
+                    else -> "HIJAU"
+                }
+            }
     }
 
     data class BundleResult(
@@ -121,6 +140,7 @@ object IoBundleHelper {
             )
             if (!externalDir.exists()) externalDir.mkdirs()
             if (externalDir.exists() && externalDir.canWrite()) {
+                ensureNoMediaFile(externalDir)
                 externalDir
             } else {
                 fallbackDir(context)
@@ -134,16 +154,28 @@ object IoBundleHelper {
     private fun fallbackDir(context: Context): File {
         val dir = File(context.filesDir, "$FOLDER_APP/$FOLDER_TERIMA")
         if (!dir.exists()) dir.mkdirs()
+        ensureNoMediaFile(dir)
         return dir
+    }
+
+    /**
+     * V1.04.426 — Tambah file .nomedia supaya folder ini tidak dianggap cache
+     * oleh aplikasi pembersih (Clean Master, dll).
+     */
+    private fun ensureNoMediaFile(dir: File) {
+        try {
+            val nomedia = File(dir, ".nomedia")
+            if (!nomedia.exists()) {
+                nomedia.createNewFile()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Gagal buat .nomedia: ${e.message}")
+        }
     }
 
     // ============================================================
     // NAMA FILE .iO
     // ============================================================
-    /**
-     * Format: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
-     * Contoh: Infinix X6827-03-10-2026 14.20.iO
-     */
     fun buildBundleFileName(senderDevice: String): String {
         val timestamp = SimpleDateFormat("dd-MM-yyyy HH.mm", Locale.getDefault()).format(Date())
         val cleanSender = sanitizeFileName(senderDevice.ifBlank { "Masjid.io" })
@@ -153,206 +185,190 @@ object IoBundleHelper {
     private fun sanitizeFileName(name: String): String {
         return name.replace(Regex("[^a-zA-Z0-9 ._-]"), "_").trim()
     }
-
     // ============================================================
-    // BIKIN BUNDLE .iO
-    // ============================================================
-    /**
-     * Bikin file .iO (ZIP) berisi settings.json + metadata.json + media/.
-     *
-     * @param context Context
-     * @param settings AppSettings saat ini
-     * @param metadata BundleMetadata (info pengirim + transfer summary)
-     * @param mediaFiles Map<fieldKey, File>  — file media yang sudah tersimpan di TV
-     * @return BundleResult
-     */
-    fun createBundle(
-        context: Context,
-        settings: AppSettings,
-        metadata: BundleMetadata,
-        mediaFiles: Map<String, File>
-    ): BundleResult {
-        if (needsStoragePermission()) {
-            return BundleResult(
-                success = false,
-                errorMessage = "Izin storage diperlukan",
-                needPermission = true
-            )
-        }
+// BIKIN BUNDLE .iO (ZIP)
+// ============================================================
+fun createBundle(
+    context: Context,
+    settings: AppSettings,
+    metadata: BundleMetadata,
+    mediaFiles: Map<String, File>
+): BundleResult {
+    if (needsStoragePermission()) {
+        return BundleResult(
+            success = false,
+            errorMessage = "Izin storage diperlukan",
+            needPermission = true
+        )
+    }
 
-        return try {
-            val dir = getTerimaDir(context)
-            val fileName = buildBundleFileName(metadata.senderDevice)
-            val targetFile = File(dir, fileName)
+    return try {
+        val dir = getTerimaDir(context)
+        val fileName = buildBundleFileName(metadata.senderDevice)
+        val targetFile = File(dir, fileName)
 
-            // Tulis ZIP
-            FileOutputStream(targetFile).use { fos ->
-                ZipOutputStream(fos).use { zos ->
-                    // === 1. settings.json ===
-                    writeEntry(zos, "settings.json", SettingsTransferHelper.serializeSettings(settings))
+        FileOutputStream(targetFile).use { fos ->
+            ZipOutputStream(fos).use { zos ->
+                // === 1. settings.json ===
+                writeEntry(zos, "settings.json", SettingsTransferHelper.serializeSettings(settings))
 
-                    // === 2. metadata.json ===
-                    writeEntry(zos, "metadata.json", buildMetadataJson(metadata))
+                // === 2. metadata.json ===
+                writeEntry(zos, "metadata.json", buildMetadataJson(metadata))
 
-                    // === 3. media files ===
-                    mediaFiles.forEach { (fieldKey, file) ->
-                        if (file.exists() && file.length() > 0) {
-                            val zipPath = "media/${sanitizeMediaName(fieldKey, file)}"
-                            writeFileEntry(zos, zipPath, file)
-                        }
+                // === 3. media files ===
+                mediaFiles.forEach { (fieldKey, file) ->
+                    if (file.exists() && file.length() > 0) {
+                        val zipPath = "media/${sanitizeMediaName(fieldKey, file)}"
+                        writeFileEntry(zos, zipPath, file)
                     }
                 }
             }
-
-            Log.d(TAG, "✅ Bundle tersimpan: ${targetFile.absolutePath} (${targetFile.length()} bytes)")
-
-            BundleResult(
-                success = true,
-                filePath = targetFile.absolutePath
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Gagal bikin bundle: ${e.message}", e)
-            BundleResult(
-                success = false,
-                errorMessage = e.message ?: "Gagal bikin bundle"
-            )
         }
-    }
 
-    private fun sanitizeMediaName(fieldKey: String, file: File): String {
-        val safeKey = fieldKey.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val ext = file.extension.ifBlank { "bin" }
-        return "${safeKey}.$ext"
-    }
+        Log.d(TAG, "Bundle tersimpan: ${targetFile.absolutePath} (${targetFile.length()} bytes)")
 
-    private fun writeEntry(zos: ZipOutputStream, path: String, content: String) {
+        BundleResult(
+            success = true,
+            filePath = targetFile.absolutePath
+        )
+    } catch (e: Exception) {
+        Log.e(TAG, "Gagal bikin bundle: ${e.message}", e)
+        BundleResult(
+            success = false,
+            errorMessage = e.message ?: "Gagal bikin bundle"
+        )
+    }
+}
+
+private fun sanitizeMediaName(fieldKey: String, file: File): String {
+    val safeKey = fieldKey.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+    val ext = file.extension.ifBlank { "bin" }
+    return "${safeKey}.$ext"
+}
+
+private fun writeEntry(zos: ZipOutputStream, path: String, content: String) {
+    val entry = ZipEntry(path)
+    zos.putNextEntry(entry)
+    zos.write(content.toByteArray(Charsets.UTF_8))
+    zos.closeEntry()
+}
+
+private fun writeFileEntry(zos: ZipOutputStream, path: String, file: File) {
+    try {
         val entry = ZipEntry(path)
         zos.putNextEntry(entry)
-        zos.write(content.toByteArray(Charsets.UTF_8))
+        FileInputStream(file).use { fis ->
+            val buffer = ByteArray(8192)
+            var len: Int
+            while (fis.read(buffer).also { len = it } > 0) {
+                zos.write(buffer, 0, len)
+            }
+        }
         zos.closeEntry()
+    } catch (e: Exception) {
+        Log.w(TAG, "Skip media $path: ${e.message}")
     }
+}
 
-    private fun writeFileEntry(zos: ZipOutputStream, path: String, file: File) {
-        try {
-            val entry = ZipEntry(path)
-            zos.putNextEntry(entry)
-            FileInputStream(file).use { fis ->
-                val buffer = ByteArray(8192)
-                var len: Int
-                while (fis.read(buffer).also { len = it } > 0) {
-                    zos.write(buffer, 0, len)
+// ============================================================
+// BUILD METADATA JSON
+// ============================================================
+private fun buildMetadataJson(m: BundleMetadata): String {
+    val root = JSONObject()
+    root.put("senderDevice", m.senderDevice)
+    root.put("senderRole", m.senderRole)
+    root.put("senderVersion", m.senderVersion)
+    root.put("receivedAt", m.receivedAt)
+    root.put("settingsSuccess", m.settingsSuccess)
+    root.put("mediaTotal", m.mediaTotal)
+    root.put("mediaSuccess", m.mediaSuccess)
+    root.put("mediaFailed", m.mediaFailed)
+    root.put("photoCount", m.photoCount)
+    root.put("videoCount", m.videoCount)
+
+    val failedArr = JSONArray()
+    m.failedFiles.forEach { f ->
+        failedArr.put(JSONObject().apply {
+            put("displayName", f.displayName)
+            put("fieldKey", f.fieldKey)
+            put("reason", f.reason)
+            put("exceptionClass", f.exceptionClass)
+            put("stackTrace", f.stackTrace)
+        })
+    }
+    root.put("failedFiles", failedArr)
+
+    return root.toString(2)
+}
+
+// ============================================================
+// BACA BUNDLE .iO → Map<zipPath, ByteArray>
+// ============================================================
+fun readBundle(bundleFile: File): Map<String, ByteArray> {
+    val result = mutableMapOf<String, ByteArray>()
+    try {
+        ZipInputStream(FileInputStream(bundleFile)).use { zis ->
+            var entry: ZipEntry? = zis.nextEntry
+            while (entry != null) {
+                val path = entry.name
+                if (!entry.isDirectory) {
+                    val bytes = zis.readBytes()
+                    result[path] = bytes
                 }
+                zis.closeEntry()
+                entry = zis.nextEntry
             }
-            zos.closeEntry()
-        } catch (e: Exception) {
-            Log.w(TAG, "Skip media $path: ${e.message}")
         }
+        Log.d(TAG, "Bundle dibaca: ${result.size} entry")
+    } catch (e: Exception) {
+        Log.e(TAG, "Gagal baca bundle: ${e.message}", e)
     }
+    return result
+}
 
-    private fun buildMetadataJson(m: BundleMetadata): String {
-        val root = JSONObject()
-        root.put("senderDevice", m.senderDevice)
-        root.put("senderRole", m.senderRole)
-        root.put("senderVersion", m.senderVersion)
-        root.put("receivedAt", m.receivedAt)
-        root.put("settingsSuccess", m.settingsSuccess)
-        root.put("mediaTotal", m.mediaTotal)
-        root.put("mediaSuccess", m.mediaSuccess)
-        root.put("mediaFailed", m.mediaFailed)
-        root.put("photoCount", m.photoCount)
-        root.put("videoCount", m.videoCount)
+// ============================================================
+// PARSE METADATA.JSON
+// ============================================================
+fun parseMetadata(bundleFile: File): BundleMetadata? {
+    return try {
+        val content = readBundle(bundleFile)
+        val metaBytes = content["metadata.json"] ?: return null
+        val json = JSONObject(String(metaBytes, Charsets.UTF_8))
 
-        val failedArr = JSONArray()
-        m.failedFiles.forEach { f ->
-            failedArr.put(JSONObject().apply {
-                put("displayName", f.displayName)
-                put("fieldKey", f.fieldKey)
-                put("reason", f.reason)
-                put("exceptionClass", f.exceptionClass)
-                put("stackTrace", f.stackTrace)
-            })
+        val failedArr = json.optJSONArray("failedFiles") ?: JSONArray()
+        val failures = mutableListOf<FailedFileInfo>()
+        for (i in 0 until failedArr.length()) {
+            val obj = failedArr.optJSONObject(i) ?: continue
+            failures.add(FailedFileInfo(
+                displayName = obj.optString("displayName", ""),
+                fieldKey = obj.optString("fieldKey", ""),
+                reason = obj.optString("reason", ""),
+                exceptionClass = obj.optString("exceptionClass", ""),
+                stackTrace = obj.optString("stackTrace", "")
+            ))
         }
-        root.put("failedFiles", failedArr)
 
-        return root.toString(2)
+        BundleMetadata(
+            senderDevice = json.optString("senderDevice", "Unknown"),
+            senderRole = json.optString("senderRole", "HP"),
+            senderVersion = json.optString("senderVersion", "V?"),
+            receivedAt = json.optString("receivedAt", ""),
+            settingsSuccess = json.optBoolean("settingsSuccess", false),
+            mediaTotal = json.optInt("mediaTotal", 0),
+            mediaSuccess = json.optInt("mediaSuccess", 0),
+            mediaFailed = json.optInt("mediaFailed", 0),
+            photoCount = json.optInt("photoCount", 0),
+            videoCount = json.optInt("videoCount", 0),
+            failedFiles = failures
+        )
+    } catch (e: Exception) {
+        Log.w(TAG, "Metadata tidak terbaca: ${e.message}")
+        null
     }
-    // ============================================================
-    // BACA BUNDLE .iO
-    // ============================================================
-    /**
-     * Baca isi file .iO. Return Map<zipPath, ByteArray>.
-     * Contoh key: "settings.json", "metadata.json", "media/qris.jpg"
-     */
-    fun readBundle(bundleFile: File): Map<String, ByteArray> {
-        val result = mutableMapOf<String, ByteArray>()
-        try {
-            ZipInputStream(FileInputStream(bundleFile)).use { zis ->
-                var entry: ZipEntry? = zis.nextEntry
-                while (entry != null) {
-                    val path = entry.name
-                    if (!entry.isDirectory) {
-                        val bytes = zis.readBytes()
-                        result[path] = bytes
-                    }
-                    zis.closeEntry()
-                    entry = zis.nextEntry
-                }
-            }
-            Log.d(TAG, "Bundle dibaca: ${result.size} entry")
-        } catch (e: Exception) {
-            Log.e(TAG, "Gagal baca bundle: ${e.message}", e)
-        }
-        return result
-    }
-
-    // ============================================================
-    // PARSE METADATA.JSON
-    // ============================================================
-    fun parseMetadata(bundleFile: File): BundleMetadata? {
-        return try {
-            val content = readBundle(bundleFile)
-            val metaBytes = content["metadata.json"] ?: return null
-            val json = JSONObject(String(metaBytes, Charsets.UTF_8))
-
-            val failedArr = json.optJSONArray("failedFiles") ?: JSONArray()
-            val failures = mutableListOf<FailedFileInfo>()
-            for (i in 0 until failedArr.length()) {
-                val obj = failedArr.optJSONObject(i) ?: continue
-                failures.add(FailedFileInfo(
-                    displayName = obj.optString("displayName", ""),
-                    fieldKey = obj.optString("fieldKey", ""),
-                    reason = obj.optString("reason", ""),
-                    exceptionClass = obj.optString("exceptionClass", ""),
-                    stackTrace = obj.optString("stackTrace", "")
-                ))
-            }
-
-            BundleMetadata(
-                senderDevice = json.optString("senderDevice", "Unknown"),
-                senderRole = json.optString("senderRole", "HP"),
-                senderVersion = json.optString("senderVersion", "V?"),
-                receivedAt = json.optString("receivedAt", ""),
-                settingsSuccess = json.optBoolean("settingsSuccess", false),
-                mediaTotal = json.optInt("mediaTotal", 0),
-                mediaSuccess = json.optInt("mediaSuccess", 0),
-                mediaFailed = json.optInt("mediaFailed", 0),
-                photoCount = json.optInt("photoCount", 0),
-                videoCount = json.optInt("videoCount", 0),
-                failedFiles = failures
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Metadata tidak terbaca: ${e.message}")
-            null
-        }
-    }
-
+}
     // ============================================================
     // DAFTAR SEMUA BUNDLE .iO
     // ============================================================
-    /**
-     * Ambil semua file .iO di folder Terima.
-     * Diurutkan dari terbaru (lastModified desc).
-     */
     fun listBundles(context: Context): List<BundleInfo> {
         return try {
             val dir = getTerimaDir(context)
@@ -428,12 +444,6 @@ object IoBundleHelper {
     // ============================================================
     // RESTORE BUNDLE → APPLY KE SETTINGS + MEDIA
     // ============================================================
-    /**
-     * Baca bundle dan apply ke Settings + extract media.
-     *
-     * @param mode "TAMBAH" (gabung) atau "TIMPA" (replace)
-     *             Default: TAMBAH (sesuai keputusan Andi)
-     */
     fun restoreBundle(
         context: Context,
         bundleFile: File,
@@ -479,7 +489,7 @@ object IoBundleHelper {
                 }
             }
 
-            Log.d(TAG, "✅ Restore selesai: $restoredCount file media, mode=$mode")
+            Log.d(TAG, "Restore selesai: $restoredCount file media, mode=$mode")
 
             RestoreResult(
                 success = true,
@@ -528,21 +538,18 @@ object IoBundleHelper {
     }
 
     // ============================================================
-    // V1.30.7 BARU — RESTORE DENGAN PATH LOKAL
-    // Sama seperti restoreBundle, tapi settings yang dikembalikan
-    // sudah di-patch dengan path lokal TV (bukan path HP lama).
+    // RESTORE BUNDLE DENGAN PATH LOKAL (patch settings)
     // ============================================================
     fun restoreBundleWithLocalPaths(
         context: Context,
         bundleFile: File,
         currentSettings: AppSettings
     ): RestoreResult {
-        // 1. Panggil restoreBundle untuk extract media
         val raw = restoreBundle(context, bundleFile, currentSettings)
         val initialSettings = raw.settings
         if (!raw.success || initialSettings == null) return raw
 
-        // 2. Scan folder masjid_io untuk cari file terbaru
+        // Scan folder masjid_io untuk cari file terbaru
         val filesDir = context.filesDir
         val root = File(filesDir, "masjid_io")
 
@@ -583,7 +590,7 @@ object IoBundleHelper {
             }
         }
 
-        Log.d(TAG, "✅ Restore dengan path lokal selesai")
+        Log.d(TAG, "Restore dengan path lokal selesai")
         return raw.copy(settings = patched)
     }
 
