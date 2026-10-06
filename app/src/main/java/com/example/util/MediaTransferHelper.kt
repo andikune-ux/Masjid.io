@@ -24,8 +24,11 @@ import java.nio.ByteBuffer
 /**
  * MediaTransferHelper — Helper untuk transfer file media antar device.
  *
- * V1.04.423 FIX: Support PATH LOKAL (filesDir/masjid_io/...) selain content:// URI.
- * Bug sebelumnya: file yang di-copy ke folder permanen tidak bisa dibaca.
+ * V1.04.426:
+ *   - Support PATH LOKAL (filesDir/masjid_io/...) selain content:// URI
+ *   - Namespace dev.andikune.masjidio
+ *   - Tambah fungsi formatSize() untuk UI
+ *   - Kompres foto & video tetap ada (dipakai kalau perlu)
  */
 object MediaTransferHelper {
 
@@ -92,7 +95,7 @@ object MediaTransferHelper {
     }
 
     // ============================================================
-    // V1.04.423 FIX: CEK APAKAH PATH LOKAL
+    // CEK APAKAH PATH LOKAL
     // ============================================================
     private fun isLocalPath(uriString: String): Boolean {
         return uriString.startsWith("/") || uriString.startsWith("file://")
@@ -107,7 +110,7 @@ object MediaTransferHelper {
     }
 
     // ============================================================
-    // V1.04.423 FIX: GET FILE SIZE — SUPPORT PATH LOKAL + URI
+    // GET FILE SIZE — SUPPORT PATH LOKAL + URI
     // ============================================================
     fun getFileSize(context: Context, uriString: String): Long {
         return try {
@@ -130,7 +133,7 @@ object MediaTransferHelper {
     }
 
     // ============================================================
-    // V1.04.423 FIX: BACA FILE — SUPPORT PATH LOKAL + URI
+    // BACA FILE — SUPPORT PATH LOKAL + URI
     // ============================================================
     fun readFileBytes(context: Context, uriString: String): ByteArray? {
         return try {
@@ -149,7 +152,7 @@ object MediaTransferHelper {
         }
     }
     // ============================================================
-// V1.04.423 FIX: KOMPRES FOTO — SUPPORT PATH LOKAL + URI
+// KOMPRES FOTO — SUPPORT PATH LOKAL + URI
 // ============================================================
 @Suppress("DEPRECATION")
 fun compressPhoto(context: Context, uriString: String): ByteArray? {
@@ -158,7 +161,6 @@ fun compressPhoto(context: Context, uriString: String): ByteArray? {
         val inputStream2: InputStream
 
         if (isLocalPath(uriString)) {
-            // Path lokal — buka File langsung
             val file = File(localPathFromUri(uriString))
             if (!file.exists()) {
                 Log.w(TAG, "File lokal tidak ada: ${file.absolutePath}")
@@ -167,7 +169,6 @@ fun compressPhoto(context: Context, uriString: String): ByteArray? {
             inputStream1 = file.inputStream()
             inputStream2 = file.inputStream()
         } else {
-            // content:// URI
             val uri = Uri.parse(uriString)
             inputStream1 = context.contentResolver.openInputStream(uri) ?: return null
             inputStream2 = context.contentResolver.openInputStream(uri) ?: run {
@@ -176,7 +177,6 @@ fun compressPhoto(context: Context, uriString: String): ByteArray? {
             }
         }
 
-        // Baca dimensi dulu untuk hitung scale
         val options = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
@@ -187,7 +187,6 @@ fun compressPhoto(context: Context, uriString: String): ByteArray? {
         val height = options.outHeight
         val scale = calculateSampleSize(width, height, PHOTO_MAX_DIMENSION)
 
-        // Baca ulang dengan sampling
         val decodeOptions = BitmapFactory.Options().apply {
             inSampleSize = scale
         }
@@ -196,7 +195,6 @@ fun compressPhoto(context: Context, uriString: String): ByteArray? {
 
         if (bitmap == null) return null
 
-        // Kompres ke JPEG
         val output = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, PHOTO_QUALITY, output)
         bitmap.recycle()
@@ -221,7 +219,7 @@ private fun calculateSampleSize(width: Int, height: Int, maxDim: Int): Int {
 }
 
 // ============================================================
-// V1.04.423 FIX: KOMPRES VIDEO — SUPPORT PATH LOKAL + URI
+// KOMPRES VIDEO — SUPPORT PATH LOKAL + URI
 // ============================================================
 suspend fun compressVideo(
     context: Context,
@@ -233,7 +231,6 @@ suspend fun compressVideo(
         val extractor = MediaExtractor()
 
         if (isLocalPath(inputUri)) {
-            // Path lokal — set data source langsung
             val file = File(localPathFromUri(inputUri))
             if (!file.exists()) {
                 Log.w(TAG, "File video lokal tidak ada: ${file.absolutePath}")
@@ -242,7 +239,6 @@ suspend fun compressVideo(
             }
             extractor.setDataSource(file.absolutePath)
         } else {
-            // content:// URI
             val uri = Uri.parse(inputUri)
             context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
                 extractor.setDataSource(pfd.fileDescriptor)
@@ -337,7 +333,7 @@ suspend fun compressVideo(
 }
 
 // ============================================================
-// CHUNK FILE → List ByteArray
+// SPLIT FILE → CHUNK (untuk backward compat chunk upload)
 // ============================================================
 fun splitIntoChunks(bytes: ByteArray, chunkSize: Int = CHUNK_SIZE): List<ByteArray> {
     val chunks = mutableListOf<ByteArray>()
@@ -360,22 +356,22 @@ fun encodeBase64(bytes: ByteArray): String {
 fun decodeBase64(text: String): ByteArray {
     return Base64.decode(text, Base64.NO_WRAP)
 }
-    // ============================================================
-    // SIMPAN FILE KE FOLDER INTERNAL
-    // ============================================================
-    fun saveFileToInternal(context: Context, folder: String, fileName: String, bytes: ByteArray): String? {
-        return try {
-            val dir = File(context.filesDir, "masjid_io/$folder")
-            if (!dir.exists()) dir.mkdirs()
-            val file = File(dir, fileName)
-            FileOutputStream(file).use { it.write(bytes) }
-            file.absolutePath
-        } catch (e: Exception) {
-            Log.e(TAG, "Gagal simpan file: ${e.message}")
-            null
-        }
-    }
 
+// ============================================================
+// SIMPAN FILE KE FOLDER INTERNAL
+// ============================================================
+fun saveFileToInternal(context: Context, folder: String, fileName: String, bytes: ByteArray): String? {
+    return try {
+        val dir = File(context.filesDir, "masjid_io/$folder")
+        if (!dir.exists()) dir.mkdirs()
+        val file = File(dir, fileName)
+        FileOutputStream(file).use { it.write(bytes) }
+        file.absolutePath
+    } catch (e: Exception) {
+        Log.e(TAG, "Gagal simpan file: ${e.message}")
+        null
+    }
+}
     // ============================================================
     // GET MIME TYPE — SUPPORT PATH LOKAL + URI
     // ============================================================
