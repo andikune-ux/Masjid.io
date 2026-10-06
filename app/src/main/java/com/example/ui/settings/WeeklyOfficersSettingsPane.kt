@@ -1,6 +1,5 @@
-package dev.andikune.masjidio.ui.settings
+package com.example.ui.settings
 
-import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,7 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -51,21 +52,34 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.DailyOfficerItem
-import dev.andikune.masjidio.ui.theme.IslamicGold
-import dev.andikune.masjidio.ui.theme.IslamicGoldLight
-import dev.andikune.masjidio.ui.theme.IslamicGreen
-import dev.andikune.masjidio.ui.theme.TextPrimary
-import dev.andikune.masjidio.ui.theme.TextSecondary
-import dev.andikune.masjidio.ui.theme.UrgentRed
-import dev.andikune.masjidio.util.MediaPersistenceHelper
+import com.example.data.model.AppSettings
+import com.example.data.model.DailyOfficerItem
+import com.example.ui.components.FilePickerMode
+import com.example.ui.components.VideoFilePickerDialog
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.IslamicGreen
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 private const val TARGET_GLOBAL = "__global__"
+
+// ============================================================
+// V1.04.425 — Menu Pilihan untuk Setiap Foto
+// ============================================================
+private data class PhotoTarget(
+    val key: String,
+    val label: String,
+    val currentUri: String?
+)
 
 @Composable
 fun WeeklyOfficersSettingsPane(
@@ -78,7 +92,14 @@ fun WeeklyOfficersSettingsPane(
 
     var selectedDayIndex by remember { mutableStateOf(0) }
     val days = listOf("Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu", "Ahad")
-    var photoTarget by remember { mutableStateOf<String?>(null) }
+
+    // ============================================================
+    // V1.04.425 — State Menu Pilihan Foto
+    // photoTarget = file/foto mana yang sedang dipilih user
+    // ============================================================
+    var activePhotoTarget by remember { mutableStateOf<String?>(null) }   // key target
+    var showPhotoMenu by remember { mutableStateOf(false) }                // menu picker muncul
+    var showFilePicker by remember { mutableStateOf(false) }               // custom file picker
 
     val currentOfficersList = remember(settings.weeklyOfficers) {
         if (settings.weeklyOfficers.size == 7) settings.weeklyOfficers
@@ -96,30 +117,21 @@ fun WeeklyOfficersSettingsPane(
     }
 
     // ============================================================
-    // V1.04.421: Copy foto ke folder permanen (semua target)
+    // V1.04.425 — Process File Terpilih (dari GALERI atau FILE)
     // ============================================================
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        val target = photoTarget
-        photoTarget = null
-        if (uri == null || target == null) return@rememberLauncherForActivityResult
-
+    fun processPickedFile(sourceUriString: String, target: String) {
         scope.launch {
-            // Copy file ke folder permanen
             val localPath = withContext(Dispatchers.IO) {
                 MediaPersistenceHelper.copyToPermanent(
                     context = context,
-                    sourceUri = uri.toString(),
+                    sourceUri = sourceUriString,
                     folder = MediaPersistenceHelper.FOLDER_OFFICER,
                     fileNamePrefix = "petugas"
                 )
             }
-            // Fallback kalau copy gagal
-            val finalPath = localPath ?: uri.toString()
+            val finalPath = localPath ?: sourceUriString
 
             if (target == TARGET_GLOBAL) {
-                // Hapus foto lama
                 settings.officerPhotoUri?.let { old ->
                     if (old != finalPath) MediaPersistenceHelper.deleteFile(old)
                 }
@@ -134,7 +146,6 @@ fun WeeklyOfficersSettingsPane(
                 DailyOfficerItem(dayName = days[selectedDayIndex])
             }
 
-            // Hapus foto lama untuk target ini
             val oldPath = when (target) {
                 "imam_subuh" -> dayItem.fotoImamSubuh
                 "muadzin_subuh" -> dayItem.fotoMuadzinSubuh
@@ -176,9 +187,74 @@ fun WeeklyOfficersSettingsPane(
         }
     }
 
-    fun pickPhoto(target: String) {
-        photoTarget = target
-        photoPickerLauncher.launch("image/*")
+    // ============================================================
+    // GALERI LAUNCHER (Android Native)
+    // ============================================================
+    val photoGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        val target = activePhotoTarget
+        activePhotoTarget = null
+        if (uri == null || target == null) return@rememberLauncherForActivityResult
+        processPickedFile(uri.toString(), target)
+    }
+
+    // ============================================================
+    // Helper: Buka Menu Pilihan Foto (GALERI / FILE / HAPUS)
+    // ============================================================
+    fun openPhotoMenu(targetKey: String) {
+        activePhotoTarget = targetKey
+        showPhotoMenu = true
+    }
+
+    // ============================================================
+    // Helper: Cek apakah foto sudah ada (untuk opsi HAPUS di menu)
+    // ============================================================
+    fun hasExistingPhoto(targetKey: String): Boolean {
+        return when (targetKey) {
+            TARGET_GLOBAL -> !settings.officerPhotoUri.isNullOrBlank()
+            "imam_subuh" -> !currentDaySchedule.fotoImamSubuh.isNullOrBlank()
+            "muadzin_subuh" -> !currentDaySchedule.fotoMuadzinSubuh.isNullOrBlank()
+            "imam_dzuhur" -> !currentDaySchedule.fotoImamDzuhur.isNullOrBlank()
+            "muadzin_dzuhur" -> !currentDaySchedule.fotoMuadzinDzuhur.isNullOrBlank()
+            "imam_ashar" -> !currentDaySchedule.fotoImamAshar.isNullOrBlank()
+            "muadzin_ashar" -> !currentDaySchedule.fotoMuadzinAshar.isNullOrBlank()
+            "imam_maghrib" -> !currentDaySchedule.fotoImamMaghrib.isNullOrBlank()
+            "muadzin_maghrib" -> !currentDaySchedule.fotoMuadzinMaghrib.isNullOrBlank()
+            "imam_isya" -> !currentDaySchedule.fotoImamIsya.isNullOrBlank()
+            "muadzin_isya" -> !currentDaySchedule.fotoMuadzinIsya.isNullOrBlank()
+            "khatib_jumat" -> !currentDaySchedule.fotoKhatibJumat.isNullOrBlank()
+            "ustadz_kajian" -> !currentDaySchedule.fotoUstadzKajian.isNullOrBlank()
+            else -> false
+        }
+    }
+
+    // ============================================================
+    // Helper: Hapus Foto (dari menu)
+    // ============================================================
+    fun deletePhotoForTarget(targetKey: String) {
+        if (targetKey == TARGET_GLOBAL) {
+            settings.officerPhotoUri?.let { MediaPersistenceHelper.deleteFile(it) }
+            onUpdate(settings.copy(officerPhotoUri = null))
+            return
+        }
+
+        val updated = when (targetKey) {
+            "imam_subuh"      -> currentDaySchedule.copy(fotoImamSubuh = null)
+            "muadzin_subuh"   -> currentDaySchedule.copy(fotoMuadzinSubuh = null)
+            "imam_dzuhur"     -> currentDaySchedule.copy(fotoImamDzuhur = null)
+            "muadzin_dzuhur"  -> currentDaySchedule.copy(fotoMuadzinDzuhur = null)
+            "imam_ashar"      -> currentDaySchedule.copy(fotoImamAshar = null)
+            "muadzin_ashar"   -> currentDaySchedule.copy(fotoMuadzinAshar = null)
+            "imam_maghrib"    -> currentDaySchedule.copy(fotoImamMaghrib = null)
+            "muadzin_maghrib" -> currentDaySchedule.copy(fotoMuadzinMaghrib = null)
+            "imam_isya"       -> currentDaySchedule.copy(fotoImamIsya = null)
+            "muadzin_isya"    -> currentDaySchedule.copy(fotoMuadzinIsya = null)
+            "khatib_jumat"    -> currentDaySchedule.copy(fotoKhatibJumat = null)
+            "ustadz_kajian"   -> currentDaySchedule.copy(fotoUstadzKajian = null)
+            else -> currentDaySchedule
+        }
+        updateDay(updated)
     }
 
     Column(
@@ -194,7 +270,9 @@ fun WeeklyOfficersSettingsPane(
             color = IslamicGoldLight
         )
 
-        // ---------- FOTO DEFAULT (FALLBACK) ----------
+        // ============================================================
+        // FOTO DEFAULT (FALLBACK)
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -219,76 +297,31 @@ fun WeeklyOfficersSettingsPane(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (!settings.officerPhotoUri.isNullOrBlank()) {
-                    AsyncImage(
-                        model = settings.officerPhotoUri,
-                        contentDescription = "Foto Ustadz",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, IslamicGold, CircleShape)
+                PhotoCircle(
+                    photoUri = settings.officerPhotoUri,
+                    onClick = { openPhotoMenu(TARGET_GLOBAL) },
+                    onDelete = { deletePhotoForTarget(TARGET_GLOBAL) },
+                    borderColor = IslamicGold
+                )
+                Column {
+                    Text(
+                        text = "Tap foto untuk upload/ganti",
+                        fontSize = 12.sp,
+                        color = TextSecondary
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(IslamicGold.copy(alpha = 0.2f))
-                            .border(2.dp, IslamicGold, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = IslamicGold,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = { pickPhoto(TARGET_GLOBAL) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = IslamicGold,
-                            contentColor = Color(0xFF09141D)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddPhotoAlternate,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "PILIH FOTO", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    if (!settings.officerPhotoUri.isNullOrBlank()) {
-                        OutlinedButton(
-                            onClick = {
-                                settings.officerPhotoUri?.let { old ->
-                                    MediaPersistenceHelper.deleteFile(old)
-                                }
-                                onUpdate(settings.copy(officerPhotoUri = null))
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = UrgentRed),
-                            border = BorderStroke(1.dp, UrgentRed),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "HAPUS", fontSize = 12.sp)
-                        }
-                    }
+                    Text(
+                        text = "💡 Pilih GALERI (HP) atau FILE (TV)",
+                        fontSize = 11.sp,
+                        color = IslamicGreen,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
 
-        // ---------- PILIH HARI ----------
+        // ============================================================
+        // PILIH HARI
+        // ============================================================
         Text(
             text = "Pilih Hari untuk Mengatur Jadwal Imam & Muadzin:",
             fontSize = 14.sp,
@@ -338,7 +371,9 @@ fun WeeklyOfficersSettingsPane(
             color = IslamicGreen
         )
 
-        // ---------- 5 ROW PETUGAS (Subuh - Isya) ----------
+        // ============================================================
+        // 5 ROW PETUGAS (Subuh - Isya)
+        // ============================================================
         PrayerOfficerRow(
             prayerName = "Subuh",
             imamValue = currentDaySchedule.imamSubuh,
@@ -347,16 +382,10 @@ fun WeeklyOfficersSettingsPane(
             muadzinPhotoUri = currentDaySchedule.fotoMuadzinSubuh,
             onImamChange = { updateDay(currentDaySchedule.copy(imamSubuh = it)) },
             onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinSubuh = it)) },
-            onImamPhotoClick = { pickPhoto("imam_subuh") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_subuh") },
-            onImamPhotoDelete = {
-                currentDaySchedule.fotoImamSubuh?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoImamSubuh = null))
-            },
-            onMuadzinPhotoDelete = {
-                currentDaySchedule.fotoMuadzinSubuh?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoMuadzinSubuh = null))
-            }
+            onImamPhotoClick = { openPhotoMenu("imam_subuh") },
+            onMuadzinPhotoClick = { openPhotoMenu("muadzin_subuh") },
+            onImamPhotoDelete = { deletePhotoForTarget("imam_subuh") },
+            onMuadzinPhotoDelete = { deletePhotoForTarget("muadzin_subuh") }
         )
 
         PrayerOfficerRow(
@@ -367,16 +396,10 @@ fun WeeklyOfficersSettingsPane(
             muadzinPhotoUri = currentDaySchedule.fotoMuadzinDzuhur,
             onImamChange = { updateDay(currentDaySchedule.copy(imamDzuhur = it)) },
             onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinDzuhur = it)) },
-            onImamPhotoClick = { pickPhoto("imam_dzuhur") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_dzuhur") },
-            onImamPhotoDelete = {
-                currentDaySchedule.fotoImamDzuhur?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoImamDzuhur = null))
-            },
-            onMuadzinPhotoDelete = {
-                currentDaySchedule.fotoMuadzinDzuhur?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoMuadzinDzuhur = null))
-            }
+            onImamPhotoClick = { openPhotoMenu("imam_dzuhur") },
+            onMuadzinPhotoClick = { openPhotoMenu("muadzin_dzuhur") },
+            onImamPhotoDelete = { deletePhotoForTarget("imam_dzuhur") },
+            onMuadzinPhotoDelete = { deletePhotoForTarget("muadzin_dzuhur") }
         )
 
         PrayerOfficerRow(
@@ -387,16 +410,10 @@ fun WeeklyOfficersSettingsPane(
             muadzinPhotoUri = currentDaySchedule.fotoMuadzinAshar,
             onImamChange = { updateDay(currentDaySchedule.copy(imamAshar = it)) },
             onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinAshar = it)) },
-            onImamPhotoClick = { pickPhoto("imam_ashar") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_ashar") },
-            onImamPhotoDelete = {
-                currentDaySchedule.fotoImamAshar?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoImamAshar = null))
-            },
-            onMuadzinPhotoDelete = {
-                currentDaySchedule.fotoMuadzinAshar?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoMuadzinAshar = null))
-            }
+            onImamPhotoClick = { openPhotoMenu("imam_ashar") },
+            onMuadzinPhotoClick = { openPhotoMenu("muadzin_ashar") },
+            onImamPhotoDelete = { deletePhotoForTarget("imam_ashar") },
+            onMuadzinPhotoDelete = { deletePhotoForTarget("muadzin_ashar") }
         )
 
         PrayerOfficerRow(
@@ -407,16 +424,10 @@ fun WeeklyOfficersSettingsPane(
             muadzinPhotoUri = currentDaySchedule.fotoMuadzinMaghrib,
             onImamChange = { updateDay(currentDaySchedule.copy(imamMaghrib = it)) },
             onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinMaghrib = it)) },
-            onImamPhotoClick = { pickPhoto("imam_maghrib") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_maghrib") },
-            onImamPhotoDelete = {
-                currentDaySchedule.fotoImamMaghrib?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoImamMaghrib = null))
-            },
-            onMuadzinPhotoDelete = {
-                currentDaySchedule.fotoMuadzinMaghrib?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoMuadzinMaghrib = null))
-            }
+            onImamPhotoClick = { openPhotoMenu("imam_maghrib") },
+            onMuadzinPhotoClick = { openPhotoMenu("muadzin_maghrib") },
+            onImamPhotoDelete = { deletePhotoForTarget("imam_maghrib") },
+            onMuadzinPhotoDelete = { deletePhotoForTarget("muadzin_maghrib") }
         )
 
         PrayerOfficerRow(
@@ -427,18 +438,15 @@ fun WeeklyOfficersSettingsPane(
             muadzinPhotoUri = currentDaySchedule.fotoMuadzinIsya,
             onImamChange = { updateDay(currentDaySchedule.copy(imamIsya = it)) },
             onMuadzinChange = { updateDay(currentDaySchedule.copy(muadzinIsya = it)) },
-            onImamPhotoClick = { pickPhoto("imam_isya") },
-            onMuadzinPhotoClick = { pickPhoto("muadzin_isya") },
-            onImamPhotoDelete = {
-                currentDaySchedule.fotoImamIsya?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoImamIsya = null))
-            },
-            onMuadzinPhotoDelete = {
-                currentDaySchedule.fotoMuadzinIsya?.let { MediaPersistenceHelper.deleteFile(it) }
-                updateDay(currentDaySchedule.copy(fotoMuadzinIsya = null))
-            }
+            onImamPhotoClick = { openPhotoMenu("imam_isya") },
+            onMuadzinPhotoClick = { openPhotoMenu("muadzin_isya") },
+            onImamPhotoDelete = { deletePhotoForTarget("imam_isya") },
+            onMuadzinPhotoDelete = { deletePhotoForTarget("muadzin_isya") }
         )
-                // ---------- KHATIB & KAJIAN ----------
+
+        // ============================================================
+        // KHATIB & KAJIAN
+        // ============================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -461,11 +469,8 @@ fun WeeklyOfficersSettingsPane(
             ) {
                 PhotoCircle(
                     photoUri = currentDaySchedule.fotoKhatibJumat,
-                    onClick = { pickPhoto("khatib_jumat") },
-                    onDelete = {
-                        currentDaySchedule.fotoKhatibJumat?.let { MediaPersistenceHelper.deleteFile(it) }
-                        updateDay(currentDaySchedule.copy(fotoKhatibJumat = null))
-                    },
+                    onClick = { openPhotoMenu("khatib_jumat") },
+                    onDelete = { deletePhotoForTarget("khatib_jumat") },
                     borderColor = IslamicGold
                 )
                 OutlinedTextField(
@@ -496,11 +501,8 @@ fun WeeklyOfficersSettingsPane(
             ) {
                 PhotoCircle(
                     photoUri = currentDaySchedule.fotoUstadzKajian,
-                    onClick = { pickPhoto("ustadz_kajian") },
-                    onDelete = {
-                        currentDaySchedule.fotoUstadzKajian?.let { MediaPersistenceHelper.deleteFile(it) }
-                        updateDay(currentDaySchedule.copy(fotoUstadzKajian = null))
-                    },
+                    onClick = { openPhotoMenu("ustadz_kajian") },
+                    onDelete = { deletePhotoForTarget("ustadz_kajian") },
                     borderColor = IslamicGreen
                 )
                 OutlinedTextField(
@@ -526,10 +528,253 @@ fun WeeklyOfficersSettingsPane(
             }
         }
     }
+
+    // ============================================================
+    // V1.04.425 — DIALOG MENU PILIHAN FOTO (GALERI / FILE / HAPUS)
+    // ============================================================
+    if (showPhotoMenu && activePhotoTarget != null) {
+        val targetKey = activePhotoTarget!!
+        val hasExisting = hasExistingPhoto(targetKey)
+
+        PhotoPickerMenuDialog(
+            hasExistingPhoto = hasExisting,
+            onGallery = {
+                showPhotoMenu = false
+                photoGalleryLauncher.launch("image/*")
+            },
+            onFile = {
+                showPhotoMenu = false
+                showFilePicker = true
+            },
+            onDelete = {
+                showPhotoMenu = false
+                deletePhotoForTarget(targetKey)
+                activePhotoTarget = null
+            },
+            onDismiss = {
+                showPhotoMenu = false
+                activePhotoTarget = null
+            }
+        )
+    }
+
+    // ============================================================
+    // V1.04.425 — CUSTOM FILE PICKER DIALOG
+    // ============================================================
+    if (showFilePicker && activePhotoTarget != null) {
+        VideoFilePickerDialog(
+            mode = FilePickerMode.IMAGE,
+            title = "Pilih Foto Petugas",
+            onFileSelected = { file: File ->
+                showFilePicker = false
+                val target = activePhotoTarget ?: return@VideoFilePickerDialog
+                processPickedFile(file.absolutePath, target)
+                activePhotoTarget = null
+            },
+            onDismiss = {
+                showFilePicker = false
+                activePhotoTarget = null
+            }
+        )
+    }
+}
+// ============================================================
+// V1.04.425 — DIALOG MENU PILIHAN FOTO
+// 3 tombol: GALERI / FILE / HAPUS (kalau foto sudah ada)
+// ============================================================
+@Composable
+private fun PhotoPickerMenuDialog(
+    hasExistingPhoto: Boolean,
+    onGallery: () -> Unit,
+    onFile: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isFocusedGallery by remember { mutableStateOf(false) }
+    var isFocusedFile by remember { mutableStateOf(false) }
+    var isFocusedDelete by remember { mutableStateOf(false) }
+    var isFocusedCancel by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .width(440.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0B1720))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // HEADER
+            Text(
+                text = "PILIH FOTO",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight
+            )
+            Text(
+                text = "Pilih sumber foto:",
+                fontSize = 12.sp,
+                color = TextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ===== TOMBOL GALERI =====
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isFocusedGallery) IslamicGoldLight else IslamicGold)
+                    .border(
+                        width = if (isFocusedGallery) 3.dp else 0.dp,
+                        color = if (isFocusedGallery) Color.White else Color.Transparent,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .onFocusChanged { isFocusedGallery = it.isFocused }
+                    .focusable()
+                    .clickable { onGallery() }
+                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PhotoLibrary,
+                    contentDescription = null,
+                    tint = Color(0xFF09141D),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "GALERI",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF09141D)
+                    )
+                    Text(
+                        text = "Buka aplikasi galeri HP",
+                        fontSize = 11.sp,
+                        color = Color(0xFF09141D).copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            // ===== TOMBOL FILE =====
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isFocusedFile) IslamicGoldLight else IslamicGold)
+                    .border(
+                        width = if (isFocusedFile) 3.dp else 0.dp,
+                        color = if (isFocusedFile) Color.White else Color.Transparent,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .onFocusChanged { isFocusedFile = it.isFocused }
+                    .focusable()
+                    .clickable { onFile() }
+                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FolderOpen,
+                    contentDescription = null,
+                    tint = Color(0xFF09141D),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "FILE",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF09141D)
+                    )
+                    Text(
+                        text = "Pilih dari folder (cocok untuk TV)",
+                        fontSize = 11.sp,
+                        color = Color(0xFF09141D).copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            // ===== TOMBOL HAPUS (hanya kalau foto sudah ada) =====
+            if (hasExistingPhoto) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isFocusedDelete) UrgentRed.copy(alpha = 0.3f)
+                            else Color(0x33FF5252)
+                        )
+                        .border(
+                            width = if (isFocusedDelete) 3.dp else 1.5.dp,
+                            color = if (isFocusedDelete) UrgentRed else UrgentRed.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .onFocusChanged { isFocusedDelete = it.isFocused }
+                        .focusable()
+                        .clickable { onDelete() }
+                        .padding(vertical = 14.dp, horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = UrgentRed,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "HAPUS FOTO",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = UrgentRed
+                        )
+                        Text(
+                            text = "Hilangkan foto ini",
+                            fontSize = 11.sp,
+                            color = UrgentRed.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ===== TOMBOL BATAL =====
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isFocusedCancel) Color(0x44FFFFFF) else Color.Transparent)
+                    .border(
+                        width = if (isFocusedCancel) 2.dp else 1.dp,
+                        color = if (isFocusedCancel) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .onFocusChanged { isFocusedCancel = it.isFocused }
+                    .focusable()
+                    .clickable { onDismiss() }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "BATAL",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary
+                )
+            }
+        }
+    }
 }
 
 // ============================================================
-// BARIS PETUGAS (IMAM + MUADZIN) — masing-masing punya foto sendiri
+// BARIS PETUGAS (IMAM + MUADZIN)
 // ============================================================
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -601,7 +846,7 @@ private fun PrayerOfficerRow(
     }
 }
 // ============================================================
-// LINGKARAN FOTO — tap = upload/ganti, long-press = hapus
+// LINGKARAN FOTO — tap = buka menu pilihan (GALERI/FILE/HAPUS)
 // ============================================================
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
