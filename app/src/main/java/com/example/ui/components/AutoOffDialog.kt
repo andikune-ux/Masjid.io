@@ -66,18 +66,9 @@ import kotlinx.coroutines.delay
 /**
  * AutoOffDialog — Popup konfirmasi saat user tekan remote di jam OFF.
  *
- * V1.04.423 BARU.
- *
- * Logika:
- *   - Muncul saat user tekan remote (di jam OFF)
- *   - 2 tombol: YA (kiri) / TIDAK (kanan)
- *   - Default = TIDAK (auto-dismiss 120 detik → TIDAK)
- *   - YA → callback onConfirmTrue (matikan jadwal)
- *   - TIDAK / auto-dismiss → callback onConfirmFalse
- *
- * @param offStartTime Waktu mulai OFF (misal "19:32")
- * @param offEndTime Waktu selesai OFF (misal "04:05")
- * @param autoDismissSeconds Berapa detik sebelum auto-dismiss (default 120)
+ * V1.04.427 FIX:
+ *   - Tombol pakai Box + height(56.dp) fixed (teks & ikon muncul)
+ *   - Tambah onFocusChanged sebelum focusable
  */
 @Composable
 fun AutoOffDialog(
@@ -87,20 +78,16 @@ fun AutoOffDialog(
     onConfirmTrue: () -> Unit,
     onConfirmFalse: () -> Unit
 ) {
-    // Countdown auto-dismiss
     var secondsRemaining by remember { mutableIntStateOf(autoDismissSeconds) }
 
-    // Focus requesters
     val yesFocusRequester = remember { FocusRequester() }
     val noFocusRequester = remember { FocusRequester() }
 
-    // Fokus awal ke tombol TIDAK (default)
     LaunchedEffect(Unit) {
         delay(300)
         runCatching { noFocusRequester.requestFocus() }
     }
 
-    // Auto-dismiss timer
     LaunchedEffect(Unit) {
         while (secondsRemaining > 0) {
             delay(1000L)
@@ -109,7 +96,6 @@ fun AutoOffDialog(
         onConfirmFalse()
     }
 
-    // Pulse animation untuk icon
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -122,7 +108,7 @@ fun AutoOffDialog(
     )
 
     Dialog(
-        onDismissRequest = { /* Wajib pilih tombol */ },
+        onDismissRequest = { },
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
@@ -139,12 +125,10 @@ fun AutoOffDialog(
                 .onKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown) {
                         when (event.key) {
-                            // BACK = TIDAK (default)
                             Key.Back, Key.Escape -> {
                                 onConfirmFalse()
                                 true
                             }
-                            // ENTER / OK diarahkan ke tombol yang sedang fokus
                             else -> false
                         }
                     } else false
@@ -154,9 +138,6 @@ fun AutoOffDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // ============================================================
-                // ICON PULSE
-                // ============================================================
                 Box(
                     modifier = Modifier
                         .size(96.dp)
@@ -166,17 +147,11 @@ fun AutoOffDialog(
                         .border(3.dp, IslamicGold, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "🌙",
-                        fontSize = 48.sp
-                    )
+                    Text(text = "🌙", fontSize = 48.sp)
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // ============================================================
-                // JUDUL
-                // ============================================================
                 Text(
                     text = "JADWAL OFF AKTIF",
                     fontSize = 24.sp,
@@ -186,9 +161,6 @@ fun AutoOffDialog(
                     textAlign = TextAlign.Center
                 )
 
-                // ============================================================
-                // GARIS PEMISAH
-                // ============================================================
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.5f)
@@ -198,9 +170,6 @@ fun AutoOffDialog(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // ============================================================
-                // INFO JAM OFF
-                // ============================================================
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
@@ -226,9 +195,6 @@ fun AutoOffDialog(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // ============================================================
-                // PERTANYAAN
-                // ============================================================
                 Text(
                     text = "Apakah Anda bersedia\nMEMATIKAN JADWAL ON/OFF?",
                     fontSize = 18.sp,
@@ -240,9 +206,6 @@ fun AutoOffDialog(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // ============================================================
-                // WARNING BOX
-                // ============================================================
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -271,42 +234,76 @@ fun AutoOffDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // ============================================================
-                // TOMBOL YA / TIDAK
+                // TOMBOL YA / TIDAK — pakai Box + height fixed
                 // ============================================================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // ===== TOMBOL YA (KIRI) =====
-                    DialogButton(
-                        text = "YA",
-                        icon = Icons.Default.Check,
-                        backgroundColor = IslamicGreen,
-                        textColor = Color.White,
-                        modifier = Modifier.weight(1f),
-                        focusRequester = yesFocusRequester,
-                        onClick = onConfirmTrue
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(IslamicGreen)
+                            .focusRequester(yesFocusRequester)
+                            .focusable()
+                            .clickable { onConfirmTrue() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Ya",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "YA",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
 
-                    // ===== TOMBOL TIDAK (KANAN, DEFAULT) =====
-                    DialogButton(
-                        text = "TIDAK",
-                        icon = Icons.Default.Close,
-                        backgroundColor = Color(0xFF142735),
-                        textColor = TextPrimary,
-                        modifier = Modifier.weight(1f),
-                        focusRequester = noFocusRequester,
-                        onClick = onConfirmFalse
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF142735))
+                            .border(1.5.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .focusRequester(noFocusRequester)
+                            .focusable()
+                            .clickable { onConfirmFalse() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tidak",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "TIDAK",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = TextPrimary,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // ============================================================
-                // COUNTDOWN AUTO-DISMISS
-                // ============================================================
                 Text(
-                    text = "Auto-dismiss dalam ${formatCountdown(secondsRemaining)} → dianggap TIDAK",
+                    text = "Auto-dismiss dalam ${formatCountdown(secondsRemaining)} -> dianggap TIDAK",
                     fontSize = 10.sp,
                     color = TextSecondary,
                     textAlign = TextAlign.Center,
@@ -314,55 +311,6 @@ fun AutoOffDialog(
                 )
             }
         }
-    }
-}
-
-// ============================================================
-// TOMBOL DIALOG
-// ============================================================
-@Composable
-private fun DialogButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    backgroundColor: Color,
-    textColor: Color,
-    modifier: Modifier = Modifier,
-    focusRequester: FocusRequester? = null,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = modifier
-            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .border(
-                width = if (isFocused) 4.dp else 0.dp,
-                color = if (isFocused) IslamicGoldLight else Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable { onClick() }
-            .padding(vertical = 18.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            tint = textColor,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = textColor,
-            letterSpacing = 1.sp
-        )
     }
 }
 
