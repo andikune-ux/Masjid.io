@@ -1,4 +1,4 @@
-package dev.andikune.masjidio
+package com.example
 
 import android.Manifest
 import android.content.Context
@@ -14,42 +14,95 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import dev.andikune.masjidio.audio.SoundManager
-import dev.andikune.masjidio.data.local.IslamicCalendar
-import dev.andikune.masjidio.data.local.PrayerTimesCalculator
-import dev.andikune.masjidio.data.local.SettingsRepository
-import dev.andikune.masjidio.data.local.WeatherService
-import dev.andikune.masjidio.data.model.PrayerId
-import dev.andikune.masjidio.data.model.PrayerSchedule
-import dev.andikune.masjidio.kiosk.KioskManager
-import dev.andikune.masjidio.kiosk.WatchdogService
-import dev.andikune.masjidio.ui.components.PinDialog
-import dev.andikune.masjidio.ui.components.UpdateDialog
-import dev.andikune.masjidio.ui.focus.PrayerFocusOverlay
-import dev.andikune.masjidio.ui.focus.QRISFocusOverlay
-import dev.andikune.masjidio.ui.home.HomeScreen
-import dev.andikune.masjidio.ui.ramadhan.RamadhanOverlay
-import dev.andikune.masjidio.ui.remote.IoControlScreen
-import dev.andikune.masjidio.ui.remote.RemoteServer
-import dev.andikune.masjidio.ui.remote.RestartCountdownOverlay
-import dev.andikune.masjidio.ui.settings.SettingsScreen
-import dev.andikune.masjidio.ui.theme.MasjidTheme
-import dev.andikune.masjidio.ui.theme.MosqueDeepBg
-import dev.andikune.masjidio.util.ApkDownloader
-import dev.andikune.masjidio.util.CrashAutoShowHelper
-import dev.andikune.masjidio.util.CrashLogDialog
-import dev.andikune.masjidio.util.CrashReporter
-import dev.andikune.masjidio.util.FonnteSender
-import dev.andikune.masjidio.util.SettingsTransferHelper
-import dev.andikune.masjidio.util.UpdateManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.audio.SoundManager
+import com.example.data.local.IslamicCalendar
+import com.example.data.local.PrayerTimesCalculator
+import com.example.data.local.SettingsRepository
+import com.example.data.local.WeatherService
+import com.example.data.model.PinLockMode
+import com.example.data.model.PrayerId
+import com.example.data.model.PrayerSchedule
+import com.example.kiosk.KioskManager
+import com.example.kiosk.WatchdogService
+import com.example.receiver.BootReceiver
+import com.example.ui.components.AutoOffDialog
+import com.example.ui.components.PinDialog
+import com.example.ui.components.UpdateDialog
+import com.example.ui.focus.AdzanSequenceOverlay
+import com.example.ui.focus.PrayerFocusOverlay
+import com.example.ui.focus.QRISFocusOverlay
+import com.example.ui.home.HomeScreen
+import com.example.ui.ramadhan.RamadhanOverlay
+import com.example.ui.remote.IoControlScreen
+import com.example.ui.remote.RemoteServer
+import com.example.ui.remote.RestartCountdownOverlay
+import com.example.ui.settings.SettingsScreen
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.MasjidTheme
+import com.example.ui.theme.MosqueDeepBg
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.util.ApkDownloader
+import com.example.util.BackupManager
+import com.example.util.CrashAutoShowHelper
+import com.example.util.CrashLogDialog
+import com.example.util.CrashReporter
+import com.example.util.SettingsTransferHelper
+import com.example.util.UpdateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -59,6 +112,7 @@ import java.time.format.DateTimeFormatter
 
 enum class AppScreen {
     HOME,
+    ADZAN_SEQUENCE,
     FOCUS_MODE,
     SETTINGS,
     QRIS_PREVIEW,
@@ -68,21 +122,19 @@ enum class AppScreen {
 
 private const val UPDATE_PREFS = "update_prefs"
 private const val KEY_SKIPPED_VERSION = "skipped_version"
+private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L            // 5 menit
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var soundManager: SoundManager
 
-    // Flag untuk menentukan mode restart (V1.30.5)
     @Volatile
     private var needsHardRestart: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        hideSystemBars()
 
         CrashReporter.init(this)
 
@@ -97,510 +149,825 @@ class MainActivity : ComponentActivity() {
         val deviceRole = if (isTV()) "TV" else "HP"
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
-        // ============================================================
-        // RESTART HANDLER — Opsi C
-        // - Normal: recreate() → activity re-init, tidak keluar
-        // - Port berubah: killProcess → Watchdog auto-reopen
-        // ============================================================
         val doSoftRestart: () -> Unit = {
             runOnUiThread {
                 try {
-                    // Cek apakah port Remote Server berubah
-                    // Kalau iya → hard restart (killProcess)
-                    // Kalau tidak → soft restart (recreate)
                     if (needsHardRestart) {
-                        // Hard restart: kill process, WatchdogService akan reopen
                         android.os.Process.killProcess(android.os.Process.myPid())
                     } else {
-                        // Soft restart: recreate activity — cepat, tidak keluar
                         recreate()
                     }
                 } catch (e: Exception) {
-                    // Fallback: kill process
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }
             }
         }
-
         setContent {
-            val context = LocalContext.current
-            val settings by settingsRepository.settingsFlow.collectAsState()
-            val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val settings by settingsRepository.settingsFlow.collectAsState()
+    val scope = rememberCoroutineScope()
 
-            var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
+    var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
-            // ============ RESTART COUNTDOWN STATE (V1.30.5) ============
-            var showRestartCountdown by remember { mutableStateOf(false) }
+    // ============================================================
+    // V1.04.425 — IZIN STORAGE & INSTALL (auto-show)
+    // ============================================================
+    val bootPrefs = remember {
+        context.getSharedPreferences(BootReceiver.PREFS_BOOT, Context.MODE_PRIVATE)
+    }
 
-            // ============ UPDATE STATE ============
-            var showUpdateDialog by remember { mutableStateOf(false) }
-            var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
-            var downloadProgress by remember { mutableFloatStateOf(0f) }
-            var isDownloading by remember { mutableStateOf(false) }
-            var isInstalling by remember { mutableStateOf(false) }
+    var showStoragePermissionDialog by remember {
+        mutableStateOf(false) // Start false, trigger di LaunchedEffect
+    }
+    var showInstallPermissionDialog by remember {
+        mutableStateOf(false) // Dialog "Install Unknown Apps"
+    }
 
-            val updatePrefs = remember {
-                context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
-            }
-            fun getSkippedVersion(): String? =
-                updatePrefs.getString(KEY_SKIPPED_VERSION, null)
+    // Cek izin saat pertama buka + setelah boot
+    LaunchedEffect(Unit) {
+        delay(1500) // Kasih waktu activity settle dulu
+        
+        // Cek storage permission
+        val needsStorage = BackupManager.needsStoragePermission()
+        
+        // Cek install permission (khusus Android 8+)
+        val needsInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            !context.packageManager.canRequestPackageInstalls()
+        } else {
+            false
+        }
+        
+        // Cek flag just_booted dari BootReceiver
+        val justBooted = bootPrefs.getBoolean(BootReceiver.KEY_JUST_BOOTED, false)
+        
+        // Tentukan dialog mana yang muncul dulu
+        if (needsStorage) {
+            showStoragePermissionDialog = true
+        } else if (justBooted && needsInstall) {
+            // Kalau storage OK tapi install belum ada, munculkan dialog install
+            showInstallPermissionDialog = true
+        }
+        
+        // Reset flag just_booted
+        if (justBooted) {
+            bootPrefs.edit().putBoolean(BootReceiver.KEY_JUST_BOOTED, false).apply()
+        }
+    }
 
-            fun setSkippedVersion(version: String) {
-                updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
-            }
-
-            // ============ SYNC FONNTE ============
-            LaunchedEffect(
-                settings.fonnteToken,
-                settings.fonnteGroupId,
-                settings.whatsappReportEnabled
-            ) {
-                CrashReporter.updateFonnteConfig(
-                    token = settings.fonnteToken,
-                    groupId = settings.fonnteGroupId,
-                    enabled = settings.whatsappReportEnabled
-                )
-            }
-
-            // ============ KIOSK MODE ============
-            LaunchedEffect(settings.kioskModeEnabled) {
-                if (settings.kioskModeEnabled) {
-                    KioskManager.enableKiosk(this@MainActivity)
-                } else {
-                    KioskManager.disableKiosk(this@MainActivity)
-                }
-            }
-
-            // ============ WATCHDOG SERVICE ============
-            DisposableEffect(settings.kioskModeEnabled) {
-                val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
-                if (settings.kioskModeEnabled) {
-                    try { startService(serviceIntent) } catch (_: Exception) {}
-                } else {
-                    try { stopService(serviceIntent) } catch (_: Exception) {}
-                }
-                onDispose {
-                    try { stopService(serviceIntent) } catch (_: Exception) {}
-                }
-            }
-
-            // ============ REMOTE SERVER — V1.30.5 ============
-            val remoteServer = remember {
-                RemoteServer(
-                    context = this@MainActivity,
-                    settingsRepository = settingsRepository,
-                    onRestart = {
-                        // Fallback: dipanggil dari /api/restart (bukan dari iO Control)
-                        runOnUiThread {
-                            val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            startActivity(intent)
-                            finish()
-                        }
-                    },
-                    onSettingsReceived = { jsonBody ->
-                        try {
-                            val current = settingsRepository.settingsFlow.value
-                            val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
-                            if (newSettings != null) {
-                                settingsRepository.updateSettings(newSettings)
-                                // Cek apakah port berubah
-                                val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
-                                if (portBerubah) {
-                                    needsHardRestart = true
-                                }
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
-                        }
-                    },
-                    // ============================================================
-                    // V1.30.5 BARU: onFinalize — dipanggil setelah semua settings + media terkirim
-                    // Trigger overlay countdown 5 detik
-                    // ============================================================
-                    onFinalize = {
-                        runOnUiThread {
-                            android.util.Log.d("MainActivity", "🎬 onFinalize dipanggil — tampilkan countdown")
-                            showRestartCountdown = true
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Re-check storage permission
+                val needsPermission = BackupManager.needsStoragePermission()
+                if (needsPermission) {
+                    showStoragePermissionDialog = true
+                } else if (showStoragePermissionDialog) {
+                    // Izin baru saja diberikan → tutup dialog
+                    showStoragePermissionDialog = false
+                    
+                    // Cek install permission setelah storage OK
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        if (!context.packageManager.canRequestPackageInstalls()) {
+                            showInstallPermissionDialog = true
                         }
                     }
-                )
+                }
             }
-            var isRemoteServerRunning by remember { mutableStateOf(false) }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    
+    var showRestartCountdown by remember { mutableStateOf(false) }
 
-            LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
-                if (settings.remoteControlEnabled) {
-                    remoteServer.stop()
-                    delay(300)
-                    remoteServer.start(scope)
-                    delay(2500)
-                    val realStatus = remoteServer.isRunning()
-                    isRemoteServerRunning = realStatus
-                    if (!realStatus) {
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var isInstalling by remember { mutableStateOf(false) }
+
+    val updatePrefs = remember {
+        context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
+    }
+    fun getSkippedVersion(): String? =
+        updatePrefs.getString(KEY_SKIPPED_VERSION, null)
+
+    fun setSkippedVersion(version: String) {
+        updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
+    }
+
+    // ============================================================
+    // PIN LOCK STATE
+    // ============================================================
+    var sessionPinVerified by remember { mutableStateOf(false) }
+    var lastPinVerifiedTime by remember { mutableLongStateOf(0L) }
+
+    fun shouldRequestPin(): Boolean {
+        return when (settings.pinLockMode) {
+            PinLockMode.IMMEDIATE -> true
+            PinLockMode.UNTIL_EXIT -> !sessionPinVerified
+            PinLockMode.TIMEOUT_5MIN -> {
+                if (!sessionPinVerified) return true
+                val elapsed = System.currentTimeMillis() - lastPinVerifiedTime
+                elapsed >= PIN_TIMEOUT_MS
+            }
+        }
+    }
+
+    // ============================================================
+    // JADWAL ON/OFF OTOMATIS
+    // ============================================================
+    val todaySchedule = remember(
+        settings.latitude,
+        settings.longitude
+    ) {
+        PrayerTimesCalculator.calculate(
+            date = LocalDate.now(),
+            latitude = settings.latitude,
+            longitude = settings.longitude
+        )
+    }
+
+    fun timeToMinutes(timeStr: String): Int {
+        val parts = timeStr.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        return h * 60 + m
+    }
+
+    fun isNowInOffSchedule(): Boolean {
+        if (!settings.autoOnOff) return false
+
+        val now = if (settings.isManualTimeEnabled) {
+            LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+        } else {
+            LocalDateTime.now()
+        }
+        val currentMinute = now.hour * 60 + now.minute
+
+        val subuhMinute = timeToMinutes(todaySchedule.subuh)
+        val onMinute = subuhMinute - settings.autoOnMinutesBeforeSubuh
+
+        val isyaMinute = timeToMinutes(todaySchedule.isya)
+        val offMinute = isyaMinute + settings.autoOffMinutesAfterIsya
+
+        return if (onMinute < offMinute) {
+            currentMinute >= offMinute || currentMinute < onMinute
+        } else {
+            currentMinute in offMinute until onMinute
+        }
+    }
+
+    fun minutesToTime(minutes: Int): String {
+        val normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60)
+        val h = normalized / 60
+        val m = normalized % 60
+        return String.format("%02d:%02d", h, m)
+    }
+
+    val autoOnTimeStr = remember(todaySchedule.subuh, settings.autoOnMinutesBeforeSubuh) {
+        minutesToTime(timeToMinutes(todaySchedule.subuh) - settings.autoOnMinutesBeforeSubuh)
+    }
+    val autoOffTimeStr = remember(todaySchedule.isya, settings.autoOffMinutesAfterIsya) {
+        minutesToTime(timeToMinutes(todaySchedule.isya) + settings.autoOffMinutesAfterIsya)
+    }
+
+    var isDimmed by remember { mutableStateOf(false) }
+    var temporaryWake by remember { mutableStateOf(false) }
+    var lastKeyPressTime by remember { mutableLongStateOf(0L) }
+    var showAutoOffDialog by remember { mutableStateOf(false) }
+
+    // Polling jadwal brightness setiap 30 detik
+    LaunchedEffect(
+        settings.autoOnOff,
+        settings.autoOffMinutesAfterIsya,
+        settings.autoOnMinutesBeforeSubuh,
+        settings.isManualTimeEnabled,
+        settings.manualTimeOffsetSeconds,
+        todaySchedule.subuh,
+        todaySchedule.isya
+    ) {
+        while (true) {
+            val shouldDim = isNowInOffSchedule() && !temporaryWake
+            if (shouldDim != isDimmed) {
+                isDimmed = shouldDim
+                runOnUiThread {
+                    try {
+                        val attrs = window.attributes
+                        if (shouldDim) {
+                            attrs.screenBrightness = 0f
+                        } else {
+                            attrs.screenBrightness =
+                                WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                        }
+                        window.attributes = attrs
+                    } catch (e: Exception) {
                         android.util.Log.e(
                             "MainActivity",
-                            "❌ Remote Server gagal: ${remoteServer.lastError}"
+                            "Brightness update gagal: ${e.message}"
                         )
                     }
-                } else {
-                    remoteServer.stop()
-                    isRemoteServerRunning = false
                 }
             }
+            delay(30_000L)
+        }
+    }
 
-            DisposableEffect(Unit) {
-                onDispose { remoteServer.stop() }
+    // Timer temporary wake
+    LaunchedEffect(temporaryWake, showAutoOffDialog) {
+        if (temporaryWake && !showAutoOffDialog) {
+            delay(120_000L)
+            if (isNowInOffSchedule()) {
+                temporaryWake = false
             }
+        }
+    }
 
-            // ============ CEK UPDATE ============
-            LaunchedEffect(Unit) {
+    // Brightness normal saat popup AutoOff muncul
+    LaunchedEffect(showAutoOffDialog) {
+        if (showAutoOffDialog) {
+            runOnUiThread {
                 try {
-                    delay(3000)
-                    val info = UpdateManager.checkForUpdate()
-                    if (info.available) {
-                        val skippedVersion = getSkippedVersion()
-                        val isSkipped = skippedVersion == info.latestVersion
+                    val attrs = window.attributes
+                    attrs.screenBrightness =
+                        WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                    window.attributes = attrs
+                } catch (_: Exception) {}
+            }
+        } else {
+            lastKeyPressTime = System.currentTimeMillis()
+        }
+    }
 
-                        if (info.isForceUpdate || !isSkipped) {
-                            updateInfo = info
-                            showUpdateDialog = true
+    LaunchedEffect(
+        settings.fonnteToken,
+        settings.fonnteGroupId,
+        settings.whatsappReportEnabled
+    ) {
+        CrashReporter.updateFonnteConfig(
+            token = settings.fonnteToken,
+            groupId = settings.fonnteGroupId,
+            enabled = settings.whatsappReportEnabled
+        )
+    }
+
+    LaunchedEffect(settings.kioskModeEnabled) {
+        if (settings.kioskModeEnabled) {
+            KioskManager.enableKiosk(this@MainActivity)
+        } else {
+            KioskManager.disableKiosk(this@MainActivity)
+        }
+    }
+
+    DisposableEffect(settings.kioskModeEnabled) {
+        val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
+        if (settings.kioskModeEnabled) {
+            try { startService(serviceIntent) } catch (_: Exception) {}
+        } else {
+            try { stopService(serviceIntent) } catch (_: Exception) {}
+        }
+        onDispose {
+            try { stopService(serviceIntent) } catch (_: Exception) {}
+        }
+    }
+
+    val remoteServer = remember {
+        RemoteServer(
+            context = this@MainActivity,
+            settingsRepository = settingsRepository,
+            onRestart = {
+                runOnUiThread {
+                    val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                    finish()
+                }
+            },
+            onSettingsReceived = { jsonBody ->
+                try {
+                    val current = settingsRepository.settingsFlow.value
+                    val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
+                    if (newSettings != null) {
+                        settingsRepository.updateSettings(newSettings)
+                        val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
+                        if (portBerubah) {
+                            needsHardRestart = true
                         }
                     }
-                } catch (_: Exception) { }
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
+                }
+            },
+            onFinalize = {
+                runOnUiThread {
+                    android.util.Log.d("MainActivity", "onFinalize dipanggil")
+                    showRestartCountdown = true
+                }
             }
+        )
+    }
+    var isRemoteServerRunning by remember { mutableStateOf(false) }
 
-            // ============ HANDLER TOMBOL UPDATE ============
-            val startDownload: () -> Unit = {
-                val info = updateInfo
-                if (info?.downloadUrl.isNullOrBlank()) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "URL download tidak tersedia",
-                        Toast.LENGTH_LONG
-                    ).show()
-                } else {
-                    isDownloading = true
-                    downloadProgress = 0f
+    LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
+        if (settings.remoteControlEnabled) {
+            remoteServer.stop()
+            delay(300)
+            remoteServer.start(scope)
+            delay(2500)
+            val realStatus = remoteServer.isRunning()
+            isRemoteServerRunning = realStatus
+            if (!realStatus) {
+                android.util.Log.e(
+                    "MainActivity",
+                    "Remote Server gagal: ${remoteServer.lastError}"
+                )
+            }
+        } else {
+            remoteServer.stop()
+            isRemoteServerRunning = false
+        }
+    }
 
-                    scope.launch {
-                        ApkDownloader.downloadApk(
-                            context = this@MainActivity,
-                            downloadUrl = info!!.downloadUrl!!,
-                            fileName = "masjid-io-${info.latestVersion}.apk"
-                        ).collect { state ->
-                            when {
-                                state.errorMessage != null -> {
-                                    isDownloading = false
-                                    isInstalling = false
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Download gagal: ${state.errorMessage}",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                                state.isFinished && state.savedFilePath != null -> {
-                                    isDownloading = false
-                                    isInstalling = true
+    DisposableEffect(Unit) {
+        onDispose { remoteServer.stop() }
+    }
 
-                                    val ok = ApkDownloader.installApk(
-                                        this@MainActivity,
-                                        state.savedFilePath
-                                    )
-                                    if (!ok) {
-                                        isInstalling = false
-                                        ApkDownloader.openInstallPermissionSettings(this@MainActivity)
-                                    } else {
-                                        ApkDownloader.deleteOldApks(
-                                            this@MainActivity,
-                                            keepCount = 2
-                                        )
-                                    }
-                                }
-                                else -> {
-                                    downloadProgress = state.progress
-                                }
+    LaunchedEffect(Unit) {
+        try {
+            delay(3000)
+            val info = UpdateManager.checkForUpdate()
+            if (info.available) {
+                val skippedVersion = getSkippedVersion()
+                val isSkipped = skippedVersion == info.latestVersion
+
+                if (info.isForceUpdate || !isSkipped) {
+                    updateInfo = info
+                    showUpdateDialog = true
+                }
+            }
+        } catch (_: Exception) { }
+    }
+
+    val startDownload: () -> Unit = {
+        val info = updateInfo
+        if (info?.downloadUrl.isNullOrBlank()) {
+            Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
+        } else if (BackupManager.needsStoragePermission()) {
+            Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
+            showStoragePermissionDialog = true
+        } else {
+            isDownloading = true
+            downloadProgress = 0f
+
+            scope.launch {
+                ApkDownloader.downloadApk(
+                    context = this@MainActivity,
+                    downloadUrl = info!!.downloadUrl!!,
+                    fileName = "masjid-io-${info.latestVersion}.apk"
+                ).collect { state ->
+                    when {
+                        state.errorMessage != null -> {
+                            isDownloading = false
+                            isInstalling = false
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Download gagal: ${state.errorMessage}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        state.isFinished && state.savedFilePath != null -> {
+                            isDownloading = false
+                            isInstalling = true
+
+                            val ok = ApkDownloader.installApk(
+                                this@MainActivity,
+                                state.savedFilePath
+                            )
+                            if (!ok) {
+                                isInstalling = false
+                                // Munculkan dialog izin install
+                                showInstallPermissionDialog = true
+                            } else {
+                                ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
                             }
                         }
-                    }
-                }
-            }
-            
-            // ============ PERMISSIONS ============
-            val permissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { }
-
-            LaunchedEffect(Unit) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    permissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.READ_MEDIA_IMAGES,
-                            Manifest.permission.READ_MEDIA_VIDEO
-                        )
-                    )
-                } else {
-                    permissionLauncher.launch(
-                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-                    )
-                }
-            }
-
-            // ============ KEEP SCREEN ON ============
-            DisposableEffect(settings.keepScreenOn) {
-                if (settings.keepScreenOn) {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                } else {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
-                onDispose {}
-            }
-
-            var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
-            var showPinDialog by remember { mutableStateOf(false) }
-            var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
-            var focusPrayerTime by remember { mutableStateOf("17:52") }
-
-            // ============ WEATHER ============
-            var currentTemperature by remember { mutableStateOf(30) }
-            var currentWeatherCondition by remember { mutableStateOf("Cerah") }
-
-            LaunchedEffect(settings.latitude, settings.longitude) {
-                while (true) {
-                    try {
-                        val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
-                        currentTemperature = weather.temperature
-                        currentWeatherCondition = weather.condition
-                    } catch (_: Exception) { }
-                    delay(30 * 60 * 1000L)
-                }
-            }
-
-            // ============ BACK PRESS ============
-            DisposableEffect(settings.kioskModeEnabled, currentScreen, showRestartCountdown) {
-                val callback = object : OnBackPressedCallback(true) {
-                    override fun handleOnBackPressed() {
-                        if (showUpdateDialog && updateInfo?.isForceUpdate == true) return
-                        if (isDownloading || isInstalling) return
-                        // V1.30.5: saat countdown restart aktif, tahan back
-                        if (showRestartCountdown) return
-
-                        when (currentScreen) {
-                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW,
-                            AppScreen.RAMADHAN, AppScreen.IO_CONTROL ->
-                                currentScreen = AppScreen.HOME
-                            AppScreen.FOCUS_MODE -> showPinDialog = true
-                            AppScreen.HOME -> {
-                                if (settings.kioskModeEnabled) showPinDialog = true
-                                else {
-                                    isEnabled = false
-                                    onBackPressedDispatcher.onBackPressed()
-                                }
-                            }
+                        else -> {
+                            downloadProgress = state.progress
                         }
                     }
                 }
-                onBackPressedDispatcher.addCallback(callback)
-                onDispose { callback.remove() }
             }
+        }
+    }
 
-            // ============ CLOCK & SCHEDULE ============
-            var currentTimeString by remember { mutableStateOf("12:00:00") }
-            var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
-            var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
-            var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
 
-            // ============ RAMADHAN STATE ============
-            var secondsToImsak by remember { mutableLongStateOf(0L) }
-            var secondsToMaghrib by remember { mutableLongStateOf(0L) }
-            var userDismissedRamadhan by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO
+                )
+            )
+        } else {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            )
+        }
+    }
 
-            val today = remember { LocalDate.now() }
-            val upcomingEvent = remember {
-                val hDate = IslamicCalendar.getHijriDate(today)
-                IslamicCalendar.getUpcomingEvent(hDate)
-            }
+    DisposableEffect(settings.keepScreenOn) {
+        if (settings.keepScreenOn) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {}
+    }
 
-            LaunchedEffect(
-                settings.latitude,
-                settings.longitude,
-                settings.isManualTimeEnabled,
-                settings.manualTimeOffsetSeconds
-            ) {
-                val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
-                var lastTriggeredPrayerMinute: String? = null
+    var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
+    var showPinDialog by remember { mutableStateOf(false) }
+    var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
+    var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-                while (true) {
-                    val currentDateTime = if (settings.isManualTimeEnabled) {
-                        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
-                    } else {
-                        LocalDateTime.now()
-                    }
+    var currentTemperature by remember { mutableStateOf(30) }
+    var currentWeatherCondition by remember { mutableStateOf("Cerah") }
 
-                    val now = currentDateTime.toLocalTime()
-                    currentTimeString = now.format(timeFormatter)
+    LaunchedEffect(settings.latitude, settings.longitude) {
+        while (true) {
+            try {
+                val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
+                currentTemperature = weather.temperature
+                currentWeatherCondition = weather.condition
+            } catch (_: Exception) { }
+            delay(30 * 60 * 1000L)
+        }
+    }
+    // ============ BACK PRESS ============
+DisposableEffect(
+    settings.kioskModeEnabled,
+    currentScreen,
+    showRestartCountdown,
+    showStoragePermissionDialog,
+    showAutoOffDialog,
+    showInstallPermissionDialog
+) {
+    val callback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            if (showUpdateDialog && updateInfo?.isForceUpdate == true) return
+            if (isDownloading || isInstalling) return
+            if (showRestartCountdown) return
+            if (showStoragePermissionDialog) return
+            if (showInstallPermissionDialog) return
+            if (showAutoOffDialog) return
 
-                    val currentDate = currentDateTime.toLocalDate()
-                    val hDate = IslamicCalendar.getHijriDate(currentDate)
-                    hijriDateString = IslamicCalendar.formatHijriDateString(hDate)
-                    gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
-
-                    val schedule = PrayerTimesCalculator.calculate(
-                        date = currentDate,
-                        latitude = settings.latitude,
-                        longitude = settings.longitude
-                    )
-                    prayerSchedule = schedule
-
-                    secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
-                    secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
-
-                    val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
-                    if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
-                        for (item in schedule.items) {
-                            if (item.timeFormatted == currentMinuteStr && item.id != PrayerId.SYURUQ) {
-                                lastTriggeredPrayerMinute = currentMinuteStr
-                                focusPrayerId = item.id
-                                focusPrayerTime = item.timeFormatted
-                                soundManager.playPrayerAlert(
-                                    mode = settings.audioMode,
-                                    beepVolume = settings.beepVolume,
-                                    beepCount = settings.beepCount,
-                                    beepDurationMs = settings.beepDurationMs,
-                                    beepIntervalMs = settings.beepIntervalMs,
-                                    adzanStyle = settings.adzanFile,
-                                    adzanVolume = settings.adzanVolume
-                                )
-                                userDismissedRamadhan = false
-                                currentScreen = AppScreen.FOCUS_MODE
-                                break
-                            }
-                        }
-                    }
-                    delay(1000)
+            when (currentScreen) {
+                AppScreen.ADZAN_SEQUENCE -> {
+                    currentScreen = AppScreen.FOCUS_MODE
                 }
-            }
-
-            // ============ RAMADHAN OVERLAY TRIGGER ============
-            LaunchedEffect(
-                settings.ramadhanModeEnabled,
-                secondsToImsak,
-                secondsToMaghrib,
-                currentScreen,
-                userDismissedRamadhan
-            ) {
-                if (!settings.ramadhanModeEnabled) return@LaunchedEffect
-                if (currentScreen != AppScreen.HOME) return@LaunchedEffect
-                if (userDismissedRamadhan) return@LaunchedEffect
-
-                val nearImsak = secondsToImsak in 1..3600
-                val nearMaghrib = secondsToMaghrib in 1..3600
-
-                if (nearImsak || nearMaghrib) {
-                    currentScreen = AppScreen.RAMADHAN
-                }
-            }
-
-            LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
-                if (currentScreen == AppScreen.RAMADHAN) {
-                    if (secondsToImsak <= 0 && secondsToMaghrib <= 0) {
+                AppScreen.FOCUS_MODE -> {
+                    if (settings.focusModeAllowExitWithRemote) {
                         currentScreen = AppScreen.HOME
                     }
                 }
+                AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW,
+                AppScreen.RAMADHAN, AppScreen.IO_CONTROL ->
+                    currentScreen = AppScreen.HOME
+                AppScreen.HOME -> {
+                    if (settings.kioskModeEnabled) showPinDialog = true
+                    else {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
             }
+        }
+    }
+    onBackPressedDispatcher.addCallback(callback)
+    onDispose { callback.remove() }
+}
 
-            MasjidTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MosqueDeepBg
-                ) {
-                    if (showCrashDialog) {
-                        CrashLogDialog(
-                            log = pendingCrashLog,
-                            onDismiss = {
-                                CrashAutoShowHelper.markAsSeen(this@MainActivity)
-                                showCrashDialog = false
-                            }
-                        )
-                    } else {
-                        Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                            when (screen) {
-                                AppScreen.HOME -> HomeScreen(
-                                    settings = settings,
-                                    schedule = prayerSchedule,
-                                    currentTimeString = currentTimeString,
-                                    hijriDateString = hijriDateString,
-                                    gregorianDateString = gregorianDateString,
-                                    upcomingEvent = upcomingEvent,
-                                    temperature = currentTemperature,
-                                    weatherCondition = currentWeatherCondition,
-                                    onSettingsClick = { showPinDialog = true }
-                                )
-                                AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-                                    prayerId = focusPrayerId,
-                                    prayerTimeFormatted = focusPrayerTime,
-                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
-                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-                                    settings = settings,
-                                    onDismiss = { currentScreen = AppScreen.HOME }
-                                )
-                                AppScreen.SETTINGS -> SettingsScreen(
-                                    currentSettings = settings,
-                                    soundManager = soundManager,
-                                    isRemoteServerRunning = isRemoteServerRunning,
-                                    onAutoSaveSettings = { updated ->
-                                        settingsRepository.updateSettings(updated)
-                                    },
-                                    onSaveSettings = { updated ->
-                                        settingsRepository.updateSettings(updated)
-                                        currentScreen = AppScreen.HOME
-                                    },
-                                    onBack = { currentScreen = AppScreen.HOME },
-                                    onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
-                                    onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
-                                )
-                                AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-                                    settings = settings,
-                                    onDismiss = { currentScreen = AppScreen.SETTINGS }
-                                )
-                                AppScreen.RAMADHAN -> RamadhanOverlay(
-                                    settings = settings,
-                                    currentTimeString = currentTimeString,
-                                    imsakTime = prayerSchedule.imsak,
-                                    maghribTime = prayerSchedule.maghrib,
-                                    secondsToImsak = secondsToImsak,
-                                    secondsToMaghrib = secondsToMaghrib,
-                                    onDismiss = {
-                                        currentScreen = AppScreen.HOME
-                                        userDismissedRamadhan = true
-                                    }
-                                )
-                                AppScreen.IO_CONTROL -> IoControlScreen(
-                                    settingsRepository = settingsRepository,
-                                    deviceName = deviceName,
-                                    deviceRole = deviceRole,
-                                    appVersion = dev.andikune.masjidio.BuildConfig.VERSION_NAME,
-                                    serverPort = settings.remoteServerPort,
-                                    onBack = { currentScreen = AppScreen.SETTINGS }
-                                )
+// ============ CLOCK & SCHEDULE ============
+var currentTimeString by remember { mutableStateOf("12:00:00") }
+var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
+var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
+var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
+
+var secondsToImsak by remember { mutableLongStateOf(0L) }
+var secondsToMaghrib by remember { mutableLongStateOf(0L) }
+var userDismissedRamadhan by remember { mutableStateOf(false) }
+
+val today = remember { LocalDate.now() }
+val upcomingEvent = remember {
+    val hDate = IslamicCalendar.getHijriDate(today)
+    IslamicCalendar.getUpcomingEvent(hDate)
+}
+
+LaunchedEffect(
+    settings.latitude,
+    settings.longitude,
+    settings.isManualTimeEnabled,
+    settings.manualTimeOffsetSeconds
+) {
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+    var lastTriggeredPrayerMinute: String? = null
+
+    while (true) {
+        val currentDateTime = if (settings.isManualTimeEnabled) {
+            LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+        } else {
+            LocalDateTime.now()
+        }
+
+        val now = currentDateTime.toLocalTime()
+        currentTimeString = now.format(timeFormatter)
+
+        val currentDate = currentDateTime.toLocalDate()
+        val hDate = IslamicCalendar.getHijriDate(currentDate)
+        hijriDateString = IslamicCalendar.formatHijriDateString(hDate)
+        gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
+
+        val schedule = PrayerTimesCalculator.calculate(
+            date = currentDate,
+            latitude = settings.latitude,
+            longitude = settings.longitude
+        )
+        prayerSchedule = schedule
+
+        secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
+        secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
+
+        val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
+        if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
+            for (item in schedule.items) {
+                if (item.timeFormatted == currentMinuteStr && item.id != PrayerId.SYURUQ) {
+                    lastTriggeredPrayerMinute = currentMinuteStr
+                    focusPrayerId = item.id
+                    focusPrayerTime = item.timeFormatted
+                    soundManager.playPrayerAlert(
+                        mode = settings.audioMode,
+                        beepVolume = settings.beepVolume,
+                        beepCount = settings.beepCount,
+                        beepDurationMs = settings.beepDurationMs,
+                        beepIntervalMs = settings.beepIntervalMs,
+                        adzanStyle = settings.adzanFile,
+                        adzanVolume = settings.adzanVolume
+                    )
+                    userDismissedRamadhan = false
+                    currentScreen = AppScreen.ADZAN_SEQUENCE
+                    break
+                }
+            }
+        }
+        delay(1000)
+    }
+}
+
+// ============ RAMADHAN OVERLAY TRIGGER ============
+LaunchedEffect(
+    settings.ramadhanModeEnabled,
+    secondsToImsak,
+    secondsToMaghrib,
+    currentScreen,
+    userDismissedRamadhan
+) {
+    if (!settings.ramadhanModeEnabled) return@LaunchedEffect
+    if (currentScreen != AppScreen.HOME) return@LaunchedEffect
+    if (userDismissedRamadhan) return@LaunchedEffect
+
+    val nearImsak = secondsToImsak in 1..3600
+    val nearMaghrib = secondsToMaghrib in 1..3600
+
+    if (nearImsak || nearMaghrib) {
+        currentScreen = AppScreen.RAMADHAN
+    }
+}
+
+LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
+    if (currentScreen == AppScreen.RAMADHAN) {
+        if (secondsToImsak <= 0 && secondsToMaghrib <= 0) {
+            currentScreen = AppScreen.HOME
+        }
+    }
+}
+
+// ============ THEME + UI ============
+MasjidTheme {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MosqueDeepBg
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        val now = System.currentTimeMillis()
+                        if (now - lastKeyPressTime > 500L) {
+                            lastKeyPressTime = now
+
+                            if (isNowInOffSchedule() &&
+                                settings.autoOffDialogEnabled &&
+                                !showAutoOffDialog
+                            ) {
+                                temporaryWake = true
+                                showAutoOffDialog = true
                             }
                         }
+                        false
+                    } else false
+                }
+        ) {
+            if (showCrashDialog) {
+                CrashLogDialog(
+                    log = pendingCrashLog,
+                    onDismiss = {
+                        CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                        showCrashDialog = false
+                    }
+                )
+            } else {
+                Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                    when (screen) {
+                        AppScreen.HOME -> HomeScreen(
+                            settings = settings,
+                            schedule = prayerSchedule,
+                            currentTimeString = currentTimeString,
+                            hijriDateString = hijriDateString,
+                            gregorianDateString = gregorianDateString,
+                            upcomingEvent = upcomingEvent,
+                            temperature = currentTemperature,
+                            weatherCondition = currentWeatherCondition,
+                            onSettingsClick = {
+                                if (shouldRequestPin()) {
+                                    showPinDialog = true
+                                } else {
+                                    currentScreen = AppScreen.SETTINGS
+                                }
+                            }
+                        )
 
-                        // ============ PIN DIALOG ============
-                        if (showPinDialog) {
-                            PinDialog(
-                                correctPin = settings.pinCode,
-                                onSuccess = {
-                                    showPinDialog = false
-                                    if (currentScreen == AppScreen.FOCUS_MODE) currentScreen = AppScreen.HOME
-                                    else currentScreen = AppScreen.SETTINGS
+                        AppScreen.ADZAN_SEQUENCE -> AdzanSequenceOverlay(
+                            prayerId = focusPrayerId,
+                            adzanDurationSeconds = settings.adzanDisplayDurationSeconds,
+                            silentPhoneDurationSeconds = settings.silentPhoneDisplayDurationSeconds,
+                            qobliyahDurationSeconds = settings.qobliyahNiatDisplayDurationSeconds,
+                            iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                            onComplete = {
+                                android.util.Log.d("MainActivity", "Adzan sequence selesai → Mode Fokus")
+                                currentScreen = AppScreen.FOCUS_MODE
+                            },
+                            onSkip = {
+                                android.util.Log.d("MainActivity", "Adzan sequence di-skip → Mode Fokus")
+                                currentScreen = AppScreen.FOCUS_MODE
+                            }
+                        )
+
+                        AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                            prayerId = focusPrayerId,
+                            prayerTimeFormatted = focusPrayerTime,
+                            totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                            iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                            qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                            settings = settings,
+                            onDismiss = {
+                                android.util.Log.d("MainActivity", "Mode Fokus selesai → Home")
+                                currentScreen = AppScreen.HOME
+                            }
+                        )
+
+                        AppScreen.SETTINGS -> SettingsScreen(
+                            currentSettings = settings,
+                            soundManager = soundManager,
+                            isRemoteServerRunning = isRemoteServerRunning,
+                            onAutoSaveSettings = { updated ->
+                                settingsRepository.updateSettings(updated)
+                            },
+                            onSaveSettings = { updated ->
+                                settingsRepository.updateSettings(updated)
+                                currentScreen = AppScreen.HOME
+                            },
+                            onBack = { currentScreen = AppScreen.HOME },
+                            onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
+                            onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
+                        )
+
+                        AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                            settings = settings,
+                            onDismiss = { currentScreen = AppScreen.SETTINGS }
+                        )
+
+                        AppScreen.RAMADHAN -> RamadhanOverlay(
+                            settings = settings,
+                            currentTimeString = currentTimeString,
+                            imsakTime = prayerSchedule.imsak,
+                            maghribTime = prayerSchedule.maghrib,
+                            secondsToImsak = secondsToImsak,
+                            secondsToMaghrib = secondsToMaghrib,
+                            onDismiss = {
+                                currentScreen = AppScreen.HOME
+                                userDismissedRamadhan = true
+                            }
+                        )
+
+                        AppScreen.IO_CONTROL -> IoControlScreen(
+                            settingsRepository = settingsRepository,
+                            deviceName = deviceName,
+                            deviceRole = deviceRole,
+                            appVersion = com.example.BuildConfig.VERSION_NAME,
+                            serverPort = settings.remoteServerPort,
+                            onBack = { currentScreen = AppScreen.SETTINGS }
+                        )
+                    }
+                }
+
+                // ============================================================
+                // PIN DIALOG
+                // ============================================================
+                if (showPinDialog) {
+                    PinDialog(
+                        correctPin = settings.pinCode,
+                        onSuccess = {
+                            showPinDialog = false
+                            sessionPinVerified = true
+                            lastPinVerifiedTime = System.currentTimeMillis()
+                            if (currentScreen == AppScreen.FOCUS_MODE) {
+                                currentScreen = AppScreen.HOME
+                            } else {
+                                currentScreen = AppScreen.SETTINGS
+                            }
+                        },
+                        onDismiss = { showPinDialog = false }
+                    )
+                }
+
+                // ============================================================
+                // AUTO-OFF DIALOG
+                // ============================================================
+                if (showAutoOffDialog) {
+                    AutoOffDialog(
+                        offStartTime = autoOffTimeStr,
+                        offEndTime = autoOnTimeStr,
+                        autoDismissSeconds = 120,
+                        onConfirmTrue = {
+                            settingsRepository.updateSettings(
+                                settings.copy(autoOnOff = false)
+                            )
+                            showAutoOffDialog = false
+                            temporaryWake = true
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Jadwal ON/OFF dimatikan. Layar tetap nyala sampai TV dimatikan manual.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        onConfirmFalse = {
+                            showAutoOffDialog = false
+                            temporaryWake = false
+                        }
+                    )
+                }
+                                        // ============================================================
+                        // STORAGE PERMISSION DIALOG
+                        // ============================================================
+                        if (showStoragePermissionDialog) {
+                            StoragePermissionDialog(
+                                onGrantClick = {
+                                    BackupManager.openPermissionSettings(this@MainActivity)
                                 },
-                                onDismiss = { showPinDialog = false }
+                                onSkipClick = {
+                                    showStoragePermissionDialog = false
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        if (!context.packageManager.canRequestPackageInstalls()) {
+                                            showInstallPermissionDialog = true
+                                        }
+                                    }
+                                }
                             )
                         }
 
-                        // ============ UPDATE DIALOG ============
+                        // ============================================================
+                        // V1.04.425 — INSTALL PERMISSION DIALOG (BARU)
+                        // ============================================================
+                        if (showInstallPermissionDialog) {
+                            InstallPermissionDialog(
+                                onGrantClick = {
+                                    ApkDownloader.openInstallPermissionSettings(this@MainActivity)
+                                },
+                                onSkipClick = {
+                                    showInstallPermissionDialog = false
+                                }
+                            )
+                        }
+
+                        // ============================================================
+                        // UPDATE DIALOG
+                        // ============================================================
                         if (showUpdateDialog && updateInfo != null) {
                             val info = updateInfo!!
 
@@ -636,15 +1003,14 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // ============================================================
-                        // V1.30.5 BARU — RESTART COUNTDOWN OVERLAY
-                        // Muncul setelah terima sinyal finalize dari HP
+                        // RESTART COUNTDOWN OVERLAY
                         // ============================================================
                         if (showRestartCountdown) {
                             RestartCountdownOverlay(
                                 countdownStart = 5,
                                 message = "Pengaturan & media baru sedang diterapkan",
                                 onComplete = {
-                                    android.util.Log.d("MainActivity", "⏰ Countdown selesai — restart sekarang")
+                                    android.util.Log.d("MainActivity", "Countdown selesai — restart sekarang")
                                     showRestartCountdown = false
                                     doSoftRestart()
                                 }
@@ -655,7 +1021,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
+    }
+        // ============================================================
+    // LIFECYCLE
+    // ============================================================
     override fun onResume() {
         super.onResume()
         KioskManager.isMainActivityForeground = true
@@ -668,13 +1037,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            val controller = WindowCompat.getInsetsController(window, window.decorView)
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-        }
+        if (hasFocus) hideSystemBars()
     }
 
     private fun hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
@@ -712,5 +1079,360 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             0L
         }
+    }
+}
+// ============================================================
+// STORAGE PERMISSION DIALOG
+// Muncul otomatis saat pertama kali app dibuka
+// ============================================================
+@Composable
+private fun StoragePermissionDialog(
+    onGrantClick: () -> Unit,
+    onSkipClick: () -> Unit
+) {
+    var isFocusedGrant by remember { mutableStateOf(false) }
+    var isFocusedSkip by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = { /* tidak bisa dismiss dengan tap luar */ },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .width(560.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0B1720))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // ICON
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(36.dp))
+                    .background(IslamicGold.copy(alpha = 0.15f))
+                    .border(2.dp, IslamicGold, RoundedCornerShape(36.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = IslamicGold,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+
+            Text(
+                text = "IZIN AKSES FILE DIPERLUKAN",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "MASJID.IO perlu izin \"Akses semua file\" supaya bisa:",
+                fontSize = 13.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33000000))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BenefitRow(icon = "📥", text = "Download update APK otomatis")
+                BenefitRow(icon = "💾", text = "Simpan Backup Aman ke /sdcard/masjid.io/")
+                BenefitRow(icon = "📁", text = "Baca file template .iO dari penyimpanan")
+                BenefitRow(icon = "📷", text = "Akses foto & video dari galeri")
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x22FFD700))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "📋 Cara Aktivasi:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                    Text(
+                        text = "1. Tap tombol BERI IZIN di bawah\n" +
+                                "2. Cari MASJID.IO di daftar aplikasi\n" +
+                                "3. Aktifkan toggle izinnya\n" +
+                                "4. Tekan tombol Kembali (back)",
+                        fontSize = 11.sp,
+                        color = TextPrimary,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
+                    .border(
+                        width = if (isFocusedGrant) 3.dp else 0.dp,
+                        color = if (isFocusedGrant) Color.White else Color.Transparent,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .clickable { onGrantClick() }
+                    .focusable()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = Color(0xFF09141D),
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "BERI IZIN SEKARANG",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF09141D)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
+                    .border(
+                        width = if (isFocusedSkip) 2.dp else 1.dp,
+                        color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { onSkipClick() }
+                    .focusable()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "NANTI SAJA",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary
+                )
+            }
+
+            Text(
+                text = "⚠️ Tanpa izin ini, update & backup tidak akan berfungsi",
+                fontSize = 10.sp,
+                color = Color(0xFFFF8A80),
+                textAlign = TextAlign.Center,
+                fontStyle = FontStyle.Italic,
+                lineHeight = 14.sp
+            )
+        }
+    }
+}
+// ============================================================
+// V1.04.425 BARU — INSTALL PERMISSION DIALOG
+// Muncul otomatis kalau user belum grant "Install unknown apps"
+// ============================================================
+@Composable
+private fun InstallPermissionDialog(
+    onGrantClick: () -> Unit,
+    onSkipClick: () -> Unit
+) {
+    var isFocusedGrant by remember { mutableStateOf(false) }
+    var isFocusedSkip by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = { /* tidak bisa dismiss */ },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .width(560.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0B1720))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // ICON
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(36.dp))
+                    .background(IslamicGold.copy(alpha = 0.15f))
+                    .border(2.dp, IslamicGold, RoundedCornerShape(36.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "📦", fontSize = 36.sp)
+            }
+
+            Text(
+                text = "IZIN INSTALL APK DIPERLUKAN",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "MASJID.IO perlu izin \"Install unknown apps\" untuk update otomatis",
+                fontSize = 13.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33000000))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BenefitRow(icon = "✅", text = "Update APK langsung dari app")
+                BenefitRow(icon = "🚀", text = "Tidak perlu download manual dari browser")
+                BenefitRow(icon = "🔒", text = "Aman — hanya untuk update MASJID.IO")
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x22FFD700))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "📋 Cara Aktivasi:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                    Text(
+                        text = "1. Tap tombol BERI IZIN di bawah\n" +
+                                "2. Cari MASJID.IO di daftar aplikasi\n" +
+                                "3. Aktifkan toggle \"Izinkan dari sumber ini\"\n" +
+                                "4. Tekan tombol Kembali (back)",
+                        fontSize = 11.sp,
+                        color = TextPrimary,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
+                    .border(
+                        width = if (isFocusedGrant) 3.dp else 0.dp,
+                        color = if (isFocusedGrant) Color.White else Color.Transparent,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .clickable { onGrantClick() }
+                    .focusable()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "📦", fontSize = 22.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "BERI IZIN INSTALL",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF09141D)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
+                    .border(
+                        width = if (isFocusedSkip) 2.dp else 1.dp,
+                        color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { onSkipClick() }
+                    .focusable()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "NANTI SAJA",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary
+                )
+            }
+
+            Text(
+                text = "⚠️ Tanpa izin ini, update otomatis tidak bisa install APK",
+                fontSize = 10.sp,
+                color = Color(0xFFFF8A80),
+                textAlign = TextAlign.Center,
+                fontStyle = FontStyle.Italic,
+                lineHeight = 14.sp
+            )
+        }
+    }
+}
+// ============================================================
+// HELPER: BENEFIT ROW
+// ============================================================
+@Composable
+private fun BenefitRow(
+    icon: String,
+    text: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = icon, fontSize = 16.sp)
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            color = TextPrimary,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
