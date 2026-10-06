@@ -1,4 +1,4 @@
-package com.example.ui.remote
+package dev.andikune.masjidio.ui.remote
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,8 +40,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.NeonFocusBorder
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
+import dev.andikune.masjidio.ui.theme.TextSecondary
 
 /**
  * Sheet panduan iO Control.

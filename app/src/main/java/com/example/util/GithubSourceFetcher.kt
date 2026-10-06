@@ -1,4 +1,4 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

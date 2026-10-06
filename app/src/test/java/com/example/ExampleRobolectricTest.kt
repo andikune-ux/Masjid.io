@@ -1,4 +1,4 @@
-package com.example
+package dev.andikune.masjidio
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider

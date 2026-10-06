@@ -28,11 +28,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -43,6 +45,9 @@ import dev.andikune.masjidio.ui.theme.TextSecondary
 fun MasjidVideoPlayer(
     videoUriString: String?,
     isFullscreen: Boolean = false,
+    contentScale: ContentScale = ContentScale.Crop,
+    zoomFactor: Float = 1.0f,
+    onVideoLooped: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -54,6 +59,29 @@ fun MasjidVideoPlayer(
             repeatMode = ExoPlayer.REPEAT_MODE_ALL
             volume = 0f
             playWhenReady = true
+        }
+    }
+
+    DisposableEffect(exoPlayer, onVideoLooped) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    onVideoLooped?.invoke()
+                }
+            }
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (newPosition.positionMs < oldPosition.positionMs) {
+                    onVideoLooped?.invoke()
+                }
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
         }
     }
 
@@ -106,9 +134,19 @@ fun MasjidVideoPlayer(
                             }
                         }
 
+                        val aspectResizeMode = when (contentScale) {
+                            ContentScale.Fit -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            ContentScale.FillBounds -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                            ContentScale.FillWidth -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
+                            ContentScale.FillHeight -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
+                            else -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        }
+
                         val playerView = PlayerView(ctx).apply {
                             useController = false
-                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            resizeMode = aspectResizeMode
+                            scaleX = zoomFactor
+                            scaleY = zoomFactor
                             layoutParams = FrameLayout.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT

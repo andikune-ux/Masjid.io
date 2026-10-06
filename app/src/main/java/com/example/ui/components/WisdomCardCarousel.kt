@@ -1,4 +1,4 @@
-package com.example.ui.components
+package dev.andikune.masjidio.ui.components
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
@@ -17,15 +17,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.IslamicEvent
-import com.example.data.local.IslamicWisdomStore
-import com.example.data.model.AppSettings
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.UrgentRed
-import com.example.ui.theme.UrgentRedBg
+import dev.andikune.masjidio.data.local.IslamicEvent
+import dev.andikune.masjidio.data.local.IslamicWisdomStore
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.theme.UrgentRed
+import dev.andikune.masjidio.ui.theme.UrgentRedBg
 import kotlinx.coroutines.delay
 
 /**

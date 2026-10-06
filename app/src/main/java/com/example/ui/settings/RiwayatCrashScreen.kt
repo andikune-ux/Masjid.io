@@ -1,4 +1,4 @@
-package com.example.ui.settings
+package dev.andikune.masjidio.ui.settings
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -46,15 +46,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.MosqueDeepBg
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.UrgentRed
-import com.example.util.CrashEntry
-import com.example.util.CrashReporter
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGreen
+import dev.andikune.masjidio.ui.theme.MosqueDeepBg
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.theme.UrgentRed
+import dev.andikune.masjidio.util.CrashEntry
+import dev.andikune.masjidio.util.CrashReporter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

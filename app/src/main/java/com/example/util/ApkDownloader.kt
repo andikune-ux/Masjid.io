@@ -1,4 +1,4 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.content.Intent

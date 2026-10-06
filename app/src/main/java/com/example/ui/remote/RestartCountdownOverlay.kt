@@ -1,4 +1,4 @@
-package com.example.ui.remote
+package dev.andikune.masjidio.ui.remote
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat

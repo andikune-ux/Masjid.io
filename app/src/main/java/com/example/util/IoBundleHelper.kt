@@ -1,9 +1,9 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.os.Environment
 import android.util.Log
-import com.example.data.model.AppSettings
+import dev.andikune.masjidio.data.model.AppSettings
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File

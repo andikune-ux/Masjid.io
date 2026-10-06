@@ -1,9 +1,9 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.util.Base64
 import android.util.Log
-import com.example.data.model.AppSettings
+import dev.andikune.masjidio.data.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

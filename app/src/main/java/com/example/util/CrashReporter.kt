@@ -1,9 +1,9 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import com.example.BuildConfig
+import dev.andikune.masjidio.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

@@ -1,4 +1,4 @@
-package com.example.ui.slides
+package dev.andikune.masjidio.ui.slides
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -38,12 +38,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.data.model.AppSettings
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGreen
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
 
 /**
  * Slide QRIS Infaq — menampilkan:

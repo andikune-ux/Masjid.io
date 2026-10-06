@@ -1,4 +1,4 @@
-package com.example.ui.slides
+package dev.andikune.masjidio.ui.slides
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -26,10 +26,10 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import com.example.data.model.AppSettings
-import com.example.ui.slides.QrisSlide
-import com.example.ui.slides.LaporanSlide
-import com.example.ui.slides.KajianSlide
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.ui.slides.QrisSlide
+import dev.andikune.masjidio.ui.slides.LaporanSlide
+import dev.andikune.masjidio.ui.slides.KajianSlide
 import kotlinx.coroutines.delay
 
 /**

@@ -1,4 +1,4 @@
-package com.example
+package dev.andikune.masjidio
 
 import org.junit.Assert.*
 import org.junit.Test

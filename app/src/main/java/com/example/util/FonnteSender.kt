@@ -1,8 +1,8 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.os.Build
 import android.util.Log
-import com.example.BuildConfig
+import dev.andikune.masjidio.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter

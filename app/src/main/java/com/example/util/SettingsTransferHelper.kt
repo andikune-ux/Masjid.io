@@ -1,15 +1,15 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.util.Log
-import com.example.data.model.AppSettings
-import com.example.data.model.AudioMode
-import com.example.data.model.BackgroundMode
-import com.example.data.model.CctvPosition
-import com.example.data.model.DailyOfficerItem
-import com.example.data.model.LaporanKeuangan
-import com.example.data.model.OfficerSchedule
-import com.example.data.model.PinLockMode
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.data.model.AudioMode
+import dev.andikune.masjidio.data.model.BackgroundMode
+import dev.andikune.masjidio.data.model.CctvPosition
+import dev.andikune.masjidio.data.model.DailyOfficerItem
+import dev.andikune.masjidio.data.model.LaporanKeuangan
+import dev.andikune.masjidio.data.model.OfficerSchedule
+import dev.andikune.masjidio.data.model.PinLockMode
 import org.json.JSONArray
 import org.json.JSONObject
 

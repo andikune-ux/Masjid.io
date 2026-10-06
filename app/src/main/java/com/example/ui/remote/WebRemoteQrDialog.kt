@@ -1,4 +1,4 @@
-package com.example.ui.remote
+package dev.andikune.masjidio.ui.remote
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -55,12 +55,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.ui.components.NeonFocusBorder
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.util.QrCodeGenerator
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.util.QrCodeGenerator
 import kotlinx.coroutines.delay
 
 private val IoBlue = Color(0xFF2196F3)

@@ -1,4 +1,4 @@
-package com.example.ui.settings
+package dev.andikune.masjidio.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,15 +37,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.audio.SoundManager
-import com.example.data.model.AppSettings
-import com.example.data.model.AudioMode
-import com.example.ui.components.TvSlider
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.audio.SoundManager
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.data.model.AudioMode
+import dev.andikune.masjidio.ui.components.TvSlider
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGreen
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

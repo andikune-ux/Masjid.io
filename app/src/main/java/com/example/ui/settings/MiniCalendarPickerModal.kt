@@ -1,4 +1,4 @@
-package com.example.ui.settings
+package dev.andikune.masjidio.ui.settings
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -25,11 +25,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGreen
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter

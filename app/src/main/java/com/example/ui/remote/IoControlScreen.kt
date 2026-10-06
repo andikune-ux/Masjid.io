@@ -1,4 +1,4 @@
-package com.example.ui.remote
+package dev.andikune.masjidio.ui.remote
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -75,15 +75,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.SettingsRepository
-import com.example.ui.components.NeonFocusBorder
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.util.MediaTransferHelper
-import com.example.util.RemoteControlClient
-import com.example.util.SettingsTransferHelper
+import dev.andikune.masjidio.data.local.SettingsRepository
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.util.MediaTransferHelper
+import dev.andikune.masjidio.util.RemoteControlClient
+import dev.andikune.masjidio.util.SettingsTransferHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

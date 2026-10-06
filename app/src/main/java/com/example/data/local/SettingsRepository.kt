@@ -154,8 +154,9 @@ class SettingsRepository(context: Context) {
             manualTimeOffsetSeconds = prefs.getLong("manualTimeOffsetSeconds", 0L),
             keepScreenOn = prefs.getBoolean("keepScreenOn", true),
             autoOnOff = prefs.getBoolean("autoOnOff", false),
-            autoOnTime = prefs.getString("autoOnTime", "04:00") ?: "04:00",
-            autoOffTime = prefs.getString("autoOffTime", "22:30") ?: "22:30",
+            autoOffMinutesAfterIsya = prefs.getInt("autoOffMinutesAfterIsya", 30),
+            autoOnMinutesBeforeSubuh = prefs.getInt("autoOnMinutesBeforeSubuh", 15),
+            autoOffDialogEnabled = prefs.getBoolean("autoOffDialogEnabled", true),
             idleScreenOff = prefs.getBoolean("idleScreenOff", true),
             idleTimeoutMinutes = prefs.getInt("idleTimeoutMinutes", 30),
             autoBrightness = prefs.getBoolean("autoBrightness", true),
@@ -277,8 +278,9 @@ class SettingsRepository(context: Context) {
             putLong("manualTimeOffsetSeconds", s.manualTimeOffsetSeconds)
             putBoolean("keepScreenOn", s.keepScreenOn)
             putBoolean("autoOnOff", s.autoOnOff)
-            putString("autoOnTime", s.autoOnTime)
-            putString("autoOffTime", s.autoOffTime)
+            putInt("autoOffMinutesAfterIsya", s.autoOffMinutesAfterIsya)
+            putInt("autoOnMinutesBeforeSubuh", s.autoOnMinutesBeforeSubuh)
+            putBoolean("autoOffDialogEnabled", s.autoOffDialogEnabled)
             putBoolean("idleScreenOff", s.idleScreenOff)
             putInt("idleTimeoutMinutes", s.idleTimeoutMinutes)
             putBoolean("autoBrightness", s.autoBrightness)

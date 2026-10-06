@@ -1,4 +1,4 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor

@@ -1,4 +1,4 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 /**
  * FonnteHelper — Token & Group ID Fonnte yang tertanam di aplikasi.

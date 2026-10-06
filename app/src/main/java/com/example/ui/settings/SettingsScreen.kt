@@ -1,4 +1,4 @@
-package com.example.ui.settings
+package dev.andikune.masjidio.ui.settings
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -71,16 +71,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.audio.SoundManager
-import com.example.data.model.AppSettings
-import com.example.ui.components.AutoFocusPane
-import com.example.ui.components.ChangePinDialog
-import com.example.ui.components.NeonFocusBorder
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.MosqueDeepBg
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.audio.SoundManager
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.ui.components.AutoFocusPane
+import dev.andikune.masjidio.ui.components.ChangePinDialog
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.MosqueDeepBg
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

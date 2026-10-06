@@ -1,4 +1,4 @@
-package com.example.util
+package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.content.Intent
@@ -7,10 +7,10 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.util.Log
-import com.example.BuildConfig
-import com.example.data.AppKnowledge
-import com.example.data.UpdateHistory
-import com.example.data.model.AppSettings
+import dev.andikune.masjidio.BuildConfig
+import dev.andikune.masjidio.data.AppKnowledge
+import dev.andikune.masjidio.data.UpdateHistory
+import dev.andikune.masjidio.data.model.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date

@@ -1,4 +1,4 @@
-package com.example.ui.settings
+package dev.andikune.masjidio.ui.settings
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -38,14 +38,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.AppSettings
-import com.example.ui.components.RunningTextMarquee
-import com.example.ui.components.TvSlider
-import com.example.ui.components.TvToggle
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.ui.components.RunningTextMarquee
+import dev.andikune.masjidio.ui.components.TvSlider
+import dev.andikune.masjidio.ui.components.TvToggle
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
 
 @Composable
 fun RunningTextSettingsPane(

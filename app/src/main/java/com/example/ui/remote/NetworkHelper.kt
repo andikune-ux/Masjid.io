@@ -1,4 +1,4 @@
-package com.example.ui.remote
+package dev.andikune.masjidio.ui.remote
 
 import android.content.Context
 import android.net.ConnectivityManager
