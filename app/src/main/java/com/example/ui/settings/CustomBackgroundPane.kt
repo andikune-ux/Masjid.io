@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.ui.settings
+package com.example.ui.settings
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,10 +26,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,18 +52,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.BackgroundMode
-import dev.andikune.masjidio.ui.theme.IslamicGold
-import dev.andikune.masjidio.ui.theme.IslamicGoldLight
-import dev.andikune.masjidio.ui.theme.IslamicGreen
-import dev.andikune.masjidio.ui.theme.TextPrimary
-import dev.andikune.masjidio.ui.theme.TextSecondary
-import dev.andikune.masjidio.ui.theme.UrgentRed
-import dev.andikune.masjidio.util.MediaPersistenceHelper
+import com.example.data.model.AppSettings
+import com.example.data.model.BackgroundMode
+import com.example.ui.components.FilePickerMode
+import com.example.ui.components.VideoFilePickerDialog
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.IslamicGreen
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun CustomBackgroundPane(
@@ -75,13 +78,18 @@ fun CustomBackgroundPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // ============================================================
+    // V1.04.425 — State untuk Custom File Picker (FILE)
+    // ============================================================
+    var showBackgroundPicker by remember { mutableStateOf(false) }
+
     // Helper: proses URI background
-    fun processBgUri(uri: Uri) {
+    fun processBgUri(uriString: String) {
         scope.launch {
             val localPath = withContext(Dispatchers.IO) {
                 MediaPersistenceHelper.copyToPermanent(
                     context = context,
-                    sourceUri = uri.toString(),
+                    sourceUri = uriString,
                     folder = MediaPersistenceHelper.FOLDER_BACKGROUND,
                     fileNamePrefix = "background"
                 )
@@ -99,7 +107,7 @@ fun CustomBackgroundPane(
             } else {
                 onUpdate(
                     settings.copy(
-                        customBackgroundUri = uri.toString(),
+                        customBackgroundUri = uriString,
                         backgroundMode = BackgroundMode.CUSTOM
                     )
                 )
@@ -107,18 +115,13 @@ fun CustomBackgroundPane(
         }
     }
 
-    // TOMBOL 1: GALERI
+    // ============================================================
+    // TOMBOL 1: GALERI (Android Native)
+    // ============================================================
     val bgGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null) processBgUri(uri)
-    }
-
-    // TOMBOL 2: FILE MANAGER
-    val bgFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) processBgUri(uri)
+        if (uri != null) processBgUri(uri.toString())
     }
 
     Column(
@@ -135,7 +138,7 @@ fun CustomBackgroundPane(
         )
 
         // ============================================================
-        // CUSTOM BACKGROUND PICKER
+        // CUSTOM BACKGROUND PICKER — 2 TOMBOL: GALERI + FILE
         // ============================================================
         Column(
             modifier = Modifier
@@ -189,20 +192,25 @@ fun CustomBackgroundPane(
                         lineHeight = 16.sp
                     )
 
+                    // ============================================================
+                    // V1.04.425 — 2 TOMBOL: GALERI + FILE
+                    // ============================================================
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Tombol GALERI (buka galeri bawaan HP)
                         TvActionButton(
-                            icon = Icons.Default.AddPhotoAlternate,
+                            icon = Icons.Default.PhotoLibrary,
                             label = "GALERI",
                             backgroundColor = IslamicGold,
                             textColor = Color(0xFF09141D),
                             onClick = { bgGalleryLauncher.launch("image/*") }
                         )
+                        // Tombol FILE (buka custom picker)
                         TvActionButton(
                             icon = Icons.Default.FolderOpen,
                             label = "FILE",
                             backgroundColor = IslamicGold,
                             textColor = Color(0xFF09141D),
-                            onClick = { bgFileLauncher.launch(arrayOf("image/*")) }
+                            onClick = { showBackgroundPicker = true }
                         )
                         if (!settings.customBackgroundUri.isNullOrBlank()) {
                             TvActionButton(
@@ -227,9 +235,10 @@ fun CustomBackgroundPane(
                     }
 
                     Text(
-                        text = "💡 Kalau GALERI tidak bisa pilih di TV, coba FILE.",
+                        text = "💡 GALERI = pakai galeri HP. FILE = pilih dari folder (cocok untuk TV).",
                         fontSize = 10.sp,
-                        color = TextSecondary.copy(alpha = 0.8f)
+                        color = TextSecondary.copy(alpha = 0.8f),
+                        lineHeight = 14.sp
                     )
                 }
             }
@@ -314,6 +323,21 @@ fun CustomBackgroundPane(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // ============================================================
+        // PICKER DIALOG CALLER
+        // ============================================================
+        if (showBackgroundPicker) {
+            VideoFilePickerDialog(
+                mode = FilePickerMode.IMAGE,
+                title = "Pilih Background",
+                onFileSelected = { file: File ->
+                    showBackgroundPicker = false
+                    processBgUri(file.absolutePath)
+                },
+                onDismiss = { showBackgroundPicker = false }
+            )
+        }
     }
 }
 // ============================================================
@@ -359,10 +383,7 @@ private fun TvActionButton(
                 spotColor = Color(0x88FFD700)
             )
             .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (isOutlined) Color.Transparent
-                else backgroundColor
-            )
+            .background(if (isOutlined) Color.Transparent else backgroundColor)
             .border(
                 width = borderWidth,
                 color = when {
