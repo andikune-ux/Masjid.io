@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
@@ -122,7 +123,7 @@ enum class AppScreen {
 
 private const val UPDATE_PREFS = "update_prefs"
 private const val KEY_SKIPPED_VERSION = "skipped_version"
-private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L            // 5 menit
+private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L
 
 class MainActivity : ComponentActivity() {
 
@@ -170,45 +171,38 @@ class MainActivity : ComponentActivity() {
     var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
     // ============================================================
-    // V1.04.425 — IZIN STORAGE & INSTALL (auto-show)
+    // IZIN STORAGE & INSTALL (auto-show)
+    // V1.04.426 FIX: tambah installDialogAlreadyShown
+    // biar dialog install TIDAK muncul berulang
     // ============================================================
     val bootPrefs = remember {
         context.getSharedPreferences(BootReceiver.PREFS_BOOT, Context.MODE_PRIVATE)
     }
 
-    var showStoragePermissionDialog by remember {
-        mutableStateOf(false) // Start false, trigger di LaunchedEffect
-    }
-    var showInstallPermissionDialog by remember {
-        mutableStateOf(false) // Dialog "Install Unknown Apps"
-    }
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }
+    var showInstallPermissionDialog by remember { mutableStateOf(false) }
+    var installDialogAlreadyShown by remember { mutableStateOf(false) }
 
     // Cek izin saat pertama buka + setelah boot
     LaunchedEffect(Unit) {
-        delay(1500) // Kasih waktu activity settle dulu
-        
-        // Cek storage permission
+        delay(1500)
+
         val needsStorage = BackupManager.needsStoragePermission()
-        
-        // Cek install permission (khusus Android 8+)
         val needsInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             !context.packageManager.canRequestPackageInstalls()
         } else {
             false
         }
-        
-        // Cek flag just_booted dari BootReceiver
+
         val justBooted = bootPrefs.getBoolean(BootReceiver.KEY_JUST_BOOTED, false)
-        
-        // Tentukan dialog mana yang muncul dulu
+
         if (needsStorage) {
             showStoragePermissionDialog = true
-        } else if (justBooted && needsInstall) {
-            // Kalau storage OK tapi install belum ada, munculkan dialog install
+        } else if (justBooted && needsInstall && !installDialogAlreadyShown) {
             showInstallPermissionDialog = true
+            installDialogAlreadyShown = true
         }
-        
-        // Reset flag just_booted
+
         if (justBooted) {
             bootPrefs.edit().putBoolean(BootReceiver.KEY_JUST_BOOTED, false).apply()
         }
@@ -218,18 +212,17 @@ class MainActivity : ComponentActivity() {
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                // Re-check storage permission
                 val needsPermission = BackupManager.needsStoragePermission()
                 if (needsPermission) {
                     showStoragePermissionDialog = true
                 } else if (showStoragePermissionDialog) {
-                    // Izin baru saja diberikan → tutup dialog
                     showStoragePermissionDialog = false
-                    
-                    // Cek install permission setelah storage OK
+                    // V1.04.426 FIX: cek installDialogAlreadyShown
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        if (!context.packageManager.canRequestPackageInstalls()) {
+                        if (!context.packageManager.canRequestPackageInstalls()
+                            && !installDialogAlreadyShown) {
                             showInstallPermissionDialog = true
+                            installDialogAlreadyShown = true
                         }
                     }
                 }
@@ -238,9 +231,8 @@ class MainActivity : ComponentActivity() {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    
-    var showRestartCountdown by remember { mutableStateOf(false) }
 
+    var showRestartCountdown by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
@@ -384,7 +376,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Brightness normal saat popup AutoOff muncul
     LaunchedEffect(showAutoOffDialog) {
         if (showAutoOffDialog) {
             runOnUiThread {
@@ -547,8 +538,10 @@ class MainActivity : ComponentActivity() {
                             )
                             if (!ok) {
                                 isInstalling = false
-                                // Munculkan dialog izin install
-                                showInstallPermissionDialog = true
+                                if (!installDialogAlreadyShown) {
+                                    showInstallPermissionDialog = true
+                                    installDialogAlreadyShown = true
+                                }
                             } else {
                                 ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
                             }
@@ -819,11 +812,11 @@ MasjidTheme {
                             qobliyahDurationSeconds = settings.qobliyahNiatDisplayDurationSeconds,
                             iqamahWaitMinutes = settings.iqamahWaitMinutes,
                             onComplete = {
-                                android.util.Log.d("MainActivity", "Adzan sequence selesai → Mode Fokus")
+                                android.util.Log.d("MainActivity", "Adzan sequence selesai -> Mode Fokus")
                                 currentScreen = AppScreen.FOCUS_MODE
                             },
                             onSkip = {
-                                android.util.Log.d("MainActivity", "Adzan sequence di-skip → Mode Fokus")
+                                android.util.Log.d("MainActivity", "Adzan sequence di-skip -> Mode Fokus")
                                 currentScreen = AppScreen.FOCUS_MODE
                             }
                         )
@@ -836,7 +829,7 @@ MasjidTheme {
                             qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
                             settings = settings,
                             onDismiss = {
-                                android.util.Log.d("MainActivity", "Mode Fokus selesai → Home")
+                                android.util.Log.d("MainActivity", "Mode Fokus selesai -> Home")
                                 currentScreen = AppScreen.HOME
                             }
                         )
@@ -932,97 +925,104 @@ MasjidTheme {
                         }
                     )
                 }
-                                        // ============================================================
-                        // STORAGE PERMISSION DIALOG
-                        // ============================================================
-                        if (showStoragePermissionDialog) {
-                            StoragePermissionDialog(
-                                onGrantClick = {
-                                    BackupManager.openPermissionSettings(this@MainActivity)
-                                },
-                                onSkipClick = {
-                                    showStoragePermissionDialog = false
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        if (!context.packageManager.canRequestPackageInstalls()) {
-                                            showInstallPermissionDialog = true
+                                            // ============================================================
+                            // STORAGE PERMISSION DIALOG
+                            // ============================================================
+                            if (showStoragePermissionDialog) {
+                                StoragePermissionDialog(
+                                    onGrantClick = {
+                                        BackupManager.openPermissionSettings(this@MainActivity)
+                                    },
+                                    onSkipClick = {
+                                        showStoragePermissionDialog = false
+                                        // V1.04.426 FIX: cek installDialogAlreadyShown
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                            if (!context.packageManager.canRequestPackageInstalls()
+                                                && !installDialogAlreadyShown) {
+                                                showInstallPermissionDialog = true
+                                                installDialogAlreadyShown = true
+                                            }
                                         }
                                     }
-                                }
-                            )
-                        }
+                                )
+                            }
 
-                        // ============================================================
-                        // V1.04.425 — INSTALL PERMISSION DIALOG (BARU)
-                        // ============================================================
-                        if (showInstallPermissionDialog) {
-                            InstallPermissionDialog(
-                                onGrantClick = {
-                                    ApkDownloader.openInstallPermissionSettings(this@MainActivity)
-                                },
-                                onSkipClick = {
-                                    showInstallPermissionDialog = false
-                                }
-                            )
-                        }
-
-                        // ============================================================
-                        // UPDATE DIALOG
-                        // ============================================================
-                        if (showUpdateDialog && updateInfo != null) {
-                            val info = updateInfo!!
-
-                            UpdateDialog(
-                                currentVersion = info.currentVersion,
-                                latestVersion = info.latestVersion,
-                                releaseNotes = info.releaseNotes,
-                                forceUpdate = info.isForceUpdate,
-                                downloadProgress = if (isDownloading) downloadProgress else null,
-                                isDownloading = isDownloading,
-                                isInstalling = isInstalling,
-                                onUpdateClick = { startDownload() },
-                                onLaterClick = {
-                                    showUpdateDialog = false
-                                },
-                                onSkipClick = {
-                                    setSkippedVersion(info.latestVersion)
-                                    showUpdateDialog = false
-                                },
-                                onTidakClick = {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Aplikasi wajib diupdate. Menutup aplikasi...",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    scope.launch {
-                                        delay(1500)
-                                        this@MainActivity.finishAffinity()
-                                        android.os.Process.killProcess(android.os.Process.myPid())
+                            // ============================================================
+                            // INSTALL PERMISSION DIALOG
+                            // ============================================================
+                            if (showInstallPermissionDialog) {
+                                InstallPermissionDialog(
+                                    onGrantClick = {
+                                        ApkDownloader.openInstallPermissionSettings(this@MainActivity)
+                                        showInstallPermissionDialog = false
+                                        installDialogAlreadyShown = true
+                                    },
+                                    onSkipClick = {
+                                        showInstallPermissionDialog = false
+                                        installDialogAlreadyShown = true
                                     }
-                                }
-                            )
-                        }
+                                )
+                            }
 
-                        // ============================================================
-                        // RESTART COUNTDOWN OVERLAY
-                        // ============================================================
-                        if (showRestartCountdown) {
-                            RestartCountdownOverlay(
-                                countdownStart = 5,
-                                message = "Pengaturan & media baru sedang diterapkan",
-                                onComplete = {
-                                    android.util.Log.d("MainActivity", "Countdown selesai — restart sekarang")
-                                    showRestartCountdown = false
-                                    doSoftRestart()
-                                }
-                            )
+                            // ============================================================
+                            // UPDATE DIALOG
+                            // ============================================================
+                            if (showUpdateDialog && updateInfo != null) {
+                                val info = updateInfo!!
+
+                                UpdateDialog(
+                                    currentVersion = info.currentVersion,
+                                    latestVersion = info.latestVersion,
+                                    releaseNotes = info.releaseNotes,
+                                    forceUpdate = info.isForceUpdate,
+                                    downloadProgress = if (isDownloading) downloadProgress else null,
+                                    isDownloading = isDownloading,
+                                    isInstalling = isInstalling,
+                                    onUpdateClick = { startDownload() },
+                                    onLaterClick = {
+                                        showUpdateDialog = false
+                                    },
+                                    onSkipClick = {
+                                        setSkippedVersion(info.latestVersion)
+                                        showUpdateDialog = false
+                                    },
+                                    onTidakClick = {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Aplikasi wajib diupdate. Menutup aplikasi...",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        scope.launch {
+                                            delay(1500)
+                                            this@MainActivity.finishAffinity()
+                                            android.os.Process.killProcess(android.os.Process.myPid())
+                                        }
+                                    }
+                                )
+                            }
+
+                            // ============================================================
+                            // RESTART COUNTDOWN OVERLAY
+                            // ============================================================
+                            if (showRestartCountdown) {
+                                RestartCountdownOverlay(
+                                    countdownStart = 5,
+                                    message = "Pengaturan & media baru sedang diterapkan",
+                                    onComplete = {
+                                        android.util.Log.d("MainActivity", "Countdown selesai - restart sekarang")
+                                        showRestartCountdown = false
+                                        doSoftRestart()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
-    }
-        // ============================================================
+
+    // ============================================================
     // LIFECYCLE
     // ============================================================
     override fun onResume() {
@@ -1083,7 +1083,6 @@ MasjidTheme {
 }
 // ============================================================
 // STORAGE PERMISSION DIALOG
-// Muncul otomatis saat pertama kali app dibuka
 // ============================================================
 @Composable
 private fun StoragePermissionDialog(
@@ -1094,7 +1093,7 @@ private fun StoragePermissionDialog(
     var isFocusedSkip by remember { mutableStateOf(false) }
 
     Dialog(
-        onDismissRequest = { /* tidak bisa dismiss dengan tap luar */ },
+        onDismissRequest = { },
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
@@ -1111,7 +1110,6 @@ private fun StoragePermissionDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ICON
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -1137,7 +1135,7 @@ private fun StoragePermissionDialog(
             )
 
             Text(
-                text = "MASJID.IO perlu izin \"Akses semua file\" supaya bisa:",
+                text = "MASJID.IO perlu izin Akses semua file supaya bisa:",
                 fontSize = 13.sp,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
@@ -1175,10 +1173,7 @@ private fun StoragePermissionDialog(
                         color = IslamicGoldLight
                     )
                     Text(
-                        text = "1. Tap tombol BERI IZIN di bawah\n" +
-                                "2. Cari MASJID.IO di daftar aplikasi\n" +
-                                "3. Aktifkan toggle izinnya\n" +
-                                "4. Tekan tombol Kembali (back)",
+                        text = "1. Tap tombol BERI IZIN di bawah\n2. Cari MASJID.IO di daftar aplikasi\n3. Aktifkan toggle izinnya\n4. Tekan tombol Kembali (back)",
                         fontSize = 11.sp,
                         color = TextPrimary,
                         lineHeight = 16.sp
@@ -1186,11 +1181,10 @@ private fun StoragePermissionDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(56.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
                     .border(
@@ -1198,30 +1192,32 @@ private fun StoragePermissionDialog(
                         color = if (isFocusedGrant) Color.White else Color.Transparent,
                         shape = RoundedCornerShape(12.dp)
                     )
-                    .clickable { onGrantClick() }
+                    .onFocusChanged { isFocusedGrant = it.isFocused }
                     .focusable()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .clickable { onGrantClick() },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Folder,
-                    contentDescription = null,
-                    tint = Color(0xFF09141D),
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "BERI IZIN SEKARANG",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF09141D)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = Color(0xFF09141D),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "BERI IZIN SEKARANG",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF09141D)
+                    )
+                }
             }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
                     .border(
@@ -1229,9 +1225,9 @@ private fun StoragePermissionDialog(
                         color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(10.dp)
                     )
-                    .clickable { onSkipClick() }
+                    .onFocusChanged { isFocusedSkip = it.isFocused }
                     .focusable()
-                    .padding(vertical = 12.dp),
+                    .clickable { onSkipClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -1253,9 +1249,9 @@ private fun StoragePermissionDialog(
         }
     }
 }
+
 // ============================================================
-// V1.04.425 BARU — INSTALL PERMISSION DIALOG
-// Muncul otomatis kalau user belum grant "Install unknown apps"
+// INSTALL PERMISSION DIALOG
 // ============================================================
 @Composable
 private fun InstallPermissionDialog(
@@ -1266,7 +1262,7 @@ private fun InstallPermissionDialog(
     var isFocusedSkip by remember { mutableStateOf(false) }
 
     Dialog(
-        onDismissRequest = { /* tidak bisa dismiss */ },
+        onDismissRequest = { },
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
@@ -1283,7 +1279,6 @@ private fun InstallPermissionDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ICON
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -1304,7 +1299,7 @@ private fun InstallPermissionDialog(
             )
 
             Text(
-                text = "MASJID.IO perlu izin \"Install unknown apps\" untuk update otomatis",
+                text = "MASJID.IO perlu izin Install unknown apps untuk update otomatis",
                 fontSize = 13.sp,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
@@ -1322,7 +1317,7 @@ private fun InstallPermissionDialog(
             ) {
                 BenefitRow(icon = "✅", text = "Update APK langsung dari app")
                 BenefitRow(icon = "🚀", text = "Tidak perlu download manual dari browser")
-                BenefitRow(icon = "🔒", text = "Aman — hanya untuk update MASJID.IO")
+                BenefitRow(icon = "🔒", text = "Aman - hanya untuk update MASJID.IO")
             }
 
             Box(
@@ -1341,10 +1336,7 @@ private fun InstallPermissionDialog(
                         color = IslamicGoldLight
                     )
                     Text(
-                        text = "1. Tap tombol BERI IZIN di bawah\n" +
-                                "2. Cari MASJID.IO di daftar aplikasi\n" +
-                                "3. Aktifkan toggle \"Izinkan dari sumber ini\"\n" +
-                                "4. Tekan tombol Kembali (back)",
+                        text = "1. Tap tombol BERI IZIN di bawah\n2. Cari MASJID.IO di daftar aplikasi\n3. Aktifkan toggle Izinkan dari sumber ini\n4. Tekan tombol Kembali (back)",
                         fontSize = 11.sp,
                         color = TextPrimary,
                         lineHeight = 16.sp
@@ -1352,11 +1344,10 @@ private fun InstallPermissionDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(56.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
                     .border(
@@ -1364,25 +1355,27 @@ private fun InstallPermissionDialog(
                         color = if (isFocusedGrant) Color.White else Color.Transparent,
                         shape = RoundedCornerShape(12.dp)
                     )
-                    .clickable { onGrantClick() }
+                    .onFocusChanged { isFocusedGrant = it.isFocused }
                     .focusable()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .clickable { onGrantClick() },
+                contentAlignment = Alignment.Center
             ) {
-                Text(text = "📦", fontSize = 22.sp)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "BERI IZIN INSTALL",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF09141D)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "📦", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "BERI IZIN INSTALL",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF09141D)
+                    )
+                }
             }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
                     .border(
@@ -1390,9 +1383,9 @@ private fun InstallPermissionDialog(
                         color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(10.dp)
                     )
-                    .clickable { onSkipClick() }
+                    .onFocusChanged { isFocusedSkip = it.isFocused }
                     .focusable()
-                    .padding(vertical = 12.dp),
+                    .clickable { onSkipClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -1414,6 +1407,7 @@ private fun InstallPermissionDialog(
         }
     }
 }
+
 // ============================================================
 // HELPER: BENEFIT ROW
 // ============================================================
