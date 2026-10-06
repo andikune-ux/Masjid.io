@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.ui.settings
+package com.example.ui.settings
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,10 +27,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Mosque
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,17 +53,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.ui.theme.IslamicGold
-import dev.andikune.masjidio.ui.theme.IslamicGoldLight
-import dev.andikune.masjidio.ui.theme.IslamicGreen
-import dev.andikune.masjidio.ui.theme.TextPrimary
-import dev.andikune.masjidio.ui.theme.TextSecondary
-import dev.andikune.masjidio.ui.theme.UrgentRed
-import dev.andikune.masjidio.util.MediaPersistenceHelper
+import com.example.data.model.AppSettings
+import com.example.ui.components.FilePickerMode
+import com.example.ui.components.VideoFilePickerDialog
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.IslamicGreen
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun IdentitySettingsPane(
@@ -74,13 +77,18 @@ fun IdentitySettingsPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Helper: proses URI hasil pilih file
-    fun processLogoUri(uri: Uri) {
+    // ============================================================
+    // V1.04.425 — State untuk Custom File Picker (FILE)
+    // ============================================================
+    var showLogoPicker by remember { mutableStateOf(false) }
+
+    // Helper: proses URI hasil pilih file (dari GALERI atau FILE)
+    fun processLogoUri(uriString: String) {
         scope.launch {
             val localPath = withContext(Dispatchers.IO) {
                 MediaPersistenceHelper.copyToPermanent(
                     context = context,
-                    sourceUri = uri.toString(),
+                    sourceUri = uriString,
                     folder = MediaPersistenceHelper.FOLDER_LOGO,
                     fileNamePrefix = "logo"
                 )
@@ -91,24 +99,24 @@ fun IdentitySettingsPane(
                 }
                 onUpdate(settings.copy(officerPhotoUri = localPath))
             } else {
-                onUpdate(settings.copy(officerPhotoUri = uri.toString()))
+                onUpdate(settings.copy(officerPhotoUri = uriString))
             }
         }
     }
 
-    // TOMBOL 1: GALERI
+    // ============================================================
+    // TOMBOL 1: GALERI (Android Native)
+    // ============================================================
     val logoGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null) processLogoUri(uri)
+        if (uri != null) processLogoUri(uri.toString())
     }
 
-    // TOMBOL 2: FILE MANAGER
-    val logoFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) processLogoUri(uri)
-    }
+    // ============================================================
+    // TOMBOL 2: FILE (Custom File Picker)
+    // ============================================================
+    // showLogoPicker = true → munculkan VideoFilePickerDialog(mode = IMAGE)
 
     var mosqueNameText by remember { mutableStateOf(settings.mosqueName) }
     var addressText by remember { mutableStateOf(settings.mosqueAddress) }
@@ -144,7 +152,9 @@ fun IdentitySettingsPane(
             }
         }
 
-        // LOGO MASJID
+        // ============================================================
+        // LOGO MASJID — 2 TOMBOL: GALERI + FILE
+        // ============================================================
         Text(
             text = "LOGO MASJID",
             fontSize = 14.sp,
@@ -210,20 +220,25 @@ fun IdentitySettingsPane(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // ============================================================
+                    // V1.04.425 — 2 TOMBOL: GALERI + FILE
+                    // ============================================================
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Tombol GALERI (buka galeri bawaan HP)
                         TvActionButton(
-                            icon = Icons.Default.AddPhotoAlternate,
+                            icon = Icons.Default.PhotoLibrary,
                             label = "GALERI",
                             backgroundColor = IslamicGold,
                             textColor = Color(0xFF09141D),
                             onClick = { logoGalleryLauncher.launch("image/*") }
                         )
+                        // Tombol FILE (buka custom picker)
                         TvActionButton(
                             icon = Icons.Default.FolderOpen,
                             label = "FILE",
                             backgroundColor = IslamicGold,
                             textColor = Color(0xFF09141D),
-                            onClick = { logoFileLauncher.launch(arrayOf("image/*")) }
+                            onClick = { showLogoPicker = true }
                         )
                     }
 
@@ -244,15 +259,18 @@ fun IdentitySettingsPane(
                     }
 
                     Text(
-                        text = "💡 Kalau GALERI tidak bisa pilih di TV, coba FILE.",
+                        text = "💡 GALERI = pakai galeri HP. FILE = pilih dari folder (cocok untuk TV).",
                         fontSize = 10.sp,
-                        color = TextSecondary.copy(alpha = 0.8f)
+                        color = TextSecondary.copy(alpha = 0.8f),
+                        lineHeight = 14.sp
                     )
                 }
             }
         }
 
-        // NAMA MASJID
+        // ============================================================
+        // FORM NAMA / ALAMAT / TAKMIR
+        // ============================================================
         Text(
             text = "INFORMASI MASJID",
             fontSize = 14.sp,
@@ -289,6 +307,21 @@ fun IdentitySettingsPane(
                 onUpdate(settings.copy(mosqueTakmir = it))
             }
         )
+
+        // ============================================================
+        // PICKER DIALOG CALLER (custom file picker)
+        // ============================================================
+        if (showLogoPicker) {
+            VideoFilePickerDialog(
+                mode = FilePickerMode.IMAGE,
+                title = "Pilih Logo Masjid",
+                onFileSelected = { file: File ->
+                    showLogoPicker = false
+                    processLogoUri(file.absolutePath)
+                },
+                onDismiss = { showLogoPicker = false }
+            )
+        }
     }
 }
 // ============================================================
