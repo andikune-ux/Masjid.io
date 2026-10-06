@@ -1,4 +1,4 @@
-package com.example.ui.settings
+package dev.andikune.masjidio.ui.settings
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,16 +53,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.data.model.AppSettings
-import com.example.ui.components.FilePickerMode
-import com.example.ui.components.VideoFilePickerDialog
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.IslamicGreen
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.UrgentRed
-import com.example.util.MediaPersistenceHelper
+import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.ui.components.FilePickerMode
+import dev.andikune.masjidio.ui.components.VideoFilePickerDialog
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.IslamicGreen
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.ui.theme.UrgentRed
+import dev.andikune.masjidio.util.MediaPersistenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

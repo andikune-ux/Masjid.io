@@ -1,4 +1,4 @@
-package com.example
+package dev.andikune.masjidio
 
 import android.Manifest
 import android.content.Context
@@ -67,42 +67,42 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.audio.SoundManager
-import com.example.data.local.IslamicCalendar
-import com.example.data.local.PrayerTimesCalculator
-import com.example.data.local.SettingsRepository
-import com.example.data.local.WeatherService
-import com.example.data.model.PinLockMode
-import com.example.data.model.PrayerId
-import com.example.data.model.PrayerSchedule
-import com.example.kiosk.KioskManager
-import com.example.kiosk.WatchdogService
-import com.example.receiver.BootReceiver
-import com.example.ui.components.AutoOffDialog
-import com.example.ui.components.PinDialog
-import com.example.ui.components.UpdateDialog
-import com.example.ui.focus.AdzanSequenceOverlay
-import com.example.ui.focus.PrayerFocusOverlay
-import com.example.ui.focus.QRISFocusOverlay
-import com.example.ui.home.HomeScreen
-import com.example.ui.ramadhan.RamadhanOverlay
-import com.example.ui.remote.IoControlScreen
-import com.example.ui.remote.RemoteServer
-import com.example.ui.remote.RestartCountdownOverlay
-import com.example.ui.settings.SettingsScreen
-import com.example.ui.theme.IslamicGold
-import com.example.ui.theme.IslamicGoldLight
-import com.example.ui.theme.MasjidTheme
-import com.example.ui.theme.MosqueDeepBg
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.util.ApkDownloader
-import com.example.util.BackupManager
-import com.example.util.CrashAutoShowHelper
-import com.example.util.CrashLogDialog
-import com.example.util.CrashReporter
-import com.example.util.SettingsTransferHelper
-import com.example.util.UpdateManager
+import dev.andikune.masjidio.audio.SoundManager
+import dev.andikune.masjidio.data.local.IslamicCalendar
+import dev.andikune.masjidio.data.local.PrayerTimesCalculator
+import dev.andikune.masjidio.data.local.SettingsRepository
+import dev.andikune.masjidio.data.local.WeatherService
+import dev.andikune.masjidio.data.model.PinLockMode
+import dev.andikune.masjidio.data.model.PrayerId
+import dev.andikune.masjidio.data.model.PrayerSchedule
+import dev.andikune.masjidio.kiosk.KioskManager
+import dev.andikune.masjidio.kiosk.WatchdogService
+import dev.andikune.masjidio.receiver.BootReceiver
+import dev.andikune.masjidio.ui.components.AutoOffDialog
+import dev.andikune.masjidio.ui.components.PinDialog
+import dev.andikune.masjidio.ui.components.UpdateDialog
+import dev.andikune.masjidio.ui.focus.AdzanSequenceOverlay
+import dev.andikune.masjidio.ui.focus.PrayerFocusOverlay
+import dev.andikune.masjidio.ui.focus.QRISFocusOverlay
+import dev.andikune.masjidio.ui.home.HomeScreen
+import dev.andikune.masjidio.ui.ramadhan.RamadhanOverlay
+import dev.andikune.masjidio.ui.remote.IoControlScreen
+import dev.andikune.masjidio.ui.remote.RemoteServer
+import dev.andikune.masjidio.ui.remote.RestartCountdownOverlay
+import dev.andikune.masjidio.ui.settings.SettingsScreen
+import dev.andikune.masjidio.ui.theme.IslamicGold
+import dev.andikune.masjidio.ui.theme.IslamicGoldLight
+import dev.andikune.masjidio.ui.theme.MasjidTheme
+import dev.andikune.masjidio.ui.theme.MosqueDeepBg
+import dev.andikune.masjidio.ui.theme.TextPrimary
+import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.util.ApkDownloader
+import dev.andikune.masjidio.util.BackupManager
+import dev.andikune.masjidio.util.CrashAutoShowHelper
+import dev.andikune.masjidio.util.CrashLogDialog
+import dev.andikune.masjidio.util.CrashReporter
+import dev.andikune.masjidio.util.SettingsTransferHelper
+import dev.andikune.masjidio.util.UpdateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -879,7 +879,7 @@ MasjidTheme {
                             settingsRepository = settingsRepository,
                             deviceName = deviceName,
                             deviceRole = deviceRole,
-                            appVersion = com.example.BuildConfig.VERSION_NAME,
+                            appVersion = dev.andikune.masjidio.BuildConfig.VERSION_NAME,
                             serverPort = settings.remoteServerPort,
                             onBack = { currentScreen = AppScreen.SETTINGS }
                         )
