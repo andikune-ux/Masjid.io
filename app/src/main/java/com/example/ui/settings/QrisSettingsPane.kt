@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.ui.settings
+package com.example.ui.settings
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,9 +26,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
@@ -55,18 +55,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.ui.components.TvSlider
-import dev.andikune.masjidio.ui.theme.IslamicGold
-import dev.andikune.masjidio.ui.theme.IslamicGoldLight
-import dev.andikune.masjidio.ui.theme.IslamicGreen
-import dev.andikune.masjidio.ui.theme.TextPrimary
-import dev.andikune.masjidio.ui.theme.TextSecondary
-import dev.andikune.masjidio.ui.theme.UrgentRed
-import dev.andikune.masjidio.util.MediaPersistenceHelper
+import com.example.data.model.AppSettings
+import com.example.ui.components.FilePickerMode
+import com.example.ui.components.TvSlider
+import com.example.ui.components.VideoFilePickerDialog
+import com.example.ui.theme.IslamicGold
+import com.example.ui.theme.IslamicGoldLight
+import com.example.ui.theme.IslamicGreen
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.UrgentRed
+import com.example.util.MediaPersistenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun QrisSettingsPane(
@@ -78,13 +81,18 @@ fun QrisSettingsPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Helper: proses URI QRIS
-    fun processQrisUri(uri: Uri) {
+    // ============================================================
+    // V1.04.425 — State untuk Custom File Picker (FILE)
+    // ============================================================
+    var showQrisPicker by remember { mutableStateOf(false) }
+
+    // Helper: proses QRIS (copy ke folder permanen)
+    fun processQrisUri(uriString: String) {
         scope.launch {
             val localPath = withContext(Dispatchers.IO) {
                 MediaPersistenceHelper.copyToPermanent(
                     context = context,
-                    sourceUri = uri.toString(),
+                    sourceUri = uriString,
                     folder = MediaPersistenceHelper.FOLDER_QRIS,
                     fileNamePrefix = "qris"
                 )
@@ -95,23 +103,18 @@ fun QrisSettingsPane(
                 }
                 onUpdate(settings.copy(qrisPhotoUri = localPath))
             } else {
-                onUpdate(settings.copy(qrisPhotoUri = uri.toString()))
+                onUpdate(settings.copy(qrisPhotoUri = uriString))
             }
         }
     }
 
-    // TOMBOL 1: GALERI
+    // ============================================================
+    // TOMBOL 1: GALERI (Android Native)
+    // ============================================================
     val qrisGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null) processQrisUri(uri)
-    }
-
-    // TOMBOL 2: FILE MANAGER
-    val qrisFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) processQrisUri(uri)
+        if (uri != null) processQrisUri(uri.toString())
     }
 
     Column(
@@ -128,7 +131,7 @@ fun QrisSettingsPane(
         )
 
         // ============================================================
-        // PREVIEW & PICKER QRIS
+        // PREVIEW & PICKER QRIS — 2 TOMBOL: GALERI + FILE
         // ============================================================
         Row(
             modifier = Modifier
@@ -140,6 +143,7 @@ fun QrisSettingsPane(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Preview QRIS
             Box(
                 modifier = Modifier
                     .size(130.dp)
@@ -190,21 +194,25 @@ fun QrisSettingsPane(
                     lineHeight = 16.sp
                 )
 
-                // 2 TOMBOL: GALERI + FILE
+                // ============================================================
+                // V1.04.425 — 2 TOMBOL: GALERI + FILE
+                // ============================================================
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Tombol GALERI (buka galeri bawaan HP)
                     TvActionButton(
-                        icon = Icons.Default.AddPhotoAlternate,
+                        icon = Icons.Default.PhotoLibrary,
                         label = "GALERI",
                         backgroundColor = IslamicGold,
                         textColor = Color(0xFF09141D),
                         onClick = { qrisGalleryLauncher.launch("image/*") }
                     )
+                    // Tombol FILE (buka custom picker)
                     TvActionButton(
                         icon = Icons.Default.FolderOpen,
                         label = "FILE",
                         backgroundColor = IslamicGold,
                         textColor = Color(0xFF09141D),
-                        onClick = { qrisFileLauncher.launch(arrayOf("image/*")) }
+                        onClick = { showQrisPicker = true }
                     )
                     if (!settings.qrisPhotoUri.isNullOrBlank()) {
                         TvActionButton(
@@ -223,6 +231,7 @@ fun QrisSettingsPane(
                     }
                 }
 
+                // Tombol Uji Tampilan
                 TvActionButton(
                     icon = Icons.Default.Visibility,
                     label = "UJI TAMPILAN",
@@ -232,9 +241,10 @@ fun QrisSettingsPane(
                 )
 
                 Text(
-                    text = "💡 Kalau GALERI tidak bisa pilih di TV, coba FILE.",
+                    text = "💡 GALERI = pakai galeri HP. FILE = pilih dari folder (cocok untuk TV).",
                     fontSize = 10.sp,
-                    color = TextSecondary.copy(alpha = 0.8f)
+                    color = TextSecondary.copy(alpha = 0.8f),
+                    lineHeight = 14.sp
                 )
             }
         }
@@ -331,6 +341,21 @@ fun QrisSettingsPane(
                     focusedBorderColor = IslamicGold,
                     unfocusedBorderColor = Color(0x44FFFFFF)
                 )
+            )
+        }
+
+        // ============================================================
+        // PICKER DIALOG CALLER
+        // ============================================================
+        if (showQrisPicker) {
+            VideoFilePickerDialog(
+                mode = FilePickerMode.IMAGE,
+                title = "Pilih File QRIS",
+                onFileSelected = { file: File ->
+                    showQrisPicker = false
+                    processQrisUri(file.absolutePath)
+                },
+                onDismiss = { showQrisPicker = false }
             )
         }
     }
