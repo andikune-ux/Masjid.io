@@ -70,8 +70,58 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // ============================================================
-// V1.30.7 BARU — DAFTAR FILE TEMPLATE .iO
+// V1.04.426 — WARNA COLOR CODING
 // ============================================================
+private val ColorHitam = Color(0xFF1A1A1A)
+private val ColorHitamBorder = Color(0xFF444444)
+private val ColorMerah = Color(0xFFB71C1C)
+private val ColorMerahLight = Color(0xFFFF5252)
+private val ColorKuning = Color(0xFFF9A825)
+private val ColorKuningLight = Color(0xFFFFD54F)
+private val ColorHijau = Color(0xFF2E7D32)
+private val ColorHijauLight = Color(0xFF66BB6A)
+
+private data class ColorCategory(
+    val bgColor: Color,
+    val borderColor: Color,
+    val textColor: Color,
+    val label: String
+)
+
+private fun getColorCategory(category: String): ColorCategory {
+    return when (category) {
+        "HITAM" -> ColorCategory(
+            bgColor = ColorHitam,
+            borderColor = ColorHitamBorder,
+            textColor = Color(0xFFFF8A80),
+            label = "GAGAL TOTAL"
+        )
+        "MERAH" -> ColorCategory(
+            bgColor = ColorMerah.copy(alpha = 0.35f),
+            borderColor = ColorMerahLight,
+            textColor = ColorMerahLight,
+            label = "SEBAGIAN GAGAL"
+        )
+        "KUNING" -> ColorCategory(
+            bgColor = ColorKuning.copy(alpha = 0.35f),
+            borderColor = ColorKuningLight,
+            textColor = ColorKuningLight,
+            label = "SEBAGIAN SUKSES"
+        )
+        "HIJAU" -> ColorCategory(
+            bgColor = ColorHijau.copy(alpha = 0.35f),
+            borderColor = ColorHijauLight,
+            textColor = ColorHijauLight,
+            label = "SEMUA SUKSES"
+        )
+        else -> ColorCategory(
+            bgColor = Color(0xFF091620),
+            borderColor = IslamicGold.copy(alpha = 0.4f),
+            textColor = IslamicGoldLight,
+            label = "TIDAK DIKETAHUI"
+        )
+    }
+}
 
 @Composable
 fun IoBundleListSection(
@@ -90,14 +140,10 @@ fun IoBundleListSection(
     var selectedBundleForDelete by remember { mutableStateOf<IoBundleHelper.BundleInfo?>(null) }
     var isRestoring by remember { mutableStateOf(false) }
 
-    // Load daftar bundle
     LaunchedEffect(refreshKey) {
         bundleList = IoBundleHelper.listBundles(context)
     }
 
-    // ============================================================
-    // KONTEN UTAMA
-    // ============================================================
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -136,12 +182,29 @@ fun IoBundleListSection(
                 }
             }
         } else {
-            Text(
-                text = "Total: ${bundleList.size} file template tersimpan",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                fontWeight = FontWeight.Medium
-            )
+            // Ringkasan jumlah per kategori
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val hijauCount = bundleList.count { it.colorCategory == "HIJAU" }
+                val kuningCount = bundleList.count { it.colorCategory == "KUNING" }
+                val merahCount = bundleList.count { it.colorCategory == "MERAH" }
+                val hitamCount = bundleList.count { it.colorCategory == "HITAM" }
+
+                if (hijauCount > 0) CategoryChip("🟢 $hijauCount", ColorHijauLight)
+                if (kuningCount > 0) CategoryChip("🟡 $kuningCount", ColorKuningLight)
+                if (merahCount > 0) CategoryChip("🔴 $merahCount", ColorMerahLight)
+                if (hitamCount > 0) CategoryChip("⚫ $hitamCount", ColorHitamBorder)
+
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = "Total: ${bundleList.size}",
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             bundleList.forEach { bundle ->
                 BundleListItem(
@@ -153,6 +216,7 @@ fun IoBundleListSection(
             }
         }
     }
+
     // ============================================================
     // DIALOG: INFO LOG
     // ============================================================
@@ -185,7 +249,7 @@ fun IoBundleListSection(
     }
 
     // ============================================================
-    // DIALOG: KONFIRMASI RESTART SETELAH APPLY TEMPLATE
+    // DIALOG: KONFIRMASI RESTART SETELAH APPLY
     // ============================================================
     if (selectedBundleForRestart != null) {
         BundleRestartDialog(
@@ -195,7 +259,6 @@ fun IoBundleListSection(
                 val b = selectedBundleForRestart!!
                 isRestoring = true
 
-                // Restore bundle
                 val result = IoBundleHelper.restoreBundleWithLocalPaths(
                     context = context,
                     bundleFile = b.file,
@@ -205,7 +268,6 @@ fun IoBundleListSection(
                 isRestoring = false
 
                 if (result.success && result.settings != null) {
-                    // Apply settings
                     onApplySettings(result.settings)
                     Toast.makeText(
                         context,
@@ -215,7 +277,6 @@ fun IoBundleListSection(
 
                     selectedBundleForRestart = null
 
-                    // Panggil restart kalau ada callback
                     if (onRestart != null) {
                         scope.launch {
                             delay(500)
@@ -245,7 +306,30 @@ fun IoBundleListSection(
 }
 
 // ============================================================
-// KARTU ITEM BUNDLE
+// CATEGORY CHIP (ringkasan jumlah per kategori)
+// ============================================================
+@Composable
+private fun CategoryChip(
+    label: String,
+    color: Color
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.2f))
+            .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    }
+}
+// ============================================================
+// KARTU ITEM BUNDLE — dengan Color Coding
 // ============================================================
 @Composable
 private fun BundleListItem(
@@ -254,17 +338,18 @@ private fun BundleListItem(
     onInfo: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val category = getColorCategory(bundle.colorCategory)
     val hasFailures = (bundle.metadata?.mediaFailed ?: 0) > 0
+    val pct = bundle.successPercentage
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF091620))
+            .background(category.bgColor)
             .border(
-                width = 1.5.dp,
-                color = if (hasFailures) UrgentRed.copy(alpha = 0.5f)
-                        else IslamicGold.copy(alpha = 0.4f),
+                width = 2.dp,
+                color = category.borderColor,
                 shape = RoundedCornerShape(14.dp)
             )
             .padding(14.dp),
@@ -277,20 +362,26 @@ private fun BundleListItem(
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(52.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (hasFailures) UrgentRed.copy(alpha = 0.15f)
-                        else IslamicGreen.copy(alpha = 0.15f)
-                    ),
+                    .background(category.borderColor.copy(alpha = 0.2f))
+                    .border(2.dp, category.borderColor, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (hasFailures) Icons.Default.Warning else Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = if (hasFailures) UrgentRed else IslamicGreen,
-                    modifier = Modifier.size(24.dp)
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "$pct%",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = category.textColor
+                    )
+                    Icon(
+                        imageVector = if (hasFailures) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = category.textColor,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -307,7 +398,7 @@ private fun BundleListItem(
                 Text(
                     text = "📊 ${bundle.summaryLine}",
                     fontSize = 11.sp,
-                    color = if (hasFailures) UrgentRed else IslamicGoldLight,
+                    color = category.textColor,
                     fontWeight = FontWeight.SemiBold,
                     lineHeight = 15.sp
                 )
@@ -316,6 +407,23 @@ private fun BundleListItem(
                     text = "📁 ${bundle.fileSizeText}",
                     fontSize = 10.sp,
                     color = TextSecondary
+                )
+            }
+
+            // Badge kategori
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(category.borderColor.copy(alpha = 0.3f))
+                    .border(1.dp, category.borderColor, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = category.label,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = category.textColor,
+                    letterSpacing = 0.5.sp
                 )
             }
         }
@@ -422,6 +530,7 @@ private fun BundleInfoDialog(
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     val meta = bundle.metadata
+    val category = getColorCategory(bundle.colorCategory)
 
     LaunchedEffect(copied) {
         if (copied) {
@@ -439,6 +548,7 @@ private fun BundleInfoDialog(
             appendLine("Nama file   : ${bundle.fileName}")
             appendLine("Ukuran      : ${bundle.fileSizeText}")
             appendLine("Lokasi      : ${bundle.filePath}")
+            appendLine("Persentase  : ${bundle.successPercentage}% (${category.label})")
             appendLine()
             if (meta != null) {
                 appendLine("PENGIRIM:")
@@ -496,7 +606,7 @@ private fun BundleInfoDialog(
                 .background(Color(0xFF0A1929))
                 .border(
                     width = 2.dp,
-                    color = if (hasFailures) UrgentRed.copy(alpha = 0.7f) else IslamicGreen.copy(alpha = 0.7f),
+                    color = category.borderColor,
                     shape = RoundedCornerShape(18.dp)
                 )
                 .padding(20.dp),
@@ -512,7 +622,7 @@ private fun BundleInfoDialog(
                     Icon(
                         imageVector = if (hasFailures) Icons.Default.Warning else Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = if (hasFailures) UrgentRed else IslamicGreen,
+                        tint = category.textColor,
                         modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -521,10 +631,10 @@ private fun BundleInfoDialog(
                             text = if (hasFailures) "LOG KEGAGALAN TRANSFER" else "INFO FILE TEMPLATE",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (hasFailures) UrgentRed else IslamicGreen
+                            color = category.textColor
                         )
                         Text(
-                            text = bundle.fileName,
+                            text = "${bundle.fileName} • ${bundle.successPercentage}%",
                             fontSize = 11.sp,
                             color = TextSecondary,
                             maxLines = 1,
@@ -558,7 +668,7 @@ private fun BundleInfoDialog(
                     .background(Color(0xFF000000))
                     .border(
                         1.dp,
-                        if (hasFailures) UrgentRed.copy(alpha = 0.4f) else IslamicGreen.copy(alpha = 0.4f),
+                        category.borderColor.copy(alpha = 0.5f),
                         RoundedCornerShape(12.dp)
                     )
                     .padding(14.dp)
@@ -622,6 +732,8 @@ private fun BundleDeleteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val category = getColorCategory(bundle.colorCategory)
+
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -646,6 +758,30 @@ private fun BundleDeleteDialog(
                 fontWeight = FontWeight.Bold,
                 color = UrgentRed
             )
+
+            // Preview warna kategori
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(category.bgColor)
+                    .border(1.dp, category.borderColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "${bundle.successPercentage}%",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = category.textColor
+                )
+                Text(
+                    text = category.label,
+                    fontSize = 10.sp,
+                    color = category.textColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             Text(
                 text = bundle.fileName,
@@ -705,7 +841,6 @@ private fun BundleDeleteDialog(
         }
     }
 }
-
 // ============================================================
 // DIALOG: KONFIRMASI RESTART SETELAH APPLY TEMPLATE
 // ============================================================
@@ -718,6 +853,7 @@ private fun BundleRestartDialog(
 ) {
     val meta = bundle.metadata
     val hasFailures = (meta?.mediaFailed ?: 0) > 0
+    val category = getColorCategory(bundle.colorCategory)
 
     Dialog(
         onDismissRequest = { if (!isRestoring) onDismiss() },
@@ -728,7 +864,7 @@ private fun BundleRestartDialog(
                 .fillMaxWidth(0.88f)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF0A1929))
-                .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
+                .border(2.dp, category.borderColor, RoundedCornerShape(18.dp))
                 .padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -736,7 +872,7 @@ private fun BundleRestartDialog(
             Icon(
                 imageVector = Icons.Default.Refresh,
                 contentDescription = null,
-                tint = IslamicGold,
+                tint = category.textColor,
                 modifier = Modifier.size(48.dp)
             )
 
@@ -746,6 +882,22 @@ private fun BundleRestartDialog(
                 fontWeight = FontWeight.Bold,
                 color = IslamicGoldLight
             )
+
+            // Badge kategori
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(category.bgColor)
+                    .border(1.5.dp, category.borderColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "${bundle.successPercentage}% • ${category.label}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = category.textColor
+                )
+            }
 
             Text(
                 text = bundle.fileName,
@@ -765,7 +917,7 @@ private fun BundleRestartDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .background(Color(0x33000000))
-                        .border(1.dp, IslamicGold.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        .border(1.dp, category.borderColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
