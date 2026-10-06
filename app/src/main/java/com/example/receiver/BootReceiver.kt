@@ -1,4 +1,4 @@
-package com.example.receiver
+package dev.andikune.masjidio.receiver
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.example.kiosk.AutoStartService
+import dev.andikune.masjidio.kiosk.AutoStartService
 
 class BootReceiver : BroadcastReceiver() {
 
@@ -28,7 +28,6 @@ class BootReceiver : BroadcastReceiver() {
         ) {
             // ============================================================
             // V1.04.425 — SET FLAG BOOT
-            // Dipakai oleh MainActivity untuk trigger dialog izin otomatis
             // ============================================================
             try {
                 val prefs = context.getSharedPreferences(PREFS_BOOT, Context.MODE_PRIVATE)
