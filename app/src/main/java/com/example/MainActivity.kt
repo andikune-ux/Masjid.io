@@ -171,9 +171,7 @@ class MainActivity : ComponentActivity() {
     var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
     // ============================================================
-    // IZIN STORAGE & INSTALL (auto-show)
-    // V1.04.426 FIX: tambah installDialogAlreadyShown
-    // biar dialog install TIDAK muncul berulang
+    // IZIN STORAGE & INSTALL (auto-show, sekali per sesi)
     // ============================================================
     val bootPrefs = remember {
         context.getSharedPreferences(BootReceiver.PREFS_BOOT, Context.MODE_PRIVATE)
@@ -183,7 +181,6 @@ class MainActivity : ComponentActivity() {
     var showInstallPermissionDialog by remember { mutableStateOf(false) }
     var installDialogAlreadyShown by remember { mutableStateOf(false) }
 
-    // Cek izin saat pertama buka + setelah boot
     LaunchedEffect(Unit) {
         delay(1500)
 
@@ -217,7 +214,6 @@ class MainActivity : ComponentActivity() {
                     showStoragePermissionDialog = true
                 } else if (showStoragePermissionDialog) {
                     showStoragePermissionDialog = false
-                    // V1.04.426 FIX: cek installDialogAlreadyShown
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         if (!context.packageManager.canRequestPackageInstalls()
                             && !installDialogAlreadyShown) {
@@ -329,6 +325,8 @@ class MainActivity : ComponentActivity() {
     var temporaryWake by remember { mutableStateOf(false) }
     var lastKeyPressTime by remember { mutableLongStateOf(0L) }
     var showAutoOffDialog by remember { mutableStateOf(false) }
+    // V1.04.427 — Flag untuk cegah dialog muncul berulang dalam 1 sesi OFF
+    var autoOffDialogDismissedForSession by remember { mutableStateOf(false) }
 
     // Polling jadwal brightness setiap 30 detik
     LaunchedEffect(
@@ -341,6 +339,11 @@ class MainActivity : ComponentActivity() {
         todaySchedule.isya
     ) {
         while (true) {
+            // V1.04.427 — Reset flag saat kembali ke jam ON
+            if (!isNowInOffSchedule() && autoOffDialogDismissedForSession) {
+                autoOffDialogDismissedForSession = false
+            }
+
             val shouldDim = isNowInOffSchedule() && !temporaryWake
             if (shouldDim != isDimmed) {
                 isDimmed = shouldDim
@@ -764,9 +767,11 @@ MasjidTheme {
                         if (now - lastKeyPressTime > 500L) {
                             lastKeyPressTime = now
 
+                            // V1.04.427 — Cek flag autoOffDialogDismissedForSession
                             if (isNowInOffSchedule() &&
                                 settings.autoOffDialogEnabled &&
-                                !showAutoOffDialog
+                                !showAutoOffDialog &&
+                                !autoOffDialogDismissedForSession
                             ) {
                                 temporaryWake = true
                                 showAutoOffDialog = true
@@ -901,6 +906,7 @@ MasjidTheme {
 
                 // ============================================================
                 // AUTO-OFF DIALOG
+                // V1.04.427 — Set flag dismiss setelah user pilih
                 // ============================================================
                 if (showAutoOffDialog) {
                     AutoOffDialog(
@@ -913,6 +919,7 @@ MasjidTheme {
                             )
                             showAutoOffDialog = false
                             temporaryWake = true
+                            autoOffDialogDismissedForSession = true
                             Toast.makeText(
                                 this@MainActivity,
                                 "Jadwal ON/OFF dimatikan. Layar tetap nyala sampai TV dimatikan manual.",
@@ -922,6 +929,7 @@ MasjidTheme {
                         onConfirmFalse = {
                             showAutoOffDialog = false
                             temporaryWake = false
+                            autoOffDialogDismissedForSession = true
                         }
                     )
                 }
@@ -935,7 +943,6 @@ MasjidTheme {
                                     },
                                     onSkipClick = {
                                         showStoragePermissionDialog = false
-                                        // V1.04.426 FIX: cek installDialogAlreadyShown
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                             if (!context.packageManager.canRequestPackageInstalls()
                                                 && !installDialogAlreadyShown) {
@@ -1083,6 +1090,7 @@ MasjidTheme {
 }
 // ============================================================
 // STORAGE PERMISSION DIALOG
+// V1.04.427 — Tombol pakai Box + height fixed
 // ============================================================
 @Composable
 private fun StoragePermissionDialog(
@@ -1252,6 +1260,7 @@ private fun StoragePermissionDialog(
 
 // ============================================================
 // INSTALL PERMISSION DIALOG
+// V1.04.427 — Tombol pakai Box + height fixed
 // ============================================================
 @Composable
 private fun InstallPermissionDialog(
