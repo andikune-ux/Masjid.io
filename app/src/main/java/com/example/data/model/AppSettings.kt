@@ -71,6 +71,20 @@ enum class PinLockMode {
     UNTIL_EXIT
 }
 
+/**
+ * V1.04.428 — Mode Kecerahan Layar
+ *
+ *   MANUAL   = Brightness tetap dari slider (manualBrightnessPercent)
+ *   AUTO     = Ikut jadwal sholat (siang = dayBrightnessPercent, malam = nightBrightnessPercent)
+ *   SCHEDULE = Ikut jadwal ON/OFF (jam OFF = layar gelap total via overlay)
+ *              (DEFAULT — pakai fitur Jadwal On/Off Otomatis)
+ */
+enum class BrightnessMode {
+    MANUAL,
+    AUTO,
+    SCHEDULE
+}
+
 data class OfficerSchedule(
     val imamSubuh: String = "Ust. H. Ahmad Fauzi",
     val muadzinSubuh: String = "Ust. Ridwan Kamil",
@@ -133,7 +147,6 @@ data class LaporanKeuangan(
     val totalPengeluaran: Long get() = pengeluaranDakwah + pengeluaranSosial + pengeluaranOperasional
     val saldoAkhir: Long get() = saldoSebelumnya + totalPemasukan - totalPengeluaran
 }
-
 data class AppSettings(
     val mosqueName: String = "MASJID AL-IKHLAS",
     val mosqueAddress: String = "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat",
@@ -275,6 +288,22 @@ data class AppSettings(
     val idleTimeoutMinutes: Int = 30,
     val autoBrightness: Boolean = true,
     val saveBatteryMode: Boolean = false,
+    // ============================================================
+    // V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS) MANUAL + AUTO
+    //
+    //   brightnessMode      = MANUAL / AUTO / SCHEDULE
+    //   manualBrightness    = 10-100 (dipakai jika mode MANUAL)
+    //   dayBrightness       = 10-100 (dipakai mode AUTO saat siang)
+    //   nightBrightness     = 10-100 (dipakai mode AUTO saat malam)
+    //   dimOverlayEnabled   = Fallback overlay hitam saat jam OFF
+    //                         (karena Android TV sering abaikan screenBrightness=0)
+    // ============================================================
+    val brightnessMode: BrightnessMode = BrightnessMode.SCHEDULE,
+    val manualBrightnessPercent: Int = 100,
+    val dayBrightnessPercent: Int = 100,
+    val nightBrightnessPercent: Int = 30,
+    val dimOverlayEnabled: Boolean = true,
+    // ============================================================
     val fonnteToken: String = "",
     val fonnteGroupId: String = "",
     val whatsappReportEnabled: Boolean = true,
