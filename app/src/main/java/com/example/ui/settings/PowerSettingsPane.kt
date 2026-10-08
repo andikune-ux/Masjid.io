@@ -2,6 +2,9 @@ package dev.andikune.masjidio.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,21 +17,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Brightness6
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.data.local.PrayerTimesCalculator
 import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.masjidio.data.model.BrightnessMode
 import dev.andikune.masjidio.ui.components.TvSlider
 import dev.andikune.masjidio.ui.components.TvToggle
 import dev.andikune.masjidio.ui.theme.IslamicGold
@@ -47,6 +58,87 @@ import dev.andikune.masjidio.ui.theme.UrgentRed
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+// ============================================================
+// V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS) MANUAL + AUTO
+//
+// Tambah seksi baru di bawah "PENGATURAN LAYAR":
+//   1. Radio 3 mode: MANUAL / AUTO / SCHEDULE
+//   2. Slider manual (10-100%)
+//   3. Slider auto siang (10-100%)
+//   4. Slider auto malam (10-100%)
+//   5. Toggle overlay hitam (fallback Android TV)
+// ============================================================
+
+/**
+ * Baris radio untuk pilih mode kecerahan.
+ * TV-friendly: focusable + border fokus visual.
+ */
+@Composable
+private fun BrightnessModeRow(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    var focused by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (focused) Color(0x44FFD700) else Color(0x22000000))
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) IslamicGoldLight else IslamicGold.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .focusable()
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onClick() }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Radio button visual
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(if (selected) IslamicGold else Color.Transparent)
+                .border(
+                    width = 2.dp,
+                    color = if (selected) IslamicGold else TextSecondary,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF09141D))
+                )
+            }
+        }
+
+        Spacer(Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (focused) IslamicGoldLight else TextPrimary
+            )
+            Text(
+                text = description,
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+        }
+    }
+}
 @Composable
 fun PowerSettingsPane(
     settings: AppSettings,
@@ -71,7 +163,8 @@ fun PowerSettingsPane(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ============================================================
@@ -120,20 +213,181 @@ fun PowerSettingsPane(
         )
 
         TvToggle(
-            label = "Auto Brightness",
-            description = "Sesuaikan kecerahan otomatis sesuai waktu sholat",
-            isChecked = settings.autoBrightness,
-            onToggle = { onUpdate(settings.copy(autoBrightness = it)) }
-        )
-
-        TvToggle(
             label = "Mode Hemat Daya",
             description = "Kurangi animasi saat malam (Isya-Subuh)",
             isChecked = settings.saveBatteryMode,
             onToggle = { onUpdate(settings.copy(saveBatteryMode = it)) }
         )
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ============================================================
+        // V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS)
+        // ============================================================
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Brightness6,
+                contentDescription = null,
+                tint = IslamicGold,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "KECERAHAN LAYAR",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = IslamicGoldLight
+            )
+        }
+        Text(
+            text = "Atur kecerahan layar TV — manual, otomatis ikut jadwal sholat, " +
+                    "atau ikut jadwal ON/OFF otomatis.",
+            fontSize = 12.sp,
+            color = TextSecondary,
+            lineHeight = 16.sp
+        )
+
+        // ── Radio 3 mode ──
+        BrightnessModeRow(
+            title = "MANUAL",
+            description = "Kecerahan tetap dari slider di bawah (10%–100%)",
+            selected = settings.brightnessMode == BrightnessMode.MANUAL,
+            onClick = {
+                onUpdate(settings.copy(brightnessMode = BrightnessMode.MANUAL))
+            }
+        )
+
+        BrightnessModeRow(
+            title = "AUTO (Ikut Jadwal Sholat)",
+            description = "Siang terang, malam redup. Beralih otomatis saat Maghrib.",
+            selected = settings.brightnessMode == BrightnessMode.AUTO,
+            onClick = {
+                onUpdate(settings.copy(brightnessMode = BrightnessMode.AUTO))
+            }
+        )
+
+        BrightnessModeRow(
+            title = "SCHEDULE (Ikut Jadwal ON/OFF)",
+            description = "Layar gelap total saat jam OFF, terang saat jam ON. " +
+                    "Cocok untuk TV masjid yang nyala 24 jam.",
+            selected = settings.brightnessMode == BrightnessMode.SCHEDULE,
+            onClick = {
+                onUpdate(settings.copy(brightnessMode = BrightnessMode.SCHEDULE))
+            }
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // ── Slider Manual (muncul hanya jika mode MANUAL) ──
+        if (settings.brightnessMode == BrightnessMode.MANUAL) {
+            TvSlider(
+                label = "Kecerahan Manual",
+                value = settings.manualBrightnessPercent.toFloat(),
+                onValueChange = {
+                    onUpdate(settings.copy(manualBrightnessPercent = it.toInt()))
+                },
+                valueRange = 10f..100f,
+                steps = 18,
+                formatter = { "${it.toInt()}%" }
+            )
+        }
+
+        // ── Slider Auto Siang & Malam (muncul hanya jika mode AUTO) ──
+        if (settings.brightnessMode == BrightnessMode.AUTO) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x22FFD700), RoundedCornerShape(10.dp))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.WbSunny,
+                        contentDescription = null,
+                        tint = IslamicGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Mode AUTO",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IslamicGoldLight
+                        )
+                        Text(
+                            text = "Siang aktif dari Subuh hingga Maghrib. " +
+                                    "Malam dari Maghrib hingga Subuh.",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+
+            TvSlider(
+                label = "Kecerahan Siang",
+                value = settings.dayBrightnessPercent.toFloat(),
+                onValueChange = {
+                    onUpdate(settings.copy(dayBrightnessPercent = it.toInt()))
+                },
+                valueRange = 10f..100f,
+                steps = 18,
+                formatter = { "${it.toInt()}%" }
+            )
+
+            TvSlider(
+                label = "Kecerahan Malam",
+                value = settings.nightBrightnessPercent.toFloat(),
+                onValueChange = {
+                    onUpdate(settings.copy(nightBrightnessPercent = it.toInt()))
+                },
+                valueRange = 10f..100f,
+                steps = 18,
+                formatter = { "${it.toInt()}%" }
+            )
+        }
+
+        // ── Toggle Overlay Hitam (fallback) ──
         Spacer(modifier = Modifier.height(4.dp))
+
+        TvToggle(
+            label = "Overlay Hitam (Fallback)",
+            description = "Tutup layar dengan overlay hitam saat brightness tidak " +
+                    "bekerja (umum di Android TV). Layar benar-benar gelap.",
+            isChecked = settings.dimOverlayEnabled,
+            onToggle = { onUpdate(settings.copy(dimOverlayEnabled = it)) }
+        )
+
+        if (settings.dimOverlayEnabled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x33A5D6A7), RoundedCornerShape(10.dp))
+                    .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "💡 Kenapa perlu Overlay Hitam?",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGreen
+                    )
+                    Text(
+                        text = "Android TV (Xiaomi, Mi Box, dll) sering mengabaikan " +
+                                "perintah brightness software. Overlay hitam " +
+                                "memastikan layar benar-benar gelap saat jam OFF.",
+                        fontSize = 11.sp,
+                        color = TextPrimary,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+        }
+                Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
         // JADWAL ON/OFF OTOMATIS — V1.04.423
@@ -154,7 +408,7 @@ fun PowerSettingsPane(
 
         TvToggle(
             label = "Aktifkan Jadwal On/Off Otomatis",
-            description = "Layar redup total (brightness 0) setelah Isya, dan nyala lagi sebelum Subuh",
+            description = "Layar redup total setelah Isya, dan nyala lagi sebelum Subuh",
             isChecked = settings.autoOnOff,
             onToggle = { onUpdate(settings.copy(autoOnOff = it)) }
         )
@@ -262,9 +516,7 @@ fun PowerSettingsPane(
                 }
             }
 
-            // ============================================================
-            // SLIDER: Berapa menit setelah Isya (untuk OFF)
-            // ============================================================
+            // ── Slider OFF ──
             TvSlider(
                 label = "Redup Setelah Isya",
                 value = settings.autoOffMinutesAfterIsya.toFloat(),
@@ -276,9 +528,7 @@ fun PowerSettingsPane(
                 formatter = { "${it.toInt()} menit setelah Isya" }
             )
 
-            // ============================================================
-            // SLIDER: Berapa menit sebelum Subuh (untuk ON)
-            // ============================================================
+            // ── Slider ON ──
             TvSlider(
                 label = "Nyala Sebelum Subuh",
                 value = settings.autoOnMinutesBeforeSubuh.toFloat(),
@@ -360,7 +610,7 @@ fun PowerSettingsPane(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
         // IDLE SCREEN
@@ -392,10 +642,10 @@ fun PowerSettingsPane(
             )
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
-        // INFO SISTEM
+        // INFORMASI SISTEM
         // ============================================================
         Text(
             text = "INFORMASI SISTEM",
@@ -418,15 +668,16 @@ fun PowerSettingsPane(
             description = "Cegah TV sleep saat aplikasi berjalan"
         )
 
+        // V1.04.428 — Info Kecerahan (baca dari brightnessMode baru)
         InfoBox(
             icon = Icons.Default.Brightness6,
             title = "Kecerahan",
-            value = when {
-                settings.autoOnOff -> "JADWAL OTOMATIS AKTIF"
-                settings.autoBrightness -> "AUTO"
-                else -> "MANUAL"
+            value = when (settings.brightnessMode) {
+                BrightnessMode.MANUAL -> "MANUAL (${settings.manualBrightnessPercent}%)"
+                BrightnessMode.AUTO -> "AUTO (Siang ${settings.dayBrightnessPercent}% / Malam ${settings.nightBrightnessPercent}%)"
+                BrightnessMode.SCHEDULE -> "SCHEDULE (Ikut Jadwal ON/OFF)"
             },
-            description = "Kecerahan menyesuaikan jadwal sholat & waktu otomatis"
+            description = "Kecerahan menyesuaikan mode yang dipilih di atas"
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -434,8 +685,7 @@ fun PowerSettingsPane(
 }
 
 // ============================================================
-// HITUNG JAM AUTO ON
-// ON = Subuh - X menit
+// HITUNG JAM AUTO ON (Subuh - X menit)
 // ============================================================
 private fun calculateAutoOnTime(subuhTime: String, minutesBefore: Int): String {
     return try {
@@ -454,8 +704,7 @@ private fun calculateAutoOnTime(subuhTime: String, minutesBefore: Int): String {
 }
 
 // ============================================================
-// HITUNG JAM AUTO OFF
-// OFF = Isya + X menit
+// HITUNG JAM AUTO OFF (Isya + X menit)
 // ============================================================
 private fun calculateAutoOffTime(isyaTime: String, minutesAfter: Int): String {
     return try {
