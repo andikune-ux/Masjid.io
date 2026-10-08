@@ -3,6 +3,7 @@ package dev.andikune.masjidio.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +48,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
 // ============================================================
-// WARNA (mengikuti tema aplikasi)
+// WARNA
 // ============================================================
 private val GOLD = Color(0xFFE6C25A)
 private val GOLD_LIGHT = Color(0xFFFFE08A)
@@ -58,14 +59,15 @@ private val RED_WARN_TEXT = Color(0xFFFFC7C7)
 
 // ============================================================
 // AUTO-OFF DIALOG
-// V1.04.427 — Fix D-pad remote tidak bisa pilih YA/TIDAK
+// V1.04.428 — Fix D-pad remote tidak bisa pilih YA/TIDAK
 //
 // PERUBAHAN:
-// 1. Tambah FocusRequester ke tombol YA (default fokus masuk dialog)
-// 2. Tombol: focusable + onFocusChanged + border fokus visual
-// 3. DialogProperties: usePlatformDefaultWidth=false, back=false, outside=false
-// 4. Auto-dismiss dihitung dari autoDismissSeconds (bukan ms)
-// 5. Layout sesuai screenshot TV
+// 1. Delay requestFocus 150ms → 500ms + retry 1x
+//    (window dialog butuh waktu attach di Android TV)
+// 2. Tambah focusGroup() di container Column
+//    (navigasi D-pad dalam dialog lebih smooth)
+// 3. Signature dipertahankan (cocok dengan MainActivity)
+// 4. Layout & auto-dismiss dipertahankan
 // ============================================================
 @Composable
 fun AutoOffDialog(
@@ -78,9 +80,13 @@ fun AutoOffDialog(
     // ⭐ FocusRequester untuk tombol YA (default fokus pertama)
     val yaFocusRequester = remember { FocusRequester() }
 
-    // ⭐ Paksa fokus masuk ke tombol YA saat dialog muncul
+    // ⭐ V1.04.428 — Delay 500ms + retry 1x
+    // Window dialog di Android TV butuh waktu attach ke window manager.
+    // Delay 150ms terlalu cepat → requestFocus() gagal → fokus nyangkut.
     LaunchedEffect(Unit) {
-        delay(150L) // tunggu layout selesai
+        delay(500L)
+        runCatching { yaFocusRequester.requestFocus() }
+        delay(300L)
         runCatching { yaFocusRequester.requestFocus() }
     }
 
@@ -106,16 +112,18 @@ fun AutoOffDialog(
                 .background(Color.Black.copy(alpha = 0.72f)),
             contentAlignment = Alignment.Center
         ) {
+            // ⭐ focusGroup() → navigasi D-pad dalam dialog smooth
             Column(
                 modifier = Modifier
                     .width(820.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(DARK_BG)
                     .border(2.dp, GOLD, RoundedCornerShape(24.dp))
-                    .padding(36.dp),
+                    .padding(36.dp)
+                    .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ── Icon bulan (bulan sabit) ──
+                // ── Icon bulan ──
                 Box(
                     modifier = Modifier
                         .size(110.dp)
@@ -280,8 +288,8 @@ private fun AutoOffButton(
                 color = if (focused) Color.White else Color.Transparent,
                 shape = RoundedCornerShape(16.dp)
             )
-            .onFocusChanged { focused = it.isFocused }
             .focusable()
+            .onFocusChanged { focused = it.isFocused }
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
