@@ -1,32 +1,65 @@
 package dev.andikune.masjidio.util
 
 /**
- * FonnteHelper — Token & Group ID Fonnte yang tertanam di aplikasi.
+ * FonnteHelper — V1.04.429
  *
- * Nilai dibagi beberapa bagian agar tidak langsung terbaca di source.
- * Kalau token perlu diganti, cukup ubah konstanta di bawah.
+ * Wrapper tipis untuk CredentialManager.
  *
- * KALAU TOKEN DI-ABUSE:
- *   1. Login ke dashboard Fonnte
- *   2. Regenerate token
- *   3. Update TOKEN_PART_1/2/3 di file ini
- *   4. Commit + Build ulang
+ * SEBELUMNYA: Token & Group ID di-hardcode di file ini
+ *             (BAHAYA karena repo PUBLIC).
+ *
+ * SEKARANG:   Token & Group ID dibaca dari CredentialManager
+ *             (terenkripsi, user yang input via Opsi Developer).
+ *
+ * Cara kerja:
+ *   - CredentialManager menyimpan token di memory cache setelah
+ *     user input passphrase di Opsi Developer.
+ *   - FonnteHelper.getToken() / getGroupId() tinggal baca cache.
+ *   - Kalau belum di-setup, return string kosong.
  */
 object FonnteHelper {
 
-    // Token dibagi 3 bagian
-    private const val TOKEN_PART_1 = "JbdS"
-    private const val TOKEN_PART_2 = "VhrV7mcrG"
-    private const val TOKEN_PART_3 = "HWCjH7D"
+    /**
+     * Ambil token Fonnte dari CredentialManager.
+     * Return string kosong kalau belum di-setup.
+     */
+    fun getToken(): String {
+        return try {
+            CredentialManager.getToken()
+        } catch (e: Exception) {
+            ""
+        }
+    }
 
-    // Group ID dibagi 3 bagian
-    private const val GROUP_PART_1 = "1203634321"
-    private const val GROUP_PART_2 = "39302728"
-    private const val GROUP_SUFFIX = "@g.us"
+    /**
+     * Ambil Group ID dari CredentialManager.
+     * Return string kosong kalau belum di-setup.
+     */
+    fun getGroupId(): String {
+        return try {
+            CredentialManager.getGroupId()
+        } catch (e: Exception) {
+            ""
+        }
+    }
 
-    /** Ambil token Fonnte lengkap. */
-    fun getToken(): String = TOKEN_PART_1 + TOKEN_PART_2 + TOKEN_PART_3
+    /**
+     * Cek apakah kredensial Fonnte sudah dikonfigurasi.
+     * Return true kalau Token & Group ID tidak kosong.
+     */
+    fun isConfigured(): Boolean {
+        return getToken().isNotBlank() && getGroupId().isNotBlank()
+    }
 
-    /** Ambil Group ID lengkap. */
-    fun getGroupId(): String = GROUP_PART_1 + GROUP_PART_2 + GROUP_SUFFIX
+    /**
+     * Cek apakah CredentialManager sedang unlocked.
+     * (User sudah input passphrase di Opsi Developer)
+     */
+    fun isUnlocked(): Boolean {
+        return try {
+            CredentialManager.isUnlocked()
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
