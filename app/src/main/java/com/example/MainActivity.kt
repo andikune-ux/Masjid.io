@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -73,6 +74,7 @@ import dev.andikune.masjidio.data.local.IslamicCalendar
 import dev.andikune.masjidio.data.local.PrayerTimesCalculator
 import dev.andikune.masjidio.data.local.SettingsRepository
 import dev.andikune.masjidio.data.local.WeatherService
+import dev.andikune.masjidio.data.model.BrightnessMode
 import dev.andikune.masjidio.data.model.PinLockMode
 import dev.andikune.masjidio.data.model.PrayerId
 import dev.andikune.masjidio.data.model.PrayerSchedule
@@ -109,6 +111,7 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 enum class AppScreen {
@@ -262,349 +265,433 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
     // ============================================================
-    // JADWAL ON/OFF OTOMATIS
-    // ============================================================
-    val todaySchedule = remember(
-        settings.latitude,
-        settings.longitude
-    ) {
-        PrayerTimesCalculator.calculate(
-            date = LocalDate.now(),
-            latitude = settings.latitude,
-            longitude = settings.longitude
-        )
+// JADWAL ON/OFF OTOMATIS + KECERAHAN LAYAR (V1.04.428)
+// ============================================================
+val todaySchedule = remember(
+    settings.latitude,
+    settings.longitude
+) {
+    PrayerTimesCalculator.calculate(
+        date = LocalDate.now(),
+        latitude = settings.latitude,
+        longitude = settings.longitude
+    )
+}
+
+fun timeToMinutes(timeStr: String): Int {
+    val parts = timeStr.split(":")
+    val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
+    val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    return h * 60 + m
+}
+
+fun isNowInOffSchedule(): Boolean {
+    if (!settings.autoOnOff) return false
+
+    val now = if (settings.isManualTimeEnabled) {
+        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+    } else {
+        LocalDateTime.now()
     }
+    val currentMinute = now.hour * 60 + now.minute
 
-    fun timeToMinutes(timeStr: String): Int {
-        val parts = timeStr.split(":")
-        val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
-        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
-        return h * 60 + m
+    val subuhMinute = timeToMinutes(todaySchedule.subuh)
+    val onMinute = subuhMinute - settings.autoOnMinutesBeforeSubuh
+
+    val isyaMinute = timeToMinutes(todaySchedule.isya)
+    val offMinute = isyaMinute + settings.autoOffMinutesAfterIsya
+
+    return if (onMinute < offMinute) {
+        currentMinute >= offMinute || currentMinute < onMinute
+    } else {
+        currentMinute in offMinute until onMinute
     }
+}
 
-    fun isNowInOffSchedule(): Boolean {
-        if (!settings.autoOnOff) return false
+/**
+ * V1.04.428 — Cek apakah sekarang waktu SIANG atau MALAM
+ * (untuk mode AUTO — siang antara Subuh sampai Maghrib)
+ */
+fun isNowInDaytime(): Boolean {
+    val now = if (settings.isManualTimeEnabled) {
+        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
+    } else {
+        LocalDateTime.now()
+    }
+    val currentMinute = now.hour * 60 + now.minute
 
-        val now = if (settings.isManualTimeEnabled) {
-            LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
-        } else {
-            LocalDateTime.now()
+    val subuhMinute = timeToMinutes(todaySchedule.subuh)
+    val maghribMinute = timeToMinutes(todaySchedule.maghrib)
+
+    return currentMinute in subuhMinute until maghribMinute
+}
+
+fun minutesToTime(minutes: Int): String {
+    val normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60)
+    val h = normalized / 60
+    val m = normalized % 60
+    return String.format("%02d:%02d", h, m)
+}
+
+val autoOnTimeStr = remember(todaySchedule.subuh, settings.autoOnMinutesBeforeSubuh) {
+    minutesToTime(timeToMinutes(todaySchedule.subuh) - settings.autoOnMinutesBeforeSubuh)
+}
+val autoOffTimeStr = remember(todaySchedule.isya, settings.autoOffMinutesAfterIsya) {
+    minutesToTime(timeToMinutes(todaySchedule.isya) + settings.autoOffMinutesAfterIsya)
+}
+
+var isDimmed by remember { mutableStateOf(false) }
+var temporaryWake by remember { mutableStateOf(false) }
+var lastKeyPressTime by remember { mutableLongStateOf(0L) }
+var showAutoOffDialog by remember { mutableStateOf(false) }
+// V1.04.427 — Flag untuk cegah dialog muncul berulang dalam 1 sesi OFF
+var autoOffDialogDismissedForSession by remember { mutableStateOf(false) }
+// V1.04.428 — Overlay hitam aktif (fallback brightness TV)
+var isOverlayActive by remember { mutableStateOf(false) }
+// V1.04.428 — Trigger re-cek brightness (dipicu setelah dialog tutup)
+var brightnessRefreshTrigger by remember { mutableLongStateOf(0L) }
+
+/**
+ * V1.04.428 — Hitung brightness yang harus diterapkan.
+ * Return nilai 0.01f s/d 1f.
+ *
+ * - MANUAL: pakai manualBrightnessPercent
+ * - AUTO: siang dayBrightnessPercent, malam nightBrightnessPercent
+ * - SCHEDULE: ikut jadwal ON/OFF (jam OFF = 0.01f, jam ON = 1f)
+ */
+fun calculateTargetBrightness(): Float {
+    return when (settings.brightnessMode) {
+        BrightnessMode.MANUAL -> {
+            (settings.manualBrightnessPercent.toFloat() / 100f).coerceIn(0.01f, 1f)
         }
-        val currentMinute = now.hour * 60 + now.minute
-
-        val subuhMinute = timeToMinutes(todaySchedule.subuh)
-        val onMinute = subuhMinute - settings.autoOnMinutesBeforeSubuh
-
-        val isyaMinute = timeToMinutes(todaySchedule.isya)
-        val offMinute = isyaMinute + settings.autoOffMinutesAfterIsya
-
-        return if (onMinute < offMinute) {
-            currentMinute >= offMinute || currentMinute < onMinute
-        } else {
-            currentMinute in offMinute until onMinute
-        }
-    }
-
-    fun minutesToTime(minutes: Int): String {
-        val normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60)
-        val h = normalized / 60
-        val m = normalized % 60
-        return String.format("%02d:%02d", h, m)
-    }
-
-    val autoOnTimeStr = remember(todaySchedule.subuh, settings.autoOnMinutesBeforeSubuh) {
-        minutesToTime(timeToMinutes(todaySchedule.subuh) - settings.autoOnMinutesBeforeSubuh)
-    }
-    val autoOffTimeStr = remember(todaySchedule.isya, settings.autoOffMinutesAfterIsya) {
-        minutesToTime(timeToMinutes(todaySchedule.isya) + settings.autoOffMinutesAfterIsya)
-    }
-
-    var isDimmed by remember { mutableStateOf(false) }
-    var temporaryWake by remember { mutableStateOf(false) }
-    var lastKeyPressTime by remember { mutableLongStateOf(0L) }
-    var showAutoOffDialog by remember { mutableStateOf(false) }
-    // V1.04.427 — Flag untuk cegah dialog muncul berulang dalam 1 sesi OFF
-    var autoOffDialogDismissedForSession by remember { mutableStateOf(false) }
-
-    // Polling jadwal brightness setiap 30 detik
-    LaunchedEffect(
-        settings.autoOnOff,
-        settings.autoOffMinutesAfterIsya,
-        settings.autoOnMinutesBeforeSubuh,
-        settings.isManualTimeEnabled,
-        settings.manualTimeOffsetSeconds,
-        todaySchedule.subuh,
-        todaySchedule.isya
-    ) {
-        while (true) {
-            // V1.04.427 — Reset flag saat kembali ke jam ON
-            if (!isNowInOffSchedule() && autoOffDialogDismissedForSession) {
-                autoOffDialogDismissedForSession = false
+        BrightnessMode.AUTO -> {
+            val percent = if (isNowInDaytime()) {
+                settings.dayBrightnessPercent
+            } else {
+                settings.nightBrightnessPercent
             }
-
-            val shouldDim = isNowInOffSchedule() && !temporaryWake
-            if (shouldDim != isDimmed) {
-                isDimmed = shouldDim
-                runOnUiThread {
-                    try {
-                        val attrs = window.attributes
-                        if (shouldDim) {
-                            attrs.screenBrightness = 0f
-                        } else {
-                            attrs.screenBrightness =
-                                WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-                        }
-                        window.attributes = attrs
-                    } catch (e: Exception) {
-                        android.util.Log.e(
-                            "MainActivity",
-                            "Brightness update gagal: ${e.message}"
-                        )
-                    }
-                }
-            }
-            delay(30_000L)
+            (percent.toFloat() / 100f).coerceIn(0.01f, 1f)
+        }
+        BrightnessMode.SCHEDULE -> {
+            if (isNowInOffSchedule()) 0.01f else 1f
         }
     }
+}
 
-    // Timer temporary wake
-    LaunchedEffect(temporaryWake, showAutoOffDialog) {
-        if (temporaryWake && !showAutoOffDialog) {
-            delay(120_000L)
-            if (isNowInOffSchedule()) {
-                temporaryWake = false
-            }
+/**
+ * V1.04.428 — Cek apakah overlay hitam perlu aktif.
+ * Overlay aktif kalau:
+ *   1. dimOverlayEnabled = true
+ *   2. Mode SCHEDULE dan sekarang jam OFF
+ *   3. Bukan temporary wake (user baru tekan remote)
+ *   4. Dialog AutoOff tidak sedang muncul
+ */
+fun shouldOverlayActive(): Boolean {
+    if (!settings.dimOverlayEnabled) return false
+    if (settings.brightnessMode != BrightnessMode.SCHEDULE) return false
+    if (!isNowInOffSchedule()) return false
+    if (temporaryWake) return false
+    if (showAutoOffDialog) return false
+    return true
+}
+
+// ============================================================
+// POLLING JADWAL BRIGHTNESS — V1.04.428 (10 detik, bukan 30)
+// ============================================================
+LaunchedEffect(
+    settings.autoOnOff,
+    settings.brightnessMode,
+    settings.manualBrightnessPercent,
+    settings.dayBrightnessPercent,
+    settings.nightBrightnessPercent,
+    settings.dimOverlayEnabled,
+    settings.autoOffMinutesAfterIsya,
+    settings.autoOnMinutesBeforeSubuh,
+    settings.isManualTimeEnabled,
+    settings.manualTimeOffsetSeconds,
+    todaySchedule.subuh,
+    todaySchedule.isya,
+    todaySchedule.maghrib,
+    brightnessRefreshTrigger
+) {
+    while (true) {
+        // Reset flag saat kembali ke jam ON
+        if (!isNowInOffSchedule() && autoOffDialogDismissedForSession) {
+            autoOffDialogDismissedForSession = false
         }
-    }
 
-    LaunchedEffect(showAutoOffDialog) {
-        if (showAutoOffDialog) {
-            runOnUiThread {
-                try {
-                    val attrs = window.attributes
-                    attrs.screenBrightness =
-                        WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-                    window.attributes = attrs
-                } catch (_: Exception) {}
-            }
-        } else {
-            lastKeyPressTime = System.currentTimeMillis()
+        // V1.04.428 — Hitung target brightness dari mode
+        val targetBrightness = calculateTargetBrightness()
+        val shouldDim = targetBrightness < 0.5f
+
+        // Update flag dim untuk UI
+        if (shouldDim != isDimmed) {
+            isDimmed = shouldDim
         }
-    }
 
-    LaunchedEffect(
-        settings.fonnteToken,
-        settings.fonnteGroupId,
-        settings.whatsappReportEnabled
-    ) {
-        CrashReporter.updateFonnteConfig(
-            token = settings.fonnteToken,
-            groupId = settings.fonnteGroupId,
-            enabled = settings.whatsappReportEnabled
-        )
-    }
-
-    LaunchedEffect(settings.kioskModeEnabled) {
-        if (settings.kioskModeEnabled) {
-            KioskManager.enableKiosk(this@MainActivity)
-        } else {
-            KioskManager.disableKiosk(this@MainActivity)
-        }
-    }
-
-    DisposableEffect(settings.kioskModeEnabled) {
-        val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
-        if (settings.kioskModeEnabled) {
-            try { startService(serviceIntent) } catch (_: Exception) {}
-        } else {
-            try { stopService(serviceIntent) } catch (_: Exception) {}
-        }
-        onDispose {
-            try { stopService(serviceIntent) } catch (_: Exception) {}
-        }
-    }
-
-    val remoteServer = remember {
-        RemoteServer(
-            context = this@MainActivity,
-            settingsRepository = settingsRepository,
-            onRestart = {
-                runOnUiThread {
-                    val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    startActivity(intent)
-                    finish()
-                }
-            },
-            onSettingsReceived = { jsonBody ->
-                try {
-                    val current = settingsRepository.settingsFlow.value
-                    val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
-                    if (newSettings != null) {
-                        settingsRepository.updateSettings(newSettings)
-                        val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
-                        if (portBerubah) {
-                            needsHardRestart = true
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
-                }
-            },
-            onFinalize = {
-                runOnUiThread {
-                    android.util.Log.d("MainActivity", "onFinalize dipanggil")
-                    showRestartCountdown = true
-                }
-            }
-        )
-    }
-    var isRemoteServerRunning by remember { mutableStateOf(false) }
-
-    LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
-        if (settings.remoteControlEnabled) {
-            remoteServer.stop()
-            delay(300)
-            remoteServer.start(scope)
-            delay(2500)
-            val realStatus = remoteServer.isRunning()
-            isRemoteServerRunning = realStatus
-            if (!realStatus) {
+        // V1.04.428 — Terapkan brightness ke window
+        runOnUiThread {
+            try {
+                val attrs = window.attributes
+                attrs.screenBrightness = targetBrightness
+                window.attributes = attrs
+            } catch (e: Exception) {
                 android.util.Log.e(
                     "MainActivity",
-                    "Remote Server gagal: ${remoteServer.lastError}"
+                    "Brightness update gagal: ${e.message}"
                 )
             }
-        } else {
-            remoteServer.stop()
-            isRemoteServerRunning = false
+        }
+
+        // V1.04.428 — Update overlay hitam fallback
+        val overlayShouldBeActive = shouldOverlayActive()
+        if (overlayShouldBeActive != isOverlayActive) {
+            isOverlayActive = overlayShouldBeActive
+        }
+
+        delay(10_000L) // V1.04.428: 10 detik (sebelumnya 30 detik)
+    }
+}
+
+// Timer temporary wake
+LaunchedEffect(temporaryWake, showAutoOffDialog) {
+    if (temporaryWake && !showAutoOffDialog) {
+        delay(120_000L)
+        if (isNowInOffSchedule()) {
+            temporaryWake = false
         }
     }
+}
 
-    DisposableEffect(Unit) {
-        onDispose { remoteServer.stop() }
+LaunchedEffect(showAutoOffDialog) {
+    if (showAutoOffDialog) {
+        // Saat dialog muncul, paksa brightness normal supaya dialog terlihat
+        runOnUiThread {
+            try {
+                val attrs = window.attributes
+                attrs.screenBrightness = 1f
+                window.attributes = attrs
+            } catch (_: Exception) {}
+        }
+    } else {
+        lastKeyPressTime = System.currentTimeMillis()
+        // V1.04.428 — Trigger re-cek brightness langsung setelah dialog tutup
+        brightnessRefreshTrigger = System.currentTimeMillis()
     }
+}
+LaunchedEffect(
+    settings.fonnteToken,
+    settings.fonnteGroupId,
+    settings.whatsappReportEnabled
+) {
+    CrashReporter.updateFonnteConfig(
+        token = settings.fonnteToken,
+        groupId = settings.fonnteGroupId,
+        enabled = settings.whatsappReportEnabled
+    )
+}
 
-    LaunchedEffect(Unit) {
-        try {
-            delay(3000)
-            val info = UpdateManager.checkForUpdate()
-            if (info.available) {
-                val skippedVersion = getSkippedVersion()
-                val isSkipped = skippedVersion == info.latestVersion
+LaunchedEffect(settings.kioskModeEnabled) {
+    if (settings.kioskModeEnabled) {
+        KioskManager.enableKiosk(this@MainActivity)
+    } else {
+        KioskManager.disableKiosk(this@MainActivity)
+    }
+}
 
-                if (info.isForceUpdate || !isSkipped) {
-                    updateInfo = info
-                    showUpdateDialog = true
+DisposableEffect(settings.kioskModeEnabled) {
+    val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
+    if (settings.kioskModeEnabled) {
+        try { startService(serviceIntent) } catch (_: Exception) {}
+    } else {
+        try { stopService(serviceIntent) } catch (_: Exception) {}
+    }
+    onDispose {
+        try { stopService(serviceIntent) } catch (_: Exception) {}
+    }
+}
+
+val remoteServer = remember {
+    RemoteServer(
+        context = this@MainActivity,
+        settingsRepository = settingsRepository,
+        onRestart = {
+            runOnUiThread {
+                val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
+                startActivity(intent)
+                finish()
             }
-        } catch (_: Exception) { }
+        },
+        onSettingsReceived = { jsonBody ->
+            try {
+                val current = settingsRepository.settingsFlow.value
+                val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
+                if (newSettings != null) {
+                    settingsRepository.updateSettings(newSettings)
+                    val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
+                    if (portBerubah) {
+                        needsHardRestart = true
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
+            }
+        },
+        onFinalize = {
+            runOnUiThread {
+                android.util.Log.d("MainActivity", "onFinalize dipanggil")
+                showRestartCountdown = true
+            }
+        }
+    )
+}
+var isRemoteServerRunning by remember { mutableStateOf(false) }
+
+LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
+    if (settings.remoteControlEnabled) {
+        remoteServer.stop()
+        delay(300)
+        remoteServer.start(scope)
+        delay(2500)
+        val realStatus = remoteServer.isRunning()
+        isRemoteServerRunning = realStatus
+        if (!realStatus) {
+            android.util.Log.e(
+                "MainActivity",
+                "Remote Server gagal: ${remoteServer.lastError}"
+            )
+        }
+    } else {
+        remoteServer.stop()
+        isRemoteServerRunning = false
     }
+}
 
-    val startDownload: () -> Unit = {
-        val info = updateInfo
-        if (info?.downloadUrl.isNullOrBlank()) {
-            Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
-        } else if (BackupManager.needsStoragePermission()) {
-            Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
-            showStoragePermissionDialog = true
-        } else {
-            isDownloading = true
-            downloadProgress = 0f
+DisposableEffect(Unit) {
+    onDispose { remoteServer.stop() }
+}
 
-            scope.launch {
-                ApkDownloader.downloadApk(
-                    context = this@MainActivity,
-                    downloadUrl = info!!.downloadUrl!!,
-                    fileName = "masjid-io-${info.latestVersion}.apk"
-                ).collect { state ->
-                    when {
-                        state.errorMessage != null -> {
-                            isDownloading = false
+LaunchedEffect(Unit) {
+    try {
+        delay(3000)
+        val info = UpdateManager.checkForUpdate()
+        if (info.available) {
+            val skippedVersion = getSkippedVersion()
+            val isSkipped = skippedVersion == info.latestVersion
+
+            if (info.isForceUpdate || !isSkipped) {
+                updateInfo = info
+                showUpdateDialog = true
+            }
+        }
+    } catch (_: Exception) { }
+}
+
+val startDownload: () -> Unit = {
+    val info = updateInfo
+    if (info?.downloadUrl.isNullOrBlank()) {
+        Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
+    } else if (BackupManager.needsStoragePermission()) {
+        Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
+        showStoragePermissionDialog = true
+    } else {
+        isDownloading = true
+        downloadProgress = 0f
+
+        scope.launch {
+            ApkDownloader.downloadApk(
+                context = this@MainActivity,
+                downloadUrl = info!!.downloadUrl!!,
+                fileName = "masjid-io-${info.latestVersion}.apk"
+            ).collect { state ->
+                when {
+                    state.errorMessage != null -> {
+                        isDownloading = false
+                        isInstalling = false
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Download gagal: ${state.errorMessage}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    state.isFinished && state.savedFilePath != null -> {
+                        isDownloading = false
+                        isInstalling = true
+
+                        val ok = ApkDownloader.installApk(
+                            this@MainActivity,
+                            state.savedFilePath
+                        )
+                        if (!ok) {
                             isInstalling = false
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Download gagal: ${state.errorMessage}",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
-                        state.isFinished && state.savedFilePath != null -> {
-                            isDownloading = false
-                            isInstalling = true
-
-                            val ok = ApkDownloader.installApk(
-                                this@MainActivity,
-                                state.savedFilePath
-                            )
-                            if (!ok) {
-                                isInstalling = false
-                                if (!installDialogAlreadyShown) {
-                                    showInstallPermissionDialog = true
-                                    installDialogAlreadyShown = true
-                                }
-                            } else {
-                                ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
+                            if (!installDialogAlreadyShown) {
+                                showInstallPermissionDialog = true
+                                installDialogAlreadyShown = true
                             }
+                        } else {
+                            ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
                         }
-                        else -> {
-                            downloadProgress = state.progress
-                        }
+                    }
+                    else -> {
+                        downloadProgress = state.progress
                     }
                 }
             }
         }
     }
+}
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { }
+val permissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestMultiplePermissions()
+) { }
 
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.READ_MEDIA_IMAGES,
-                    Manifest.permission.READ_MEDIA_VIDEO
-                )
+LaunchedEffect(Unit) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
             )
-        } else {
-            permissionLauncher.launch(
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-            )
-        }
+        )
+    } else {
+        permissionLauncher.launch(
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        )
     }
+}
 
-    DisposableEffect(settings.keepScreenOn) {
-        if (settings.keepScreenOn) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-        onDispose {}
+DisposableEffect(settings.keepScreenOn) {
+    if (settings.keepScreenOn) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    } else {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
+    onDispose {}
+}
 
-    var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
-    var showPinDialog by remember { mutableStateOf(false) }
-    var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
-    var focusPrayerTime by remember { mutableStateOf("17:52") }
+var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
+var showPinDialog by remember { mutableStateOf(false) }
+var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
+var focusPrayerTime by remember { mutableStateOf("17:52") }
 
-    var currentTemperature by remember { mutableStateOf(30) }
-    var currentWeatherCondition by remember { mutableStateOf("Cerah") }
+var currentTemperature by remember { mutableStateOf(30) }
+var currentWeatherCondition by remember { mutableStateOf("Cerah") }
 
-    LaunchedEffect(settings.latitude, settings.longitude) {
-        while (true) {
-            try {
-                val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
-                currentTemperature = weather.temperature
-                currentWeatherCondition = weather.condition
-            } catch (_: Exception) { }
-            delay(30 * 60 * 1000L)
-        }
+LaunchedEffect(settings.latitude, settings.longitude) {
+    while (true) {
+        try {
+            val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
+            currentTemperature = weather.temperature
+            currentWeatherCondition = weather.condition
+        } catch (_: Exception) { }
+        delay(30 * 60 * 1000L)
     }
-    // ============ BACK PRESS ============
+}
+
+// ============ BACK PRESS ============
 DisposableEffect(
     settings.kioskModeEnabled,
     currentScreen,
@@ -751,7 +838,6 @@ LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
         }
     }
 }
-
 // ============ THEME + UI ============
 MasjidTheme {
     Surface(
@@ -885,6 +971,34 @@ MasjidTheme {
                 }
 
                 // ============================================================
+                // V1.04.428 — OVERLAY HITAM FULLSCREEN (FALLBACK BRIGHTNESS)
+                //
+                // Android TV (Xiaomi, Mi Box, dll) sering abaikan
+                // screenBrightness=0f. Overlay hitam ini memastikan
+                // layar benar-benar gelap saat jam OFF.
+                //
+                // Layer:
+                //   - zIndex(100f): di atas semua screen
+                //   - Alpha 0.98f: tidak menutup total (masih ada hint)
+                //   - Klik & focusable: intercept D-pad supaya tidak
+                //     tembus ke screen di belakang
+                //   - Saat user tekan remote, overlay ini TIDAK hilang
+                //     (harus lewat dialog AutoOff)
+                // ============================================================
+                if (isOverlayActive) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.98f))
+                            .zIndex(100f)
+                            .focusable()
+                    ) {
+                        // Tidak ada content — layar benar-benar gelap
+                        // (kalau mau hint, tambahkan Text sangat samar)
+                    }
+                }
+
+                // ============================================================
                 // PIN DIALOG
                 // ============================================================
                 if (showPinDialog) {
@@ -920,6 +1034,8 @@ MasjidTheme {
                             showAutoOffDialog = false
                             temporaryWake = true
                             autoOffDialogDismissedForSession = true
+                            // V1.04.428 — Re-cek brightness langsung
+                            brightnessRefreshTrigger = System.currentTimeMillis()
                             Toast.makeText(
                                 this@MainActivity,
                                 "Jadwal ON/OFF dimatikan. Layar tetap nyala sampai TV dimatikan manual.",
@@ -930,105 +1046,105 @@ MasjidTheme {
                             showAutoOffDialog = false
                             temporaryWake = false
                             autoOffDialogDismissedForSession = true
+                            // V1.04.428 — Re-cek brightness langsung
+                            brightnessRefreshTrigger = System.currentTimeMillis()
                         }
                     )
                 }
-                                            // ============================================================
-                            // STORAGE PERMISSION DIALOG
-                            // ============================================================
-                            if (showStoragePermissionDialog) {
-                                StoragePermissionDialog(
-                                    onGrantClick = {
-                                        BackupManager.openPermissionSettings(this@MainActivity)
-                                    },
-                                    onSkipClick = {
-                                        showStoragePermissionDialog = false
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                            if (!context.packageManager.canRequestPackageInstalls()
-                                                && !installDialogAlreadyShown) {
-                                                showInstallPermissionDialog = true
-                                                installDialogAlreadyShown = true
-                                            }
-                                        }
-                                    }
-                                )
-                            }
 
-                            // ============================================================
-                            // INSTALL PERMISSION DIALOG
-                            // ============================================================
-                            if (showInstallPermissionDialog) {
-                                InstallPermissionDialog(
-                                    onGrantClick = {
-                                        ApkDownloader.openInstallPermissionSettings(this@MainActivity)
-                                        showInstallPermissionDialog = false
-                                        installDialogAlreadyShown = true
-                                    },
-                                    onSkipClick = {
-                                        showInstallPermissionDialog = false
-                                        installDialogAlreadyShown = true
-                                    }
-                                )
-                            }
-
-                            // ============================================================
-                            // UPDATE DIALOG
-                            // ============================================================
-                            if (showUpdateDialog && updateInfo != null) {
-                                val info = updateInfo!!
-
-                                UpdateDialog(
-                                    currentVersion = info.currentVersion,
-                                    latestVersion = info.latestVersion,
-                                    releaseNotes = info.releaseNotes,
-                                    forceUpdate = info.isForceUpdate,
-                                    downloadProgress = if (isDownloading) downloadProgress else null,
-                                    isDownloading = isDownloading,
-                                    isInstalling = isInstalling,
-                                    onUpdateClick = { startDownload() },
-                                    onLaterClick = {
-                                        showUpdateDialog = false
-                                    },
-                                    onSkipClick = {
-                                        setSkippedVersion(info.latestVersion)
-                                        showUpdateDialog = false
-                                    },
-                                    onTidakClick = {
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            "Aplikasi wajib diupdate. Menutup aplikasi...",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        scope.launch {
-                                            delay(1500)
-                                            this@MainActivity.finishAffinity()
-                                            android.os.Process.killProcess(android.os.Process.myPid())
-                                        }
-                                    }
-                                )
-                            }
-
-                            // ============================================================
-                            // RESTART COUNTDOWN OVERLAY
-                            // ============================================================
-                            if (showRestartCountdown) {
-                                RestartCountdownOverlay(
-                                    countdownStart = 5,
-                                    message = "Pengaturan & media baru sedang diterapkan",
-                                    onComplete = {
-                                        android.util.Log.d("MainActivity", "Countdown selesai - restart sekarang")
-                                        showRestartCountdown = false
-                                        doSoftRestart()
-                                    }
-                                )
+                // ============================================================
+                // STORAGE PERMISSION DIALOG
+                // ============================================================
+                if (showStoragePermissionDialog) {
+                    StoragePermissionDialog(
+                        onGrantClick = {
+                            BackupManager.openPermissionSettings(this@MainActivity)
+                        },
+                        onSkipClick = {
+                            showStoragePermissionDialog = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                if (!context.packageManager.canRequestPackageInstalls()
+                                    && !installDialogAlreadyShown) {
+                                    showInstallPermissionDialog = true
+                                    installDialogAlreadyShown = true
+                                }
                             }
                         }
-                    }
+                    )
+                }
+
+                // ============================================================
+                // INSTALL PERMISSION DIALOG
+                // ============================================================
+                if (showInstallPermissionDialog) {
+                    InstallPermissionDialog(
+                        onGrantClick = {
+                            ApkDownloader.openInstallPermissionSettings(this@MainActivity)
+                            showInstallPermissionDialog = false
+                            installDialogAlreadyShown = true
+                        },
+                        onSkipClick = {
+                            showInstallPermissionDialog = false
+                            installDialogAlreadyShown = true
+                        }
+                    )
+                }
+
+                // ============================================================
+                // UPDATE DIALOG
+                // ============================================================
+                if (showUpdateDialog && updateInfo != null) {
+                    val info = updateInfo!!
+
+                    UpdateDialog(
+                        currentVersion = info.currentVersion,
+                        latestVersion = info.latestVersion,
+                        releaseNotes = info.releaseNotes,
+                        forceUpdate = info.isForceUpdate,
+                        downloadProgress = if (isDownloading) downloadProgress else null,
+                        isDownloading = isDownloading,
+                        isInstalling = isInstalling,
+                        onUpdateClick = { startDownload() },
+                        onLaterClick = {
+                            showUpdateDialog = false
+                        },
+                        onSkipClick = {
+                            setSkippedVersion(info.latestVersion)
+                            showUpdateDialog = false
+                        },
+                        onTidakClick = {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Aplikasi wajib diupdate. Menutup aplikasi...",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            scope.launch {
+                                delay(1500)
+                                this@MainActivity.finishAffinity()
+                                android.os.Process.killProcess(android.os.Process.myPid())
+                            }
+                        }
+                    )
+                }
+
+                // ============================================================
+                // RESTART COUNTDOWN OVERLAY
+                // ============================================================
+                if (showRestartCountdown) {
+                    RestartCountdownOverlay(
+                        countdownStart = 5,
+                        message = "Pengaturan & media baru sedang diterapkan",
+                        onComplete = {
+                            android.util.Log.d("MainActivity", "Countdown selesai - restart sekarang")
+                            showRestartCountdown = false
+                            doSoftRestart()
+                        }
+                    )
                 }
             }
         }
     }
-
+}
     // ============================================================
     // LIFECYCLE
     // ============================================================
@@ -1088,6 +1204,7 @@ MasjidTheme {
         }
     }
 }
+
 // ============================================================
 // STORAGE PERMISSION DIALOG
 // V1.04.427 — Tombol pakai Box + height fixed
@@ -1257,7 +1374,6 @@ private fun StoragePermissionDialog(
         }
     }
 }
-
 // ============================================================
 // INSTALL PERMISSION DIALOG
 // V1.04.427 — Tombol pakai Box + height fixed
