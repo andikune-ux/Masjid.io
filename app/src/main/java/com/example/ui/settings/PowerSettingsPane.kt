@@ -56,12 +56,11 @@ import dev.andikune.masjidio.ui.theme.TextPrimary
 import dev.andikune.masjidio.ui.theme.TextSecondary
 import dev.andikune.masjidio.ui.theme.UrgentRed
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 // ============================================================
-// V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS) MANUAL + AUTO
+// V1.04.429 — KECERAHAN LAYAR (BRIGHTNESS) MANUAL + AUTO
 //
-// Tambah seksi baru di bawah "PENGATURAN LAYAR":
+// Seksi baru di bawah "PENGATURAN LAYAR":
 //   1. Radio 3 mode: MANUAL / AUTO / SCHEDULE
 //   2. Slider manual (10-100%)
 //   3. Slider auto siang (10-100%)
@@ -222,7 +221,7 @@ fun PowerSettingsPane(
         Spacer(modifier = Modifier.height(8.dp))
 
         // ============================================================
-        // V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS)
+        // V1.04.429 — KECERAHAN LAYAR (BRIGHTNESS)
         // ============================================================
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -247,7 +246,7 @@ fun PowerSettingsPane(
             lineHeight = 16.sp
         )
 
-        // ── Radio 3 mode ──
+        // -- Radio 3 mode --
         BrightnessModeRow(
             title = "MANUAL",
             description = "Kecerahan tetap dari slider di bawah (10%–100%)",
@@ -278,7 +277,7 @@ fun PowerSettingsPane(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // ── Slider Manual (muncul hanya jika mode MANUAL) ──
+        // -- Slider Manual (muncul hanya jika mode MANUAL) --
         if (settings.brightnessMode == BrightnessMode.MANUAL) {
             TvSlider(
                 label = "Kecerahan Manual",
@@ -292,7 +291,7 @@ fun PowerSettingsPane(
             )
         }
 
-        // ── Slider Auto Siang & Malam (muncul hanya jika mode AUTO) ──
+        // -- Slider Auto Siang & Malam (muncul hanya jika mode AUTO) --
         if (settings.brightnessMode == BrightnessMode.AUTO) {
             Box(
                 modifier = Modifier
@@ -350,7 +349,7 @@ fun PowerSettingsPane(
             )
         }
 
-        // ── Toggle Overlay Hitam (fallback) ──
+        // -- Toggle Overlay Hitam (fallback) --
         Spacer(modifier = Modifier.height(4.dp))
 
         TvToggle(
@@ -516,7 +515,7 @@ fun PowerSettingsPane(
                 }
             }
 
-            // ── Slider OFF ──
+            // -- Slider OFF --
             TvSlider(
                 label = "Redup Setelah Isya",
                 value = settings.autoOffMinutesAfterIsya.toFloat(),
@@ -528,7 +527,7 @@ fun PowerSettingsPane(
                 formatter = { "${it.toInt()} menit setelah Isya" }
             )
 
-            // ── Slider ON ──
+            // -- Slider ON --
             TvSlider(
                 label = "Nyala Sebelum Subuh",
                 value = settings.autoOnMinutesBeforeSubuh.toFloat(),
@@ -668,7 +667,7 @@ fun PowerSettingsPane(
             description = "Cegah TV sleep saat aplikasi berjalan"
         )
 
-        // V1.04.428 — Info Kecerahan (baca dari brightnessMode baru)
+        // V1.04.429 — Info Kecerahan (baca dari brightnessMode baru)
         InfoBox(
             icon = Icons.Default.Brightness6,
             title = "Kecerahan",
