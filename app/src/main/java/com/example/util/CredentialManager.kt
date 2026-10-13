@@ -25,13 +25,13 @@ import javax.crypto.spec.SecretKeySpec
  *
  * Mengelola kredensial sensitif (Token Fonnte, Group ID, GitHub PAT):
  *   - Enkripsi AES-256-GCM dengan passphrase terpisah
- *   - Simpan file terenkripsi di HP
- *   - Sync ke GitHub Gist (Secret)
+ *   - Simpan file terenkripsi di HP (filesDir/credentials.enc)
+ *   - Sync ke GitHub Gist (SECRET)
  *
  * Passphrase TIDAK PERNAH ada di source code.
  * User yang menentukan passphrase-nya sendiri saat pertama setup.
  *
- * Kalau passphrase lupa → tidak bisa decrypt → harus reset credentials.
+ * Kalau passphrase lupa -> tidak bisa decrypt -> harus reset credentials.
  */
 object CredentialManager {
 
@@ -56,13 +56,20 @@ object CredentialManager {
     private const val GCM_TAG_LENGTH = 128          // 128-bit tag
 
     // ============================================================
+    // GIST
+    // ============================================================
+    private const val GIST_FILENAME = "masjid-io-credentials.enc"
+    private const val GIST_DESCRIPTION = "Masjid.io Encrypted Credentials (DO NOT DELETE)"
+    private const val GITHUB_API = "https://api.github.com/gists"
+
+    // ============================================================
     // CACHE MEMORY
     // ============================================================
     @Volatile private var cachedToken: String = ""
     @Volatile private var cachedGroupId: String = ""
     @Volatile private var cachedPat: String = ""
     @Volatile private var isInitialized: Boolean = false
-    @Volatile private var activePassphrase: String? = null  // HANYA di memory, tidak pernah ditulis ke disk
+    @Volatile private var activePassphrase: String? = null  // hanya di memory
 
     // ============================================================
     // DATA CLASS
@@ -73,20 +80,26 @@ object CredentialManager {
         val githubPat: String = ""
     )
 
+    data class SyncResult(
+        val success: Boolean,
+        val message: String,
+        val hasLocalChange: Boolean = false,
+        val hasRemoteChange: Boolean = false,
+        val remoteCredentials: Credentials? = null
+    )
+
     // ============================================================
-    // INIT — Dipanggil saat app buka
-    // Cek apakah passphrase sudah di-set sebelumnya
+    // INIT
     // ============================================================
     fun init(context: Context) {
         isInitialized = true
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasPassphrase = prefs.getBoolean(KEY_HAS_PASSPHRASE, false)
         Log.d(TAG, "Init: hasPassphrase=$hasPassphrase")
-        // Cache tetap kosong sampai user input passphrase
     }
 
     // ============================================================
-    // CEK APAKAH PASSPHRASE SUDAH PERNAH DI-SET
+    // CEK PASSPHRASE SUDAH DI-SET?
     // ============================================================
     fun hasPassphrase(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -95,7 +108,6 @@ object CredentialManager {
 
     // ============================================================
     // SET PASSPHRASE BARU (pertama kali)
-    // Return true kalau berhasil
     // ============================================================
     fun setPassphrase(context: Context, passphrase: String): Boolean {
         if (passphrase.length < 12) {
@@ -130,12 +142,13 @@ object CredentialManager {
     }
 
     // ============================================================
-    // UNLOCK — Verifikasi + Load credentials dari file
-    // Dipanggil setelah verifyPassphrase sukses
+    // UNLOCK — Verifikasi + Load credentials
     // ============================================================
     fun unlock(context: Context, passphrase: String): Boolean {
         if (!verifyPassphrase(context, passphrase)) return false
-        return loadFromFile(context, passphrase)
+        return runCatching {
+            kotlinx.coroutines.runBlocking { loadFromFile(context, passphrase) }
+        }.getOrDefault(false)
     }
 
     // ============================================================
@@ -149,15 +162,23 @@ object CredentialManager {
     }
 
     // ============================================================
-    // GETTERS — Baca dari cache memory
+    // GETTERS
     // ============================================================
     fun getToken(): String = cachedToken
     fun getGroupId(): String = cachedGroupId
     fun getPat(): String = cachedPat
     fun isUnlocked(): Boolean = activePassphrase != null
 
+    fun getCredentials(): Credentials {
+        return Credentials(
+            fonnteToken = cachedToken,
+            fonnteGroupId = cachedGroupId,
+            githubPat = cachedPat
+        )
+    }
+
     // ============================================================
-    // SAVE — Simpan credentials (encrypt + tulis file)
+    // SAVE CREDENTIALS — Encrypt + tulis file
     // ============================================================
     suspend fun saveCredentials(
         context: Context,
@@ -180,7 +201,6 @@ object CredentialManager {
             val file = File(context.filesDir, CREDENTIALS_FILE)
             FileOutputStream(file).use { it.write(encrypted.toByteArray(Charsets.UTF_8)) }
 
-            // Update cache
             cachedToken = credentials.fonnteToken
             cachedGroupId = credentials.fonnteGroupId
             cachedPat = credentials.githubPat
@@ -192,7 +212,7 @@ object CredentialManager {
             false
         }
     }
-// ============================================================
+    // ============================================================
 // LOAD FROM FILE — Baca file terenkripsi & decrypt
 // ============================================================
 private suspend fun loadFromFile(context: Context, passphrase: String): Boolean =
@@ -201,7 +221,6 @@ private suspend fun loadFromFile(context: Context, passphrase: String): Boolean 
             val file = File(context.filesDir, CREDENTIALS_FILE)
             if (!file.exists()) {
                 Log.d(TAG, "File credentials belum ada")
-                // Tidak ada file = credentials kosong, tapi passphrase valid
                 cachedToken = ""
                 cachedGroupId = ""
                 cachedPat = ""
@@ -234,17 +253,6 @@ private suspend fun loadFromFile(context: Context, passphrase: String): Boolean 
             false
         }
     }
-
-// ============================================================
-// GET CREDENTIALS — Ambil dari cache
-// ============================================================
-fun getCredentials(): Credentials {
-    return Credentials(
-        fonnteToken = cachedToken,
-        fonnteGroupId = cachedGroupId,
-        githubPat = cachedPat
-    )
-}
 
 // ============================================================
 // CLEAR — Hapus semua credentials (lokal + cache)
@@ -349,39 +357,20 @@ private fun hashPassphrase(passphrase: String): String {
     return Base64.encodeToString(bytes, Base64.NO_WRAP)
 }
     // ============================================================
-    // GIST API — GitHub Gist untuk sync antar device
-    // ============================================================
-    private const val GIST_FILENAME = "masjid-io-credentials.enc"
-    private const val GIST_DESCRIPTION = "Masjid.io Encrypted Credentials (DO NOT DELETE)"
-    private const val GITHUB_API = "https://api.github.com/gists"
-
-    // ============================================================
-    // DATA CLASS — Hasil sync
-    // ============================================================
-    data class SyncResult(
-        val success: Boolean,
-        val message: String,
-        val hasLocalChange: Boolean = false,
-        val hasRemoteChange: Boolean = false,
-        val remoteCredentials: Credentials? = null
-    )
-
-    // ============================================================
-    // GET / SET GIST ID (disimpan di SharedPreferences)
+    // GET / SET GIST ID
     // ============================================================
     fun getGistId(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(KEY_GIST_ID, null)?.takeIf { it.isNotBlank() }
     }
 
-    private fun setGistId(context: Context, gistId: String) {
+    fun setGistId(context: Context, gistId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_GIST_ID, gistId).apply()
     }
 
     // ============================================================
     // CREATE GIST — Auto-create Gist pertama kali
-    // Return: Gist ID kalau sukses
     // ============================================================
     suspend fun createGist(context: Context, pat: String): String? =
         withContext(Dispatchers.IO) {
@@ -396,7 +385,7 @@ private fun hashPassphrase(passphrase: String): String {
                     put("public", false)
                     put("files", JSONObject().apply {
                         put(GIST_FILENAME, JSONObject().apply {
-                            put("content", "INITIALIZED")  // placeholder, nanti di-update
+                            put("content", "INITIALIZED")
                         })
                     })
                 }
@@ -427,8 +416,7 @@ private fun hashPassphrase(passphrase: String): String {
         }
 
     // ============================================================
-    // FETCH GIST — Ambil isi terenkripsi dari Gist
-    // Return: String base64 ciphertext
+    // FETCH GIST — Ambil isi terenkripsi
     // ============================================================
     suspend fun fetchGist(context: Context, pat: String): String? =
         withContext(Dispatchers.IO) {
@@ -460,7 +448,7 @@ private fun hashPassphrase(passphrase: String): String {
         }
 
     // ============================================================
-    // UPDATE GIST — Upload credentials terenkripsi ke Gist
+    // UPDATE GIST — Upload credentials terenkripsi
     // ============================================================
     suspend fun updateGist(context: Context, pat: String, encryptedContent: String): Boolean =
         withContext(Dispatchers.IO) {
@@ -493,16 +481,15 @@ private fun hashPassphrase(passphrase: String): String {
         }
 
     // ============================================================
-    // SYNC TO CLOUD — Enkripsi + upload ke Gist
+    // SYNC TO CLOUD — Encrypt + upload ke Gist
     // ============================================================
     suspend fun syncToCloud(context: Context): SyncResult = withContext(Dispatchers.IO) {
         val passphrase = activePassphrase
             ?: return@withContext SyncResult(false, "Passphrase belum di-set")
         val pat = cachedPat
-            ?: return@withContext SyncResult(false, "PAT belum diisi")
 
         if (pat.isBlank()) {
-            return@withContext SyncResult(false, "PAT kosong")
+            return@withContext SyncResult(false, "PAT belum diisi")
         }
 
         try {
@@ -538,12 +525,12 @@ private fun hashPassphrase(passphrase: String): String {
     }
 
     // ============================================================
-    // SYNC FROM CLOUD — Fetch dari Gist + decrypt + bandingkan
+    // SYNC FROM CLOUD — Fetch + decrypt + bandingkan
     // ============================================================
     suspend fun syncFromCloud(context: Context): SyncResult = withContext(Dispatchers.IO) {
         val passphrase = activePassphrase
             ?: return@withContext SyncResult(false, "Passphrase belum di-set")
-        val pat = cachedPat ?: ""
+        val pat = cachedPat
 
         if (pat.isBlank()) {
             return@withContext SyncResult(false, "PAT belum diisi")
@@ -586,7 +573,7 @@ private fun hashPassphrase(passphrase: String): String {
     }
 
     // ============================================================
-    // APPLY REMOTE — Terapkan credentials dari cloud ke cache + file
+    // APPLY REMOTE — Terapkan credentials dari cloud
     // ============================================================
     suspend fun applyRemoteCredentials(
         context: Context,
