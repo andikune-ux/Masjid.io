@@ -60,7 +60,7 @@ enum class CctvPosition {
 /**
  * Mode PIN Lock setelah keluar dari Settings.
  *
- *   IMMEDIATE      = Setiap kali tekan tombol Settings → langsung minta PIN
+ *   IMMEDIATE      = Setiap kali tekan tombol Settings -> langsung minta PIN
  *   TIMEOUT_5MIN   = PIN diminta kembali 5 menit setelah kembali ke menu utama
  *   UNTIL_EXIT     = PIN hanya diminta saat pertama buka, tidak minta lagi
  *                    sampai aplikasi di-keluarkan (DEFAULT — behavior lama)
@@ -72,11 +72,13 @@ enum class PinLockMode {
 }
 
 /**
- * V1.04.428 — Mode Kecerahan Layar
+ * V1.04.429 — Mode Kecerahan Layar
  *
  *   MANUAL   = Brightness tetap dari slider (manualBrightnessPercent)
- *   AUTO     = Ikut jadwal sholat (siang = dayBrightnessPercent, malam = nightBrightnessPercent)
- *   SCHEDULE = Ikut jadwal ON/OFF (jam OFF = layar gelap total via overlay)
+ *   AUTO     = Ikut jadwal sholat:
+ *              siang = dayBrightnessPercent (Subuh-Maghrib)
+ *              malam = nightBrightnessPercent (Maghrib-Subuh)
+ *   SCHEDULE = Ikut jadwal ON/OFF (jam OFF = layar gelap total)
  *              (DEFAULT — pakai fitur Jadwal On/Off Otomatis)
  */
 enum class BrightnessMode {
@@ -146,176 +148,4 @@ data class LaporanKeuangan(
     val totalPemasukan: Long get() = pemasukanJumat + pemasukanUmum
     val totalPengeluaran: Long get() = pengeluaranDakwah + pengeluaranSosial + pengeluaranOperasional
     val saldoAkhir: Long get() = saldoSebelumnya + totalPemasukan - totalPengeluaran
-}
-data class AppSettings(
-    val mosqueName: String = "MASJID AL-IKHLAS",
-    val mosqueAddress: String = "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat",
-    val mosqueTakmir: String = "H. Muhammad Syarif, S.E.",
-    val isGpsEnabled: Boolean = false,
-    val country: String = "Indonesia",
-    val province: String = "DKI Jakarta",
-    val city: String = "Jakarta Pusat",
-    val district: String = "Gambir",
-    val latitude: Double = -6.1754,
-    val longitude: Double = 106.8272,
-    val calculationMethod: String = "Kementerian Agama RI (Kemenag)",
-    val languageCode: String = "id",
-    val runningText: String = "║ Selamat datang di Masjid Al-Ikhlas ║ Luruskan dan rapatkan shaf sholat ║ Harap nonaktifkan nada dering ponsel ║ Mari jaga kebersihan dan ketertiban masjid ║",
-    val runningTextSpeed: Int = 5,
-    val runningTextFontSize: Int = 18,
-    val officers: OfficerSchedule = OfficerSchedule(),
-    val weeklyOfficers: List<DailyOfficerItem> = createDefaultWeeklySchedule(),
-    val officerPhotoUri: String? = null,
-    val audioMode: AudioMode = AudioMode.BEEP_ONLY,
-    val beepVolume: Int = 100,
-    val beepCount: Int = 5,
-    val beepDurationMs: Int = 1500,
-    val beepIntervalMs: Int = 2000,
-    val adzanFile: String = "Makkah",
-    val adzanVolume: Int = 85,
-    val adzanWaitMinutes: Int = 5,
-    val iqamahWaitMinutes: Int = 10,
-    val qobliyahWaitMinutes: Int = 5,
-    val prayerFocusDurationMinutes: Int = 30,
-    val focusModeDurationMinutes: Int = 30,
-    val backgroundMode: BackgroundMode = BackgroundMode.MAKKAH_DYNAMIC,
-    val customBackgroundUri: String? = null,
-    val animationsEnabled: Boolean = true,
-    val showBirdsAnimation: Boolean = true,
-    val tvAutoScaleEnabled: Boolean = true,
-    val tvSafeAreaPercent: Float = 3f,
-    val tvLayoutPreset: String = "AUTO",
-    val qrisPhotoUri: String? = null,
-    val qrisImageUri: String = "",
-    val qrisIntervalMinutes: Int = 15,
-    val qrisDisplayDurationSeconds: Int = 30,
-    val bankName: String = "Bank Syariah Indonesia (BSI)",
-    val bankAccountNumber: String = "7123-4567-890",
-    val bankAccountHolder: String = "DKM MASJID AL-IKHLAS",
-    val wisdomCardAnimation: String = "Fade",
-    val wisdomCardIntervalSeconds: Int = 12,
-    val showAsmaulHusna: Boolean = true,
-    val showHaditsHarian: Boolean = true,
-    val showAyatQuran: Boolean = true,
-    val showDoaHarian: Boolean = true,
-    val showSunnahReminder: Boolean = true,
-    val videoEnabled: Boolean = false,
-    val videoUri: String? = null,
-    val videoSmartFullscreen: Boolean = true,
-    val photoSlideshowEnabled: Boolean = false,
-    val photoSlideshowUris: List<String> = emptyList(),
-    val photoSlideshowIntervalSeconds: Int = 10,
-    val autoSwitchEnabled: Boolean = false,
-    val videoModeIntervalMinutes: Int = 5,
-    val normalModeDurationMinutes: Int = 2,
-    val videoFrameScale: String = "POTONG",
-    val waitVideoFinishBeforeSwitch: Boolean = true,
-    // ============================================================
-    // ALUR SHOLAT BARU
-    // ============================================================
-    val adzanDisplayDurationSeconds: Int = 8,
-    val silentPhoneDisplayDurationSeconds: Int = 8,
-    val qobliyahNiatDisplayDurationSeconds: Int = 15,
-    val fardhuNiatDisplayDurationSeconds: Int = 15,
-    val dzikirDisplayDurationSeconds: Int = 120,
-    val focusModeAllowExitWithRemote: Boolean = true,
-    val showDoaAfterAdzan: Boolean = true,
-    val showDoaAfterIqomah: Boolean = true,
-    // ============================================================
-    val slideEnabled: Boolean = false,
-    val slideIntervalSeconds: Int = 15,
-    val qrisSlideEnabled: Boolean = true,
-    val laporanSlideEnabled: Boolean = true,
-    val kajianSlideEnabled: Boolean = true,
-    val slideShowOnlyWhenIdle: Boolean = true,
-    val laporanKeuangan: LaporanKeuangan = LaporanKeuangan(),
-    val prayerCardPhotoEnabled: Boolean = false,
-    val prayerCardPhotoUri: String? = null,
-    val prayerCardPhotoAlpha: Float = 0.35f,
-    val ramadhanModeEnabled: Boolean = false,
-    val showImsakIftarCountdown: Boolean = true,
-    val showTarawihSchedule: Boolean = true,
-    val showKultumSchedule: Boolean = true,
-    val showMenuSahurIftar: Boolean = false,
-    val showImsakBesar: Boolean = true,
-    val showIftarBesar: Boolean = true,
-    val ramadhanImsakOffsetMinutes: Int = 10,
-    val tarawihTime: String = "19:30",
-    val tarawihImam: String = "",
-    val kultumTitle: String = "",
-    val kultumUstadz: String = "",
-    val kultumTime: String = "17:30",
-    val menuSahurText: String = "",
-    val menuIftarText: String = "",
-    val dzikirEnabled: Boolean = true,
-    val dzikirDurationSeconds: Int = 120,
-    val dzikirAutoShowAfterPrayer: Boolean = true,
-    val contentRotationEnabled: Boolean = false,
-    val contentRotationShowAyat: Boolean = true,
-    val contentRotationShowHadits: Boolean = true,
-    val contentRotationShowAsmaulHusna: Boolean = true,
-    val contentRotationIntervalSeconds: Int = 20,
-    val cctvEnabled: Boolean = false,
-    val cctvUrl: String = "",
-    val cctvPosition: CctvPosition = CctvPosition.TOP_RIGHT,
-    val cctvSizePercent: Int = 20,
-    val remoteControlEnabled: Boolean = false,
-    val remoteServerPort: Int = 14039,
-    val remoteAuthToken: String = "masjid-io",
-    val pinCode: String = "1234",
-    val kioskModeEnabled: Boolean = true,
-    val autoStartOnBoot: Boolean = true,
-    val autoRestartIfCrash: Boolean = true,
-    val disableBackButton: Boolean = true,
-    val lockTaskMode: Boolean = true,
-    val isManualTimeEnabled: Boolean = false,
-    val manualTimeOffsetSeconds: Long = 0L,
-    val keepScreenOn: Boolean = true,
-    // ============================================================
-    // V1.04.423 — JADWAL ON/OFF OTOMATIS DARI JADWAL SHOLAT
-    //   ON  = Subuh - 15 menit  (auto)
-    //   OFF = Isya  + 30 menit  (auto)
-    //
-    // Field lama autoOnTime & autoOffTime DIHAPUS.
-    // Field baru: autoOffDialogEnabled untuk popup konfirmasi.
-    // ============================================================
-    val autoOnOff: Boolean = false,
-    val autoOffMinutesAfterIsya: Int = 30,       // OFF = Isya + 30 menit
-    val autoOnMinutesBeforeSubuh: Int = 15,      // ON  = Subuh - 15 menit
-    val autoOffDialogEnabled: Boolean = true,    // Popup saat tekan remote
-    // ============================================================
-    val idleScreenOff: Boolean = true,
-    val idleTimeoutMinutes: Int = 30,
-    val autoBrightness: Boolean = true,
-    val saveBatteryMode: Boolean = false,
-    // ============================================================
-    // V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS) MANUAL + AUTO
-    //
-    //   brightnessMode      = MANUAL / AUTO / SCHEDULE
-    //   manualBrightness    = 10-100 (dipakai jika mode MANUAL)
-    //   dayBrightness       = 10-100 (dipakai mode AUTO saat siang)
-    //   nightBrightness     = 10-100 (dipakai mode AUTO saat malam)
-    //   dimOverlayEnabled   = Fallback overlay hitam saat jam OFF
-    //                         (karena Android TV sering abaikan screenBrightness=0)
-    // ============================================================
-    val brightnessMode: BrightnessMode = BrightnessMode.SCHEDULE,
-    val manualBrightnessPercent: Int = 100,
-    val dayBrightnessPercent: Int = 100,
-    val nightBrightnessPercent: Int = 30,
-    val dimOverlayEnabled: Boolean = true,
-    // ============================================================
-    val fonnteToken: String = "",
-    val fonnteGroupId: String = "",
-    val whatsappReportEnabled: Boolean = true,
-    // ============================================================
-    // PIN LOCK MODE
-    // ============================================================
-    val pinLockMode: PinLockMode = PinLockMode.UNTIL_EXIT
-) {
-    companion object {
-        fun createDefaultWeeklySchedule(): List<DailyOfficerItem> {
-            val days = listOf("Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu", "Ahad")
-            return days.map { day -> DailyOfficerItem(dayName = day) }
-        }
-    }
 }
