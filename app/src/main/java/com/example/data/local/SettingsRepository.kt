@@ -10,7 +10,7 @@ import dev.andikune.masjidio.data.model.CctvPosition
 import dev.andikune.masjidio.data.model.DailyOfficerItem
 import dev.andikune.masjidio.data.model.LaporanKeuangan
 import dev.andikune.masjidio.data.model.OfficerSchedule
-import dev.andikune.masjidio.util.FonnteHelper
+import dev.andikune.masjidio.data.model.PinLockMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +35,7 @@ class SettingsRepository(context: Context) {
     // LOAD SETTINGS + MIGRASI PORT
     // ============================================================
     private fun loadSettings(): AppSettings {
-        // Migrasi port lama (8080) → baru (14039)
+        // Migrasi port lama (8080) -> baru (14039)
         val savedPort = prefs.getInt("remoteServerPort", -1)
         val migratedPort = if (savedPort == -1 || savedPort == 8080) 14039 else savedPort
         if (savedPort != migratedPort) {
@@ -81,13 +81,9 @@ class SettingsRepository(context: Context) {
             customBackgroundUri = prefs.getString("customBackgroundUri", null),
             animationsEnabled = prefs.getBoolean("animationsEnabled", true),
             showBirdsAnimation = prefs.getBoolean("showBirdsAnimation", true),
-            // ============================================================
-            // RESPONSIVE LAYOUT (V1.30.3)
-            // ============================================================
             tvAutoScaleEnabled = prefs.getBoolean("tvAutoScaleEnabled", true),
             tvSafeAreaPercent = prefs.getFloat("tvSafeAreaPercent", 3f),
             tvLayoutPreset = prefs.getString("tvLayoutPreset", "AUTO") ?: "AUTO",
-            // ============================================================
             qrisPhotoUri = prefs.getString("qrisPhotoUri", null),
             qrisImageUri = prefs.getString("qrisImageUri", "") ?: "",
             qrisIntervalMinutes = prefs.getInt("qrisIntervalMinutes", 15),
@@ -163,7 +159,7 @@ class SettingsRepository(context: Context) {
             autoBrightness = prefs.getBoolean("autoBrightness", true),
             saveBatteryMode = prefs.getBoolean("saveBatteryMode", false),
             // ============================================================
-            // V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS)
+            // PROYEK 1 - KECERAHAN LAYAR
             // ============================================================
             brightnessMode = runCatching {
                 BrightnessMode.valueOf(prefs.getString("brightnessMode", "SCHEDULE") ?: "SCHEDULE")
@@ -173,9 +169,22 @@ class SettingsRepository(context: Context) {
             nightBrightnessPercent = prefs.getInt("nightBrightnessPercent", 30),
             dimOverlayEnabled = prefs.getBoolean("dimOverlayEnabled", true),
             // ============================================================
-            fonnteToken = prefs.getString("fonnteToken", "")?.takeIf { it.isNotBlank() } ?: FonnteHelper.getToken(),
-            fonnteGroupId = prefs.getString("fonnteGroupId", "")?.takeIf { it.isNotBlank() } ?: FonnteHelper.getGroupId(),
-            whatsappReportEnabled = prefs.getBoolean("whatsappReportEnabled", true)
+            // PROYEK 2 - KREDENSIAL SECRET + GIST SYNC
+            // ============================================================
+            gistId = prefs.getString("gistId", "") ?: "",
+            credentialsInitialized = prefs.getBoolean("credentialsInitialized", false),
+            // ============================================================
+            // FONNTE — Backward compat (nilai selalu kosong, sumber di CredentialManager)
+            // ============================================================
+            fonnteToken = prefs.getString("fonnteToken", "") ?: "",
+            fonnteGroupId = prefs.getString("fonnteGroupId", "") ?: "",
+            whatsappReportEnabled = prefs.getBoolean("whatsappReportEnabled", true),
+            // ============================================================
+            // PIN LOCK MODE
+            // ============================================================
+            pinLockMode = runCatching {
+                PinLockMode.valueOf(prefs.getString("pinLockMode", "UNTIL_EXIT") ?: "UNTIL_EXIT")
+            }.getOrDefault(PinLockMode.UNTIL_EXIT)
         )
     }
     // ============================================================
@@ -217,13 +226,9 @@ private fun saveSettings(s: AppSettings) {
         putString("customBackgroundUri", s.customBackgroundUri)
         putBoolean("animationsEnabled", s.animationsEnabled)
         putBoolean("showBirdsAnimation", s.showBirdsAnimation)
-        // ============================================================
-        // RESPONSIVE LAYOUT (V1.30.3)
-        // ============================================================
         putBoolean("tvAutoScaleEnabled", s.tvAutoScaleEnabled)
         putFloat("tvSafeAreaPercent", s.tvSafeAreaPercent)
         putString("tvLayoutPreset", s.tvLayoutPreset)
-        // ============================================================
         putString("qrisPhotoUri", s.qrisPhotoUri)
         putString("qrisImageUri", s.qrisImageUri)
         putInt("qrisIntervalMinutes", s.qrisIntervalMinutes)
@@ -297,7 +302,7 @@ private fun saveSettings(s: AppSettings) {
         putBoolean("autoBrightness", s.autoBrightness)
         putBoolean("saveBatteryMode", s.saveBatteryMode)
         // ============================================================
-        // V1.04.428 — KECERAHAN LAYAR (BRIGHTNESS)
+        // PROYEK 1 - KECERAHAN LAYAR
         // ============================================================
         putString("brightnessMode", s.brightnessMode.name)
         putInt("manualBrightnessPercent", s.manualBrightnessPercent)
@@ -305,14 +310,25 @@ private fun saveSettings(s: AppSettings) {
         putInt("nightBrightnessPercent", s.nightBrightnessPercent)
         putBoolean("dimOverlayEnabled", s.dimOverlayEnabled)
         // ============================================================
+        // PROYEK 2 - KREDENSIAL SECRET + GIST SYNC
+        // ============================================================
+        putString("gistId", s.gistId)
+        putBoolean("credentialsInitialized", s.credentialsInitialized)
+        // ============================================================
+        // FONNTE — Backward compat (tidak dipakai, sumber di CredentialManager)
+        // ============================================================
         putString("fonnteToken", s.fonnteToken)
         putString("fonnteGroupId", s.fonnteGroupId)
         putBoolean("whatsappReportEnabled", s.whatsappReportEnabled)
+        // ============================================================
+        // PIN LOCK MODE
+        // ============================================================
+        putString("pinLockMode", s.pinLockMode.name)
     }.apply()
 }
 
 // ============================================================
-// HELPER: String List (untuk photoSlideshowUris)
+// HELPER: String List
 // ============================================================
 private fun loadStringList(key: String): List<String> {
     val raw = prefs.getString(key, null) ?: return emptyList()
@@ -396,7 +412,7 @@ private fun saveWeeklyOfficers(list: List<DailyOfficerItem>) {
 }
 
 // ============================================================
-// HELPER: Officer Schedule (Jadwal Petugas Harian)
+// HELPER: Officer Schedule
 // ============================================================
 private fun loadOfficerSchedule(): OfficerSchedule {
     val raw = prefs.getString("officers", null) ?: return OfficerSchedule()
@@ -468,77 +484,4 @@ private fun saveLaporanKeuangan(l: LaporanKeuangan) {
         put("periodeSelesai", l.periodeSelesai)
     }
     prefs.edit().putString("laporanKeuangan", obj.toString()).apply()
-}
-    // ============================================================
-    // EXPORT SUMMARY (untuk Backup Aman & iO Control)
-    // V1.04.428 — Tambah info Kecerahan Layar
-    // ============================================================
-    fun exportSummary(): String {
-        val s = _settings.value
-        return buildString {
-            appendLine("IDENTITAS MASJID")
-            appendLine("- Nama Masjid : ${s.mosqueName}")
-            appendLine("- Alamat      : ${s.mosqueAddress}")
-            appendLine("- Takmir      : ${s.mosqueTakmir}")
-            appendLine()
-            appendLine("LOKASI")
-            appendLine("- Kota        : ${s.city}")
-            appendLine("- Provinsi    : ${s.province}")
-            appendLine("- Latitude    : ${s.latitude}")
-            appendLine("- Longitude   : ${s.longitude}")
-            appendLine("- Metode      : ${s.calculationMethod}")
-            appendLine()
-            appendLine("TAMPILAN")
-            appendLine("- Background Mode : ${s.backgroundMode.name}")
-            appendLine("- Keep Screen On  : ${s.keepScreenOn}")
-            appendLine("- Kiosk Mode      : ${s.kioskModeEnabled}")
-            appendLine("- Animasi         : ${s.animationsEnabled}")
-            appendLine("- Burung Terbang  : ${s.showBirdsAnimation}")
-            appendLine("- Auto Scale TV   : ${s.tvAutoScaleEnabled}")
-            appendLine("- Safe Area       : ${s.tvSafeAreaPercent}%")
-            appendLine("- Layout Preset   : ${s.tvLayoutPreset}")
-            appendLine()
-            appendLine("KECERAHAN LAYAR")
-            appendLine("- Mode            : ${s.brightnessMode.name}")
-            appendLine("- Manual          : ${s.manualBrightnessPercent}%")
-            appendLine("- Auto Siang      : ${s.dayBrightnessPercent}%")
-            appendLine("- Auto Malam      : ${s.nightBrightnessPercent}%")
-            appendLine("- Overlay Hitam   : ${s.dimOverlayEnabled}")
-            appendLine()
-            appendLine("AUDIO")
-            appendLine("- Mode Audio    : ${s.audioMode.name}")
-            appendLine("- Volume Beep   : ${s.beepVolume}%")
-            appendLine("- Jumlah Beep   : ${s.beepCount}x")
-            appendLine("- Durasi Beep   : ${s.beepDurationMs}ms")
-            appendLine("- Jeda Beep     : ${s.beepIntervalMs}ms")
-            appendLine("- File Adzan    : ${s.adzanFile}")
-            appendLine("- Volume Adzan  : ${s.adzanVolume}%")
-            appendLine()
-            appendLine("VIDEO & FOTO")
-            appendLine("- Video Enabled     : ${s.videoEnabled}")
-            appendLine("- Video Smart Full  : ${s.videoSmartFullscreen}")
-            appendLine("- Photo Slideshow   : ${s.photoSlideshowEnabled}")
-            appendLine("- Interval Foto     : ${s.photoSlideshowIntervalSeconds} detik")
-            appendLine("- Jumlah Foto       : ${s.photoSlideshowUris.size} foto")
-            appendLine()
-            appendLine("RUNNING TEXT")
-            appendLine("- Isi Running Text : ${s.runningText}")
-            appendLine("- Kecepatan        : ${s.runningTextSpeed} (1-10)")
-            appendLine("- Ukuran Font      : ${s.runningTextFontSize}")
-            appendLine()
-            appendLine("MODE FOKUS")
-            appendLine("- Durasi Mode Fokus  : ${s.focusModeDurationMinutes} menit")
-            appendLine("- Jeda Iqamah        : ${s.iqamahWaitMinutes} menit")
-            appendLine("- Countdown Qobliyah : ${s.qobliyahWaitMinutes} menit")
-            appendLine()
-            appendLine("iO CONTROL")
-            appendLine("- Remote Control    : ${s.remoteControlEnabled}")
-            appendLine("- Port Server       : ${s.remoteServerPort}")
-            appendLine()
-            appendLine("WHATSAPP FONNTE")
-            appendLine("- WA Report Enabled : ${s.whatsappReportEnabled}")
-            appendLine("- Token Fonnte      : ${if (s.fonnteToken.isEmpty()) "(kosong)" else "(terisi)"}")
-            appendLine("- Group ID          : ${if (s.fonnteGroupId.isEmpty()) "(kosong)" else s.fonnteGroupId}")
-        }
-    }
 }
