@@ -1709,11 +1709,6 @@ button.danger { background: #FF5252; color: #fff; }
 <div class="toggle-wrap"><span>WhatsApp Report</span><div class="toggle" id="whatsappReportEnabled" onclick="this.classList.toggle('on')"></div></div>
 <button class="save" onclick="saveFields(['kioskModeEnabled','autoStartOnBoot','whatsappReportEnabled'])">SIMPAN</button>
 <div class="divider"></div>
-<div class="info-box">
-🔒 <strong>Token Fonnte & Group ID</strong> hanya bisa diatur dari aplikasi TV
-melalui <strong>Pengaturan → Opsi Developer</strong> (PIN 140399).<br>
-Tidak ditampilkan di halaman ini demi keamanan.
-</div>
 </div>
 <div class="card">
 <h3>🔐 Keamanan</h3>
