@@ -9,15 +9,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,13 +53,12 @@ import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
 // ============================================================
-// V1.04.429 — DEVELOPER PIN DIALOG (FIX D-PAD)
+// V1.04.430 — DEVELOPER PIN DIALOG
 //
-// PERUBAHAN:
-// 1. FocusRequester ke input PIN (auto-fokus saat dialog muncul)
-// 2. Delay 500ms + retry untuk window TV
-// 3. Tombol BATAL & MASUK: focusable + onFocusChanged + border fokus
-// 4. DialogProperties: usePlatformDefaultWidth=false
+// FIX:
+// 1. Fix D-pad (FocusRequester + delay 500ms + retry)
+// 2. Compact HP (fillMaxWidth + fillMaxHeight + verticalScroll)
+// 3. Padding & spacing dikurangi
 // ============================================================
 @Composable
 fun DeveloperPinDialog(
@@ -96,25 +99,29 @@ fun DeveloperPinDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .width(420.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .fillMaxWidth(0.92f)
+                    .widthIn(max = 420.dp)
+                    .fillMaxHeight(0.94f)
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFF0B1720))
-                    .border(2.dp, IslamicGold, RoundedCornerShape(16.dp))
-                    .padding(24.dp),
+                    .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
+                    .padding(horizontal = 18.dp, vertical = 16.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
                     text = "🔐 AKSES DEVELOPER",
-                    fontSize = 20.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = IslamicGoldLight
                 )
 
                 Text(
                     text = "Masukkan PIN Developer (6 digit)",
-                    fontSize = 13.sp,
-                    color = TextSecondary
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
                 )
 
                 // ============================================================
@@ -133,7 +140,7 @@ fun DeveloperPinDialog(
                         .focusRequester(pinFocusRequester)
                         .onFocusChanged { isFocused = it.isFocused }
                         .focusable()
-                        .padding(12.dp),
+                        .padding(10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     BasicTextField(
@@ -149,22 +156,23 @@ fun DeveloperPinDialog(
                             keyboardType = KeyboardType.NumberPassword
                         ),
                         textStyle = TextStyle(
-                            fontSize = 24.sp,
+                            fontSize = 20.sp,
                             color = IslamicGoldLight,
                             textAlign = TextAlign.Center
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                                // ============================================================
+
+                // ============================================================
                 // INDIKATOR 6 DIGIT
                 // ============================================================
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     repeat(6) { index ->
                         Box(
                             modifier = Modifier
-                                .size(14.dp)
-                                .clip(RoundedCornerShape(7.dp))
+                                .size(12.dp)
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(
                                     if (index < pin.length) IslamicGold
                                     else Color(0x33FFFFFF)
@@ -179,20 +187,21 @@ fun DeveloperPinDialog(
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage ?: "",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = UrgentRed,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // ============================================================
-                // TOMBOL BATAL + MASUK (FIX D-PAD)
+                // TOMBOL BATAL + MASUK
                 // ============================================================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // ---------- TOMBOL BATAL ----------
                     Box(
@@ -211,14 +220,14 @@ fun DeveloperPinDialog(
                             .focusable()
                             .onFocusChanged { isFocusedBatal = it.isFocused }
                             .clickable { onDismiss() }
-                            .padding(vertical = 14.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "BATAL",
                             color = if (isFocusedBatal) IslamicGoldLight else TextPrimary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
 
@@ -250,14 +259,14 @@ fun DeveloperPinDialog(
                                     pin = ""
                                 }
                             }
-                            .padding(vertical = 14.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "MASUK",
                             color = if (canSubmit) Color(0xFF09141D) else TextSecondary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
                 }
