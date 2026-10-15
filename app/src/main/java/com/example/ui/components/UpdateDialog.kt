@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -55,16 +56,10 @@ import dev.andikune.masjidio.ui.theme.TextSecondary
 import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
-// ============================================================
-// UPDATE DIALOG
-// V1.04.428 — Fix D-pad remote tidak bisa pilih tombol
-//
-// PERUBAHAN:
-// 1. FocusRequester ke tombol UPDATE (default fokus)
-// 2. Delay 500ms + retry 1x saat dialog muncul
-// 3. focusGroup() di container Column
-// 4. Semua logic (progress, force update, dll) dipertahankan
-// ============================================================
+/**
+ * UpdateDialog — V1.04.429
+ * Fix D-pad: FocusRequester ke tombol UPDATE + focusGroup.
+ */
 @Composable
 fun UpdateDialog(
     currentVersion: String,
@@ -81,10 +76,10 @@ fun UpdateDialog(
 ) {
     val isLocked = isDownloading || isInstalling
 
-    // ⭐ FocusRequester ke tombol UPDATE (default fokus)
+    // FocusRequester ke tombol UPDATE (default fokus)
     val updateFocusRequester = remember { FocusRequester() }
 
-    // ⭐ V1.04.428 — Auto-focus ke tombol UPDATE saat dialog muncul
+    // Auto-focus ke tombol UPDATE saat dialog muncul
     LaunchedEffect(Unit) {
         delay(500L)
         runCatching { updateFocusRequester.requestFocus() }
@@ -106,7 +101,6 @@ fun UpdateDialog(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // ⭐ focusGroup() → navigasi D-pad dalam dialog smooth
             Column(
                 modifier = Modifier
                     .width(680.dp)
@@ -119,9 +113,7 @@ fun UpdateDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // ============================================================
                 // HEADER
-                // ============================================================
                 Icon(
                     imageVector = Icons.Default.SystemUpdate,
                     contentDescription = null,
@@ -143,9 +135,7 @@ fun UpdateDialog(
                     textAlign = TextAlign.Center
                 )
 
-                // ============================================================
                 // INFO VERSI
-                // ============================================================
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -174,9 +164,7 @@ fun UpdateDialog(
                     }
                 }
 
-                // ============================================================
-                // CHANGELOG (weight 1f — ambil sisa ruang, scrollable)
-                // ============================================================
+                // CHANGELOG
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -214,9 +202,7 @@ fun UpdateDialog(
                     }
                 }
 
-                // ============================================================
                 // PROGRESS BAR
-                // ============================================================
                 if (isDownloading && downloadProgress != null) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
@@ -263,11 +249,9 @@ fun UpdateDialog(
                     }
                 }
 
-                // ============================================================
                 // TOMBOL
-                // ============================================================
                 if (forceUpdate) {
-                    // Mode FORCE: 2 tombol (TIDAK + UPDATE)
+                    // Mode FORCE: 2 tombol
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -303,7 +287,7 @@ fun UpdateDialog(
                         fontWeight = FontWeight.Bold
                     )
                 } else {
-                    // Mode NORMAL: 3 tombol (SKIP + NANTI + UPDATE)
+                    // Mode NORMAL: 3 tombol
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -355,7 +339,7 @@ fun UpdateDialog(
     }
 }
 // ============================================================
-// DIALOG BUTTON — V1.04.428
+// DIALOG BUTTON — V1.04.429
 // Fix D-pad: tambah parameter focusRequester (opsional)
 // ============================================================
 @Composable
@@ -372,11 +356,11 @@ private fun DialogButton(
     val bg = if (!enabled) backgroundColor.copy(alpha = 0.3f) else backgroundColor
     val borderColor = if (isFocused && enabled) IslamicGoldLight else Color.Transparent
 
-    // ⭐ V1.04.428 — Urutan modifier:
-    //    1. focusRequester (opsional, biar bisa di-auto-focus)
-    //    2. focusable
-    //    3. onFocusChanged
-    //    4. clickable
+    // Urutan modifier:
+    //   1. focusRequester (opsional, biar bisa di-auto-focus)
+    //   2. focusable
+    //   3. onFocusChanged
+    //   4. clickable
     Row(
         modifier = Modifier
             .fillMaxWidth()
