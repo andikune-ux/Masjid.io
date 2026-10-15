@@ -10,14 +10,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -59,12 +63,13 @@ private val RED_WARN_TEXT = Color(0xFFFFC7C7)
 
 // ============================================================
 // AUTO-OFF DIALOG
-// V1.04.429 — Fix D-pad remote tidak bisa pilih YA/TIDAK
+// V1.04.430 — Fix D-pad + Compact HP
 //
 // PERUBAHAN:
-// 1. Delay requestFocus 150ms -> 500ms + retry 1x
-// 2. Tambah focusGroup() di container Column
-// 3. Signature dipertahankan (cocok dengan MainActivity)
+// 1. Fix D-pad: FocusRequester + delay 500ms + retry
+// 2. Compact: fillMaxWidth(0.94f) + fillMaxHeight(0.94f)
+// 3. + verticalScroll supaya bisa di-scroll di HP
+// 4. Padding & icon lebih kecil biar muat di HP
 // ============================================================
 @Composable
 fun AutoOffDialog(
@@ -76,7 +81,7 @@ fun AutoOffDialog(
 ) {
     val yaFocusRequester = remember { FocusRequester() }
 
-    // V1.04.429 — Delay 500ms + retry 1x
+    // Delay 500ms + retry 1x
     LaunchedEffect(Unit) {
         delay(500L)
         runCatching { yaFocusRequester.requestFocus() }
@@ -84,7 +89,7 @@ fun AutoOffDialog(
         runCatching { yaFocusRequester.requestFocus() }
     }
 
-    // Auto-dismiss setelah N detik -> dianggap TIDAK
+    // Auto-dismiss
     LaunchedEffect(Unit) {
         if (autoDismissSeconds > 0) {
             delay(autoDismissSeconds * 1000L)
@@ -106,46 +111,48 @@ fun AutoOffDialog(
                 .background(Color.Black.copy(alpha = 0.72f)),
             contentAlignment = Alignment.Center
         ) {
-            // focusGroup() -> navigasi D-pad smooth
             Column(
                 modifier = Modifier
-                    .width(820.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .fillMaxWidth(0.94f)
+                    .widthIn(max = 820.dp)
+                    .fillMaxHeight(0.94f)
+                    .clip(RoundedCornerShape(20.dp))
                     .background(DARK_BG)
-                    .border(2.dp, GOLD, RoundedCornerShape(24.dp))
-                    .padding(36.dp)
+                    .border(2.dp, GOLD, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .verticalScroll(rememberScrollState())
                     .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Icon bulan
+                // Icon bulan (compact)
                 Box(
                     modifier = Modifier
-                        .size(110.dp)
+                        .size(72.dp)
                         .clip(CircleShape)
                         .background(GOLD.copy(alpha = 0.12f))
-                        .border(3.dp, GOLD, CircleShape),
+                        .border(2.dp, GOLD, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.NightsStay,
                         contentDescription = null,
                         tint = GOLD_LIGHT,
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier.size(40.dp)
                     )
                 }
 
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(14.dp))
 
                 // Judul
                 Text(
                     text = "JADWAL OFF AKTIF",
                     color = GOLD_LIGHT,
-                    fontSize = 30.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
+                    letterSpacing = 1.5.sp
                 )
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
 
                 // Garis pemisah
                 Box(
@@ -155,7 +162,7 @@ fun AutoOffDialog(
                         .background(GOLD.copy(alpha = 0.35f))
                 )
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(14.dp))
 
                 // Badge "Layar redup sejak ..."
                 Row(
@@ -167,74 +174,74 @@ fun AutoOffDialog(
                             Color.White.copy(alpha = 0.2f),
                             RoundedCornerShape(20.dp)
                         )
-                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Schedule,
                         contentDescription = null,
                         tint = GOLD_LIGHT,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = "Layar redup sejak $offStartTime",
                         color = Color.White,
-                        fontSize = 16.sp
+                        fontSize = 13.sp
                     )
                 }
 
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(18.dp))
 
                 // Pertanyaan
                 Text(
                     text = "Apakah Anda bersedia",
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontSize = 16.sp,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "MEMATIKAN JADWAL ON/OFF?",
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Warning box merah
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(RED_WARN_BG)
-                        .border(1.5.dp, RED_WARN_BORDER, RoundedCornerShape(14.dp))
-                        .padding(14.dp),
+                        .border(1.5.dp, RED_WARN_BORDER, RoundedCornerShape(12.dp))
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Warning,
                         contentDescription = null,
                         tint = RED_WARN_BORDER,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = "Kalau memilih YA, layar akan tetap nyala sampai TV dimatikan manual.",
                         color = RED_WARN_TEXT,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
                     )
                 }
 
-                Spacer(Modifier.height(30.dp))
+                Spacer(Modifier.height(20.dp))
 
                 // Tombol YA + TIDAK
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     AutoOffButton(
                         text = "YA",
@@ -255,6 +262,7 @@ fun AutoOffDialog(
         }
     }
 }
+
 // ============================================================
 // TOMBOL DIALOG (focusable + border fokus visual)
 // ============================================================
@@ -273,13 +281,13 @@ private fun AutoOffButton(
 
     Box(
         modifier = modifier
-            .height(64.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .height(56.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(bgColor)
             .border(
                 width = if (focused) 3.dp else 0.dp,
                 color = if (focused) Color.White else Color.Transparent,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(14.dp)
             )
             .focusable()
             .onFocusChanged { focused = it.isFocused }
@@ -291,13 +299,13 @@ private fun AutoOffButton(
                 imageVector = if (isConfirm) Icons.Filled.Check else Icons.Filled.Close,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(20.dp)
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = text,
                 color = Color.White,
-                fontSize = 22.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
