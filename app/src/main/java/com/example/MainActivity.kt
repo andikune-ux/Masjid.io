@@ -899,28 +899,44 @@ MasjidTheme {
         color = MosqueDeepBg
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown) {
-                        val now = System.currentTimeMillis()
-                        if (now - lastKeyPressTime > 500L) {
-                            lastKeyPressTime = now
-
-                            // Cek flag autoOffDialogDismissedForSession
-                            if (isNowInOffSchedule() &&
-                                settings.autoOffDialogEnabled &&
-                                !showAutoOffDialog &&
-                                !autoOffDialogDismissedForSession
-                            ) {
-                                temporaryWake = true
-                                showAutoOffDialog = true
-                            }
+    modifier = Modifier
+        .fillMaxSize()
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onPress = {
+                    val now = System.currentTimeMillis()
+                    if (now - lastKeyPressTime > 500L) {
+                        lastKeyPressTime = now
+                        if (isNowInOffSchedule() &&
+                            settings.autoOffDialogEnabled &&
+                            !showAutoOffDialog &&
+                            !autoOffDialogDismissedForSession
+                        ) {
+                            temporaryWake = true
+                            showAutoOffDialog = true
                         }
-                        false
-                    } else false
+                    }
                 }
-        ) {
+            )
+        }
+        .onKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown) {
+                val now = System.currentTimeMillis()
+                if (now - lastKeyPressTime > 500L) {
+                    lastKeyPressTime = now
+                    if (isNowInOffSchedule() &&
+                        settings.autoOffDialogEnabled &&
+                        !showAutoOffDialog &&
+                        !autoOffDialogDismissedForSession
+                    ) {
+                        temporaryWake = true
+                        showAutoOffDialog = true
+                    }
+                }
+                false
+            } else false
+        }
+) {
             if (showCrashDialog) {
                 CrashLogDialog(
                     log = pendingCrashLog,
@@ -1298,18 +1314,18 @@ private fun StoragePermissionDialog(
         )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .widthIn(max = 560.dp)
-                .fillMaxHeight(0.92f)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF0B1720))
-                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+    modifier = Modifier
+        .fillMaxWidth(0.94f)
+        .widthIn(max = 560.dp)
+        .fillMaxHeight(0.94f)
+        .clip(RoundedCornerShape(20.dp))
+        .background(Color(0xFF0B1720))
+        .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+        .padding(horizontal = 16.dp, vertical = 14.dp)
+        .verticalScroll(rememberScrollState()),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(10.dp)
+) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -1473,18 +1489,18 @@ private fun InstallPermissionDialog(
         )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .widthIn(max = 560.dp)
-                .fillMaxHeight(0.92f)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF0B1720))
-                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+    modifier = Modifier
+        .fillMaxWidth(0.94f)
+        .widthIn(max = 560.dp)
+        .fillMaxHeight(0.94f)
+        .clip(RoundedCornerShape(20.dp))
+        .background(Color(0xFF0B1720))
+        .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+        .padding(horizontal = 16.dp, vertical = 14.dp)
+        .verticalScroll(rememberScrollState()),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(10.dp)
+) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
