@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -50,15 +51,14 @@ import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
 // ============================================================
-// V1.04.428 — DIALOG PIN & CHANGE PIN (FIX D-PAD REMOTE)
+// V1.04.429 — DIALOG PIN & CHANGE PIN (FIX D-PAD REMOTE)
 //
 // PERUBAHAN:
-// 1. Tambah FocusRequester ke tombol pertama (auto-focus masuk dialog)
-// 2. Urutan modifier: focusable() → onFocusChanged() → clickable()
+// 1. FocusRequester ke tombol "1" (auto-focus saat dialog muncul)
+// 2. Urutan modifier: focusable() -> onFocusChanged() -> clickable()
 // 3. focusGroup() di container Column
 // 4. DialogProperties: usePlatformDefaultWidth=false
 // 5. Tombol Batal & Kembali: Box focusable + border fokus visual
-// 6. Numpad: border fokus terlihat
 // ============================================================
 
 // Warna helper
@@ -69,7 +69,7 @@ private val NUMPAD_BG_FOCUS = Color(0x55FFD700)
 private val NUMPAD_BORDER_FOCUS = Color(0xFFFFE44D)
 
 // ============================================================
-// KOMPONEN HELPER: PinDots (4 titik PIN)
+// KOMPONEN: PIN DOTS (4 titik)
 // ============================================================
 @Composable
 private fun PinDots(
@@ -97,8 +97,8 @@ private fun PinDots(
 }
 
 // ============================================================
-// KOMPONEN HELPER: PinPad (numpad 1-9, C, 0, ⌫)
-// V1.04.428 — Fix D-pad: focusable dulu, border fokus visual
+// KOMPONEN: PIN PAD
+// V1.04.429 — Fix D-pad: focusable dulu, border fokus visual
 // ============================================================
 @Composable
 private fun PinPad(
@@ -143,7 +143,7 @@ private fun PinPad(
 }
 
 // ============================================================
-// KOMPONEN HELPER: PinPadKey (1 tombol numpad, focusable)
+// KOMPONEN: PIN PAD KEY (1 tombol)
 // ============================================================
 @Composable
 private fun PinPadKey(
@@ -191,8 +191,8 @@ private fun PinPadKey(
 }
 
 // ============================================================
-// KOMPONEN HELPER: DialogActionButton (Batal / Kembali)
-// V1.04.428 — Pengganti TextButton (yang tidak focusable visual)
+// KOMPONEN: DIALOG ACTION BUTTON (Batal / Kembali)
+// V1.04.429 — Pengganti TextButton
 // ============================================================
 @Composable
 private fun DialogActionButton(
@@ -229,7 +229,7 @@ private fun DialogActionButton(
 }
 // ============================================================
 // DIALOG 1: PinDialog — untuk masuk ke pengaturan
-// V1.04.428 — Fix D-pad: FocusRequester + focusGroup
+// V1.04.429 — Fix D-pad
 // ============================================================
 @Composable
 fun PinDialog(
@@ -240,10 +240,10 @@ fun PinDialog(
     var enteredPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
 
-    // ⭐ FocusRequester untuk tombol "1" (numpad pertama)
+    // FocusRequester untuk tombol "1" (numpad pertama)
     val firstKeyFocusRequester = remember { FocusRequester() }
 
-    // ⭐ V1.04.428 — Delay 500ms + retry, biar window dialog attach sempurna
+    // Delay 500ms + retry untuk auto-focus saat dialog muncul
     LaunchedEffect(Unit) {
         delay(500L)
         runCatching { firstKeyFocusRequester.requestFocus() }
@@ -263,7 +263,6 @@ fun PinDialog(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // ⭐ focusGroup() supaya navigasi D-pad dalam dialog smooth
             Column(
                 modifier = Modifier
                     .width(360.dp)
@@ -274,7 +273,7 @@ fun PinDialog(
                     .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ── Icon kunci ──
+                // Icon kunci
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
@@ -284,7 +283,6 @@ fun PinDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // ── Judul ──
                 Text(
                     text = "PIN KEAMANAN TAKMIR",
                     fontSize = 17.sp,
@@ -301,10 +299,8 @@ fun PinDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ── Titik PIN ──
                 PinDots(enteredPin = enteredPin, isError = isError)
 
-                // ── Pesan error ──
                 if (isError) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -317,7 +313,6 @@ fun PinDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // ── Numpad (dengan fokus otomatis di tombol "1") ──
                 PinPad(
                     onKeyPress = { key ->
                         when (key) {
@@ -351,7 +346,6 @@ fun PinDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ── Tombol Batal (focusable, D-pad friendly) ──
                 DialogActionButton(
                     text = "Batal",
                     modifier = Modifier.fillMaxWidth(),
@@ -363,8 +357,8 @@ fun PinDialog(
     }
 }
 // ============================================================
-// DIALOG 2: ChangePinDialog — untuk mengubah PIN (3 step)
-// V1.04.428 — Fix D-pad: FocusRequester + focusGroup
+// DIALOG 2: ChangePinDialog — 3 step ubah PIN
+// V1.04.429 — Fix D-pad
 // ============================================================
 
 private enum class ChangePinStep { ENTER_OLD, ENTER_NEW, CONFIRM_NEW }
@@ -381,7 +375,7 @@ fun ChangePinDialog(
     var isError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ⭐ FocusRequester ke tombol "1"
+    // FocusRequester ke tombol "1"
     val firstKeyFocusRequester = remember { FocusRequester() }
 
     // Reset input saat ganti step
@@ -389,12 +383,11 @@ fun ChangePinDialog(
         enteredPin = ""
         isError = false
         errorMessage = ""
-        // Re-focus ke tombol "1" setelah ganti step
         delay(300L)
         runCatching { firstKeyFocusRequester.requestFocus() }
     }
 
-    // ⭐ Auto-focus awal saat dialog muncul (delay 500ms + retry)
+    // Auto-focus awal saat dialog muncul
     LaunchedEffect(Unit) {
         delay(500L)
         runCatching { firstKeyFocusRequester.requestFocus() }
@@ -432,7 +425,6 @@ fun ChangePinDialog(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // ⭐ focusGroup() untuk navigasi D-pad
             Column(
                 modifier = Modifier
                     .width(360.dp)
@@ -443,7 +435,6 @@ fun ChangePinDialog(
                     .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ── Icon kunci ──
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
@@ -453,7 +444,6 @@ fun ChangePinDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // ── Judul step ──
                 Text(
                     text = title,
                     fontSize = 17.sp,
@@ -471,7 +461,6 @@ fun ChangePinDialog(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // ── Badge step indicator ──
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
@@ -489,10 +478,8 @@ fun ChangePinDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ── Titik PIN ──
                 PinDots(enteredPin = enteredPin, isError = isError)
 
-                // ── Pesan error ──
                 if (isError) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -506,7 +493,6 @@ fun ChangePinDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // ── Numpad ──
                 PinPad(
                     onKeyPress = { key ->
                         when (key) {
@@ -561,10 +547,11 @@ fun ChangePinDialog(
                     },
                     firstKeyFocusRequester = firstKeyFocusRequester
                 )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // ── Tombol Kembali + Batal (focusable) ──
+                // ============================================================
+                // TOMBOL KEMBALI + BATAL
+                // ============================================================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
