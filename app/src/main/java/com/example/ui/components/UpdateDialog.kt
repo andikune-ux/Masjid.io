@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -57,8 +58,8 @@ import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
 /**
- * UpdateDialog — V1.04.429
- * Fix D-pad: FocusRequester ke tombol UPDATE + focusGroup.
+ * UpdateDialog — V1.04.430
+ * Fix D-pad + Compact HP
  */
 @Composable
 fun UpdateDialog(
@@ -76,10 +77,8 @@ fun UpdateDialog(
 ) {
     val isLocked = isDownloading || isInstalling
 
-    // FocusRequester ke tombol UPDATE (default fokus)
     val updateFocusRequester = remember { FocusRequester() }
 
-    // Auto-focus ke tombol UPDATE saat dialog muncul
     LaunchedEffect(Unit) {
         delay(500L)
         runCatching { updateFocusRequester.requestFocus() }
@@ -103,34 +102,35 @@ fun UpdateDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .width(680.dp)
-                    .fillMaxHeight(0.92f)
-                    .clip(RoundedCornerShape(20.dp))
+                    .fillMaxWidth(0.94f)
+                    .widthIn(max = 680.dp)
+                    .fillMaxHeight(0.94f)
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFF0B1720))
-                    .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-                    .padding(24.dp)
+                    .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
+                    .padding(horizontal = 18.dp, vertical = 16.dp)
+                    .verticalScroll(rememberScrollState())
                     .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // HEADER
                 Icon(
                     imageVector = Icons.Default.SystemUpdate,
                     contentDescription = null,
                     tint = IslamicGold,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(40.dp)
                 )
 
                 Text(
                     text = "UPDATE TERSEDIA",
-                    fontSize = 22.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = IslamicGoldLight
                 )
 
                 Text(
                     text = "Versi baru MASJID.IO sudah tersedia",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = TextSecondary,
                     textAlign = TextAlign.Center
                 )
@@ -141,14 +141,14 @@ fun UpdateDialog(
                         .fillMaxWidth()
                         .background(Color(0x22000000), RoundedCornerShape(10.dp))
                         .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
-                        .padding(12.dp),
+                        .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
                         Text("Versi Saat Ini", fontSize = 10.sp, color = TextSecondary)
                         Text(
                             currentVersion,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
@@ -157,7 +157,7 @@ fun UpdateDialog(
                         Text("Versi Terbaru", fontSize = 10.sp, color = TextSecondary)
                         Text(
                             latestVersion,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = IslamicGreen
                         )
@@ -168,18 +168,17 @@ fun UpdateDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
                         .background(Color(0x22000000), RoundedCornerShape(10.dp))
                         .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                        .padding(12.dp)
+                        .padding(10.dp)
                 ) {
                     Text(
                         text = "📋 Yang Baru di Versi $latestVersion:",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = IslamicGoldLight
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     val notesText = if (releaseNotes.isNullOrBlank()) {
                         "(Tidak ada catatan rilis)"
@@ -190,14 +189,14 @@ fun UpdateDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .height(120.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
                         Text(
                             text = notesText,
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             color = TextPrimary,
-                            lineHeight = 20.sp
+                            lineHeight = 18.sp
                         )
                     }
                 }
@@ -207,23 +206,23 @@ fun UpdateDialog(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = "⬇️ Mengunduh update... ${(downloadProgress * 100).toInt()}%",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             color = IslamicGoldLight,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(5.dp))
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp))
                                 .background(Color(0x33FFFFFF))
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(downloadProgress)
-                                    .height(10.dp)
-                                    .clip(RoundedCornerShape(5.dp))
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
                                     .background(IslamicGold)
                             )
                         }
@@ -237,12 +236,12 @@ fun UpdateDialog(
                             .clip(RoundedCornerShape(10.dp))
                             .background(IslamicGreen.copy(alpha = 0.15f))
                             .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .padding(10.dp),
+                            .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "📦 Menginstall update...",
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             color = IslamicGreen,
                             fontWeight = FontWeight.Bold
                         )
@@ -251,10 +250,9 @@ fun UpdateDialog(
 
                 // TOMBOL
                 if (forceUpdate) {
-                    // Mode FORCE: 2 tombol
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             DialogButton(
@@ -281,16 +279,15 @@ fun UpdateDialog(
 
                     Text(
                         text = "⚠️ Update ini WAJIB. Aplikasi tidak dapat digunakan sebelum update selesai.",
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         color = UrgentRed,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.Bold
                     )
                 } else {
-                    // Mode NORMAL: 3 tombol
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
@@ -339,8 +336,7 @@ fun UpdateDialog(
     }
 }
 // ============================================================
-// DIALOG BUTTON — V1.04.429
-// Fix D-pad: tambah parameter focusRequester (opsional)
+// DIALOG BUTTON
 // ============================================================
 @Composable
 private fun DialogButton(
@@ -356,11 +352,6 @@ private fun DialogButton(
     val bg = if (!enabled) backgroundColor.copy(alpha = 0.3f) else backgroundColor
     val borderColor = if (isFocused && enabled) IslamicGoldLight else Color.Transparent
 
-    // Urutan modifier:
-    //   1. focusRequester (opsional, biar bisa di-auto-focus)
-    //   2. focusable
-    //   3. onFocusChanged
-    //   4. clickable
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -377,7 +368,7 @@ private fun DialogButton(
             .focusable(enabled)
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(enabled) { onClick() }
-            .padding(vertical = 12.dp, horizontal = 10.dp),
+            .padding(vertical = 10.dp, horizontal = 8.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -385,12 +376,12 @@ private fun DialogButton(
             imageVector = icon,
             contentDescription = text,
             tint = textColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = text,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = textColor
         )
