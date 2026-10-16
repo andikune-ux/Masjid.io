@@ -244,8 +244,9 @@ fun PinDialog(
 ) {
     var enteredPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
-    val isTelevision = remember {
-        val uiMode = LocalContext.current.resources.configuration.uiMode
+    val context = LocalContext.current
+    val isTelevision = remember(context) {
+        val uiMode = context.resources.configuration.uiMode
         (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
             android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     }
@@ -386,8 +387,9 @@ fun ChangePinDialog(
     var newPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    val isTelevision = remember {
-        val uiMode = LocalContext.current.resources.configuration.uiMode
+    val context = LocalContext.current
+    val isTelevision = remember(context) {
+        val uiMode = context.resources.configuration.uiMode
         (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
             android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
     }
