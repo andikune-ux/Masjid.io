@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -1456,128 +1454,6 @@ private fun PassphraseDialog(
                             color = TextPrimary
                         ),
                         visualTransformation = PasswordVisualTransformation(),
-// ============================================================
-// KOMPONEN: PASSPHRASE DIALOG
-// V1.04.430 — Compact HP
-// ============================================================
-@Composable
-private fun PassphraseDialog(
-    isSetupMode: Boolean,
-    passphrase: String,
-    passphraseConfirm: String,
-    errorMessage: String?,
-    onPassphraseChange: (String) -> Unit,
-    onConfirmChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var isFocusedPass by remember { mutableStateOf(false) }
-    var isFocusedConfirm by remember { mutableStateOf(false) }
-
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .widthIn(max = 480.dp)
-                .fillMaxHeight(0.94f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF0B1720))
-                .border(2.dp, IslamicGold, RoundedCornerShape(16.dp))
-                .padding(horizontal = 18.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = IslamicGold,
-                modifier = Modifier.size(40.dp)
-            )
-
-            Text(
-                text = if (isSetupMode) "BUAT PASSPHRASE" else "BUKA KREDENSIAL",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-
-            Text(
-                text = if (isSetupMode)
-                    "Passphrase minimal 12 karakter. Catat & simpan dengan aman — kalau lupa, kredensial tidak bisa dibuka."
-                else
-                    "Masukkan passphrase untuk membuka Token Fonnte, Group ID, dan GitHub PAT.",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 16.sp
-            )
-
-            // ---------- INPUT PASSPHRASE ----------
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0x22000000))
-                    .border(
-                        if (isFocusedPass) 3.dp else 1.dp,
-                        if (isFocusedPass) IslamicGoldLight else Color(0x44FFFFFF),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .padding(12.dp)
-            ) {
-                if (passphrase.isEmpty()) {
-                    Text(
-                        text = "Passphrase...",
-                        fontSize = 13.sp,
-                        color = TextSecondary.copy(alpha = 0.5f)
-                    )
-                }
-                BasicTextField(
-                    value = passphrase,
-                    onValueChange = onPassphraseChange,
-                    textStyle = TextStyle(
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    ),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { isFocusedPass = it.isFocused }
-                )
-            }
-
-            // ---------- INPUT KONFIRM (hanya setup) ----------
-            if (isSetupMode) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0x22000000))
-                        .border(
-                            if (isFocusedConfirm) 3.dp else 1.dp,
-                            if (isFocusedConfirm) IslamicGoldLight else Color(0x44FFFFFF),
-                            RoundedCornerShape(10.dp)
-                        )
-                        .padding(12.dp)
-                ) {
-                    if (passphraseConfirm.isEmpty()) {
-                        Text(
-                            text = "Ulangi passphrase...",
-                            fontSize = 13.sp,
-                            color = TextSecondary.copy(alpha = 0.5f)
-                        )
-                    }
-                    BasicTextField(
-                        value = passphraseConfirm,
-                        onValueChange = onConfirmChange,
-                        textStyle = TextStyle(
-                            fontSize = 13.sp,
-                            color = TextPrimary
-                        ),
-                        visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .onFocusChanged { isFocusedConfirm = it.isFocused }
@@ -1589,19 +1465,19 @@ private fun PassphraseDialog(
             if (errorMessage != null) {
                 Text(
                     text = errorMessage,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = UrgentRed,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // ---------- TOMBOL ----------
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(modifier = Modifier.weight(1f)) {
                     FonnteButton(

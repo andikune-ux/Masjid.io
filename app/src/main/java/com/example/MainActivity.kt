@@ -308,18 +308,23 @@ fun timeToMinutes(timeStr: String): Int {
 
 fun isNowInOffSchedule(): Boolean {
     if (!settings.autoOnOff) return false
-
     val now = if (settings.isManualTimeEnabled) {
         LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
     } else {
         LocalDateTime.now()
     }
+    // Jangan memakai jadwal yang di-cache dari tanggal saat Activity dibuat.
+    // Setelah tengah malam atau saat tanggal manual berubah, jadwal harus ikut
+    // tanggal waktu yang sedang dipakai aplikasi.
+    val scheduleForNow = PrayerTimesCalculator.calculate(
+        date = now.toLocalDate(),
+        latitude = settings.latitude,
+        longitude = settings.longitude
+    )
     val currentMinute = now.hour * 60 + now.minute
-
-    val subuhMinute = timeToMinutes(todaySchedule.subuh)
+    val subuhMinute = timeToMinutes(scheduleForNow.subuh)
     val onMinute = subuhMinute - settings.autoOnMinutesBeforeSubuh
-
-    val isyaMinute = timeToMinutes(todaySchedule.isya)
+    val isyaMinute = timeToMinutes(scheduleForNow.isya)
     val offMinute = isyaMinute + settings.autoOffMinutesAfterIsya
 
     return if (onMinute < offMinute) {
@@ -339,10 +344,14 @@ fun isNowInDaytime(): Boolean {
     } else {
         LocalDateTime.now()
     }
+    val scheduleForNow = PrayerTimesCalculator.calculate(
+        date = now.toLocalDate(),
+        latitude = settings.latitude,
+        longitude = settings.longitude
+    )
     val currentMinute = now.hour * 60 + now.minute
-
-    val subuhMinute = timeToMinutes(todaySchedule.subuh)
-    val maghribMinute = timeToMinutes(todaySchedule.maghrib)
+    val subuhMinute = timeToMinutes(scheduleForNow.subuh)
+    val maghribMinute = timeToMinutes(scheduleForNow.maghrib)
 
     return currentMinute in subuhMinute until maghribMinute
 }
@@ -395,7 +404,8 @@ fun calculateTargetBrightness(): Float {
             (percent.toFloat() / 100f).coerceIn(0.01f, 1f)
         }
         BrightnessMode.SCHEDULE -> {
-            if (isNowInOffSchedule()) 0.01f else 1f
+            // Input user membangunkan layar sementara di dalam jadwal OFF.
+            if (temporaryWake || !isNowInOffSchedule()) 1f else 0.01f
         }
     }
 }
@@ -907,13 +917,11 @@ MasjidTheme {
                     val now = System.currentTimeMillis()
                     if (now - lastKeyPressTime > 500L) {
                         lastKeyPressTime = now
-                        if (isNowInOffSchedule() &&
-                            settings.autoOffDialogEnabled &&
-                            !showAutoOffDialog &&
-                            !autoOffDialogDismissedForSession
-                        ) {
+                        if (isNowInOffSchedule()) {
                             temporaryWake = true
-                            showAutoOffDialog = true
+                            if (settings.autoOffDialogEnabled && !showAutoOffDialog) {
+                                showAutoOffDialog = true
+                            }
                         }
                     }
                 }
@@ -924,13 +932,11 @@ MasjidTheme {
                 val now = System.currentTimeMillis()
                 if (now - lastKeyPressTime > 500L) {
                     lastKeyPressTime = now
-                    if (isNowInOffSchedule() &&
-                        settings.autoOffDialogEnabled &&
-                        !showAutoOffDialog &&
-                        !autoOffDialogDismissedForSession
-                    ) {
+                    if (isNowInOffSchedule()) {
                         temporaryWake = true
-                        showAutoOffDialog = true
+                        if (settings.autoOffDialogEnabled && !showAutoOffDialog) {
+                            showAutoOffDialog = true
+                        }
                     }
                 }
                 false
@@ -1128,7 +1134,10 @@ if (showAutoOffDialog) {
         },
         onConfirmFalse = {
             showAutoOffDialog = false
-            temporaryWake = false
+            // TIDAK menutup popup, tetapi layar tetap menyala sementara.
+            // LaunchedEffect(temporaryWake, showAutoOffDialog) akan meredupkan
+            // kembali setelah timeout agar sentuhan tidak langsung sia-sia.
+            temporaryWake = true
             autoOffDialogDismissedForSession = true
             // V1.04.429 — Re-cek brightness
             brightnessRefreshTrigger = System.currentTimeMillis()
