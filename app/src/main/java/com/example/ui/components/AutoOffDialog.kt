@@ -279,36 +279,38 @@ private fun AutoOffButton(
     val focusColor = if (isConfirm) Color(0xFF3DDC84) else Color(0xFF2A6FE0)
     val bgColor = if (focused) focusColor else baseColor
 
-    Box(
+    NeonFocusBorder(
+        focused = focused,
+        cornerRadius = 14.dp,
         modifier = modifier
             .height(56.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(bgColor)
-            .border(
-                width = if (focused) 3.dp else 0.dp,
-                color = if (focused) Color.White else Color.Transparent,
-                shape = RoundedCornerShape(14.dp)
-            )
             .focusable()
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+            .clickable { onClick() }
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = if (isConfirm) Icons.Filled.Check else Icons.Filled.Close,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(14.dp))
+                .background(bgColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (isConfirm) Icons.Filled.Check else Icons.Filled.Close,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = text,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
         }
     }
 }

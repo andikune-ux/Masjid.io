@@ -352,38 +352,40 @@ private fun DialogButton(
     val bg = if (!enabled) backgroundColor.copy(alpha = 0.3f) else backgroundColor
     val borderColor = if (isFocused && enabled) IslamicGoldLight else Color.Transparent
 
-    Row(
+    NeonFocusBorder(
+        focused = isFocused && enabled,
+        cornerRadius = 12.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(bg)
-            .border(
-                if (isFocused && enabled) 3.dp else 0.dp,
-                borderColor,
-                RoundedCornerShape(12.dp)
-            )
             .let { base ->
                 if (focusRequester != null) base.focusRequester(focusRequester) else base
             }
             .focusable(enabled)
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(enabled) { onClick() }
-            .padding(vertical = 10.dp, horizontal = 8.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            tint = textColor,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = text,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(bg)
+                .padding(vertical = 10.dp, horizontal = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = textColor,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+        }
     }
 }

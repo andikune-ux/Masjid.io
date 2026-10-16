@@ -8,3 +8,10 @@
 - [x] Audit dan perbaiki popup jadwal OFF serta pengembalian brightness ke 0%.
 - [x] Membuat seluruh popup/dialog dapat dipilih dan di-scroll pada layar HP.
 - [x] Verifikasi tidak ada perubahan pada identitas aplikasi, icon, applicationId, keystore, atau signature.
+
+## Perbaikan Update, Dialog HP, dan D-pad — 2026-10-17
+- [ ] Audit dan perbaiki validasi/instalasi APK update agar tidak parse error.
+- [ ] Kompakkan dialog PIN khusus HP tanpa mengubah kenyamanan TV.
+- [ ] Terapkan focus animasi NeonFocusBorder pada tombol dialog yang belum jelas.
+- [ ] Jalankan validasi diff dan build GitHub Actions.
+- [ ] Push perubahan ke GitHub setelah verifikasi.

@@ -88,6 +88,7 @@ import dev.andikune.masjidio.kiosk.KioskManager
 import dev.andikune.masjidio.kiosk.WatchdogService
 import dev.andikune.masjidio.receiver.BootReceiver
 import dev.andikune.masjidio.ui.components.AutoOffDialog
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.components.PinDialog
 import dev.andikune.masjidio.ui.components.UpdateDialog
 import dev.andikune.masjidio.ui.focus.AdzanSequenceOverlay
@@ -660,6 +661,18 @@ val startDownload: () -> Unit = {
                     }
                     state.isFinished && state.savedFilePath != null -> {
                         isDownloading = false
+                        val apkFile = java.io.File(state.savedFilePath)
+                        if (!ApkDownloader.isValidApk(this@MainActivity, apkFile)) {
+                            isInstalling = false
+                            apkFile.delete()
+                            Toast.makeText(
+                                this@MainActivity,
+                                "APK update rusak atau bukan MASJID.IO. Download ulang.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return@collect
+                        }
+
                         isInstalling = true
 
                         val ok = ApkDownloader.installApk(
@@ -1406,63 +1419,71 @@ private fun StoragePermissionDialog(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
-                    .border(
-                        width = if (isFocusedGrant) 3.dp else 0.dp,
-                        color = if (isFocusedGrant) Color.White else Color.Transparent,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .onFocusChanged { isFocusedGrant = it.isFocused }
-                    .focusable()
-                    .clickable { onGrantClick() },
-                contentAlignment = Alignment.Center
+            NeonFocusBorder(
+                focused = isFocusedGrant,
+                cornerRadius = 12.dp
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
-                        contentDescription = null,
-                        tint = Color(0xFF09141D),
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
+                        .border(
+                            width = if (isFocusedGrant) 3.dp else 0.dp,
+                            color = if (isFocusedGrant) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .onFocusChanged { isFocusedGrant = it.isFocused }
+                        .focusable()
+                        .clickable { onGrantClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = Color(0xFF09141D),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "BERI IZIN SEKARANG",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF09141D)
+                        )
+                    }
+                }
+            }
+            NeonFocusBorder(
+                focused = isFocusedSkip,
+                cornerRadius = 10.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
+                        .border(
+                            width = if (isFocusedSkip) 2.dp else 1.dp,
+                            color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .onFocusChanged { isFocusedSkip = it.isFocused }
+                        .focusable()
+                        .clickable { onSkipClick() },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = "BERI IZIN SEKARANG",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF09141D)
+                        text = "NANTI SAJA",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary
                     )
                 }
             }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
-                    .border(
-                        width = if (isFocusedSkip) 2.dp else 1.dp,
-                        color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .onFocusChanged { isFocusedSkip = it.isFocused }
-                    .focusable()
-                    .clickable { onSkipClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "NANTI SAJA",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextSecondary
-                )
-            }
-
             Text(
                 text = "⚠️ Tanpa izin ini, update & backup tidak akan berfungsi",
                 fontSize = 10.sp,
@@ -1575,58 +1596,66 @@ private fun InstallPermissionDialog(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
-                    .border(
-                        width = if (isFocusedGrant) 3.dp else 0.dp,
-                        color = if (isFocusedGrant) Color.White else Color.Transparent,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .onFocusChanged { isFocusedGrant = it.isFocused }
-                    .focusable()
-                    .clickable { onGrantClick() },
-                contentAlignment = Alignment.Center
+            NeonFocusBorder(
+                focused = isFocusedGrant,
+                cornerRadius = 12.dp
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "📦", fontSize = 22.sp)
-                    Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
+                        .border(
+                            width = if (isFocusedGrant) 3.dp else 0.dp,
+                            color = if (isFocusedGrant) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .onFocusChanged { isFocusedGrant = it.isFocused }
+                        .focusable()
+                        .clickable { onGrantClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "📦", fontSize = 22.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "BERI IZIN INSTALL",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF09141D)
+                        )
+                    }
+                }
+            }
+            NeonFocusBorder(
+                focused = isFocusedSkip,
+                cornerRadius = 10.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
+                        .border(
+                            width = if (isFocusedSkip) 2.dp else 1.dp,
+                            color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .onFocusChanged { isFocusedSkip = it.isFocused }
+                        .focusable()
+                        .clickable { onSkipClick() },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = "BERI IZIN INSTALL",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF09141D)
+                        text = "NANTI SAJA",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary
                     )
                 }
             }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isFocusedSkip) Color(0x44FFFFFF) else Color.Transparent)
-                    .border(
-                        width = if (isFocusedSkip) 2.dp else 1.dp,
-                        color = if (isFocusedSkip) IslamicGoldLight else TextSecondary.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .onFocusChanged { isFocusedSkip = it.isFocused }
-                    .focusable()
-                    .clickable { onSkipClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "NANTI SAJA",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextSecondary
-                )
-            }
-
             Text(
                 text = "⚠️ Tanpa izin ini, update otomatis tidak bisa install APK",
                 fontSize = 10.sp,

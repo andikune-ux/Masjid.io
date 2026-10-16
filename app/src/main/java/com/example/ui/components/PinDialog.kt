@@ -40,6 +40,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -154,39 +155,42 @@ private fun PinPadKey(
 ) {
     var focused by remember { mutableStateOf(false) }
 
-    Box(
+    NeonFocusBorder(
+        focused = focused,
+        cornerRadius = 10.dp,
         modifier = modifier
             .height(44.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (focused) NUMPAD_BG_FOCUS else NUMPAD_BG)
-            .border(
-                width = if (focused) 2.dp else 1.dp,
-                color = if (focused) NUMPAD_BORDER_FOCUS else NUMPAD_BORDER,
-                shape = RoundedCornerShape(10.dp)
-            )
             .focusable()
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+            .clickable { onClick() }
     ) {
-        if (key == "⌫") {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Backspace,
-                contentDescription = "Hapus",
-                tint = if (focused) NUMPAD_BORDER_FOCUS else IslamicGold,
-                modifier = Modifier.size(18.dp)
-            )
-        } else {
-            Text(
-                text = key,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = when {
-                    focused -> NUMPAD_BORDER_FOCUS
-                    key == "C" -> UrgentRed
-                    else -> TextPrimary
-                }
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (focused) NUMPAD_BG_FOCUS else NUMPAD_BG)
+                .border(1.dp, NUMPAD_BORDER, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (key == "⌫") {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Backspace,
+                    contentDescription = "Hapus",
+                    tint = if (focused) NUMPAD_BORDER_FOCUS else IslamicGold,
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
+                Text(
+                    text = key,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        focused -> NUMPAD_BORDER_FOCUS
+                        key == "C" -> UrgentRed
+                        else -> TextPrimary
+                    }
+                )
+            }
         }
     }
 }
@@ -203,28 +207,30 @@ private fun DialogActionButton(
 ) {
     var focused by remember { mutableStateOf(false) }
 
-    Box(
+    NeonFocusBorder(
+        focused = focused,
+        cornerRadius = 8.dp,
         modifier = modifier
             .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (focused) Color(0x33FFD700) else Color.Transparent)
-            .border(
-                width = if (focused) 2.dp else 0.dp,
-                color = if (focused) IslamicGoldLight else Color.Transparent,
-                shape = RoundedCornerShape(8.dp)
-            )
             .focusable()
             .onFocusChanged { focused = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            color = if (focused) IslamicGoldLight else textColor,
-            fontSize = 13.sp,
-            fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (focused) Color(0x33FFD700) else Color.Transparent)
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = if (focused) IslamicGoldLight else textColor,
+                fontSize = 13.sp,
+                fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal
+            )
+        }
     }
 }
 // ============================================================
@@ -238,6 +244,14 @@ fun PinDialog(
 ) {
     var enteredPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
+    val isTelevision = remember {
+        val uiMode = LocalContext.current.resources.configuration.uiMode
+        (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    }
+    val dialogWidth = if (isTelevision) 0.92f else 0.82f
+    val dialogMaxWidth = if (isTelevision) 400.dp else 320.dp
+    val dialogMaxHeight = if (isTelevision) 0.94f else 0.88f
 
     val firstKeyFocusRequester = remember { FocusRequester() }
 
@@ -262,13 +276,13 @@ fun PinDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .widthIn(max = 400.dp)
-                    .fillMaxHeight(0.94f)
+                    .fillMaxWidth(dialogWidth)
+                    .widthIn(max = dialogMaxWidth)
+                    .fillMaxHeight(dialogMaxHeight)
                     .clip(RoundedCornerShape(18.dp))
                     .background(DIALOG_BG)
                     .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
                     .verticalScroll(rememberScrollState())
                     .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -372,6 +386,14 @@ fun ChangePinDialog(
     var newPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    val isTelevision = remember {
+        val uiMode = LocalContext.current.resources.configuration.uiMode
+        (uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) ==
+            android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    }
+    val dialogWidth = if (isTelevision) 0.92f else 0.82f
+    val dialogMaxWidth = if (isTelevision) 400.dp else 320.dp
+    val dialogMaxHeight = if (isTelevision) 0.94f else 0.88f
 
     val firstKeyFocusRequester = remember { FocusRequester() }
 
@@ -422,13 +444,13 @@ fun ChangePinDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .widthIn(max = 400.dp)
-                    .fillMaxHeight(0.94f)
+                    .fillMaxWidth(dialogWidth)
+                    .widthIn(max = dialogMaxWidth)
+                    .fillMaxHeight(dialogMaxHeight)
                     .clip(RoundedCornerShape(18.dp))
                     .background(DIALOG_BG)
                     .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
                     .verticalScroll(rememberScrollState())
                     .focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally

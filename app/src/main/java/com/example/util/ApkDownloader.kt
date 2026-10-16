@@ -82,8 +82,10 @@ object ApkDownloader {
             val targetDir = getUpdateDir(context)
             val targetFile = File(targetDir, fileName)
 
-            // Kalau sudah ada file versi sama → langsung selesai (tidak download ulang)
-            if (targetFile.exists() && targetFile.length() > 0) {
+            // File lama hanya boleh dipakai ulang setelah benar-benar terbaca
+            // sebagai APK milik aplikasi ini. File parsial/HTML dari download
+            // gagal sebelumnya tidak boleh diteruskan ke Package Installer.
+            if (targetFile.exists() && isValidApk(context, targetFile)) {
                 Log.d(TAG, "File sudah ada: ${targetFile.absolutePath}")
                 emit(
                     DownloadState(
@@ -96,6 +98,11 @@ object ApkDownloader {
                     )
                 )
                 return@flow
+            }
+
+            if (targetFile.exists()) {
+                Log.w(TAG, "APK lama tidak valid, hapus dan download ulang")
+                targetFile.delete()
             }
 
             // Hapus file parsial kalau ada
@@ -174,8 +181,10 @@ object ApkDownloader {
         try {
             val inputStream = connection.inputStream
             val contentLength = connection.contentLengthLong
+            val partialFile = File(targetFile.parentFile, "${targetFile.name}.part")
+            if (partialFile.exists()) partialFile.delete()
 
-            val fileOutput = FileOutputStream(targetFile)
+            val fileOutput = FileOutputStream(partialFile)
             val buffer = ByteArray(8192)
             var bytesRead: Int
             var totalRead: Long = 0L
@@ -203,6 +212,11 @@ object ApkDownloader {
             inputStream.close()
             connection.disconnect()
 
+            if (!partialFile.renameTo(targetFile) || !targetFile.exists()) {
+                partialFile.delete()
+                throw IllegalStateException("Gagal menyimpan APK hasil download")
+            }
+
             onProgress(
                 DownloadState(
                     isDownloading = false,
@@ -215,6 +229,7 @@ object ApkDownloader {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error download connection: ${e.message}", e)
+            File(targetFile.parentFile, "${targetFile.name}.part").delete()
             onProgress(
                 DownloadState(
                     isDownloading = false,
@@ -297,8 +312,12 @@ object ApkDownloader {
     fun installApk(context: Context, apkPath: String): Boolean {
         return try {
             val apkFile = File(apkPath)
-            if (!apkFile.exists()) {
-                Log.e(TAG, "File APK tidak ada: $apkPath")
+            if (!apkFile.exists() || !isValidApk(context, apkFile)) {
+                Log.e(TAG, "File APK tidak ada atau paket tidak valid: $apkPath")
+                return false
+            }
+            if (!canInstallApk(context)) {
+                Log.w(TAG, "Izin Install unknown apps belum diberikan")
                 return false
             }
 
@@ -322,6 +341,25 @@ object ApkDownloader {
             true
         } catch (e: Exception) {
             Log.e(TAG, "Install gagal: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Validasi minimum sebelum membuka Package Installer.
+     * Menangkap file HTML, file parsial, file rusak, dan APK package lain.
+     */
+    fun isValidApk(context: Context, apkFile: File): Boolean {
+        if (!apkFile.exists() || apkFile.length() < 1024L) return false
+        return try {
+            val packageInfo = context.packageManager.getPackageArchiveInfo(
+                apkFile.absolutePath,
+                0
+            ) ?: return false
+            packageInfo.packageName == context.packageName &&
+                packageInfo.applicationInfo != null
+        } catch (e: Exception) {
+            Log.w(TAG, "Validasi APK gagal: ${e.message}")
             false
         }
     }
