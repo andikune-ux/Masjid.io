@@ -952,7 +952,10 @@ MasjidTheme {
                         lastKeyPressTime = now
                         if (isNowInOffSchedule()) {
                             temporaryWake = true
-                            if (settings.autoOffDialogEnabled && !showAutoOffDialog) {
+                            if (settings.autoOffDialogEnabled &&
+                                !showAutoOffDialog &&
+                                !autoOffDialogDismissedForSession
+                            ) {
                                 showAutoOffDialog = true
                             }
                         }
@@ -967,7 +970,10 @@ MasjidTheme {
                     lastKeyPressTime = now
                     if (isNowInOffSchedule()) {
                         temporaryWake = true
-                        if (settings.autoOffDialogEnabled && !showAutoOffDialog) {
+                        if (settings.autoOffDialogEnabled &&
+                            !showAutoOffDialog &&
+                            !autoOffDialogDismissedForSession
+                        ) {
                             showAutoOffDialog = true
                         }
                     }
