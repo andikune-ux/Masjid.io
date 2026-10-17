@@ -6,6 +6,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -123,7 +124,7 @@ object DeviceDiscovery {
 
         // Gunakan scope coroutine pemanggil; jangan membuat scope baru yang
         // tetap aktif setelah pengguna membatalkan atau mengulang scan.
-        while (isActive) {
+        while (currentCoroutineContext().isActive) {
             try {
                 val s = DatagramSocket()
                 s.broadcast = true
