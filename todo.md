@@ -15,3 +15,10 @@
 - [ ] Terapkan focus animasi NeonFocusBorder pada tombol dialog yang belum jelas.
 - [ ] Jalankan validasi diff dan build GitHub Actions.
 - [ ] Push perubahan ke GitHub setelah verifikasi.
+
+## Perbaikan Background Download APK — 2026-10-17
+- [ ] Audit lifecycle download saat menu/activity/aplikasi berpindah.
+- [ ] Pisahkan pekerjaan download dari lifecycle UI dan persist state selesai secara atomik.
+- [ ] Cegah tombol install sebelum APK tervalidasi penuh setelah background download.
+- [ ] Jalankan verifikasi terfokus dan build GitHub Actions.
+- [ ] Push perubahan ke GitHub setelah build sukses.

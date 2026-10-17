@@ -137,6 +137,12 @@
             android:foregroundServiceType="dataSync">
         </service>
 
+        <!-- Download update tetap berjalan saat Activity/menu ditinggalkan -->
+        <service
+            android:name=".kiosk.UpdateDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- ===== FILEPROVIDER (Install APK dari Flashdisk / Internal) ===== -->
         <provider
             android:name="androidx.core.content.FileProvider"

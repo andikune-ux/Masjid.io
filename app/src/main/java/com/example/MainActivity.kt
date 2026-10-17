@@ -1,8 +1,10 @@
 package dev.andikune.masjidio
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -86,6 +88,7 @@ import dev.andikune.masjidio.data.model.PrayerId
 import dev.andikune.masjidio.data.model.PrayerSchedule
 import dev.andikune.masjidio.kiosk.KioskManager
 import dev.andikune.masjidio.kiosk.WatchdogService
+import dev.andikune.masjidio.kiosk.UpdateDownloadService
 import dev.andikune.masjidio.receiver.BootReceiver
 import dev.andikune.masjidio.ui.components.AutoOffDialog
 import dev.andikune.masjidio.ui.components.NeonFocusBorder
@@ -257,6 +260,7 @@ var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
 var downloadProgress by remember { mutableFloatStateOf(0f) }
 var isDownloading by remember { mutableStateOf(false) }
 var isInstalling by remember { mutableStateOf(false) }
+var downloadReady by remember { mutableStateOf(false) }
 
 val updatePrefs = remember {
     context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
@@ -266,6 +270,41 @@ fun getSkippedVersion(): String? =
 
 fun setSkippedVersion(version: String) {
     updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
+}
+
+fun applyDownloadServiceState() {
+    val state = UpdateDownloadService.readState(this@MainActivity)
+    val expectedFileName = updateInfo?.let { "masjid-io-${it.latestVersion}.apk" }
+    isDownloading = state.status == UpdateDownloadService.STATUS_DOWNLOADING
+    downloadProgress = state.progress
+    downloadReady = state.status == UpdateDownloadService.STATUS_COMPLETE &&
+        expectedFileName != null &&
+        state.filePath != null &&
+        java.io.File(state.filePath).name == expectedFileName &&
+        ApkDownloader.isValidApk(this@MainActivity, java.io.File(state.filePath))
+}
+
+// State dipulihkan saat Activity kembali dari aplikasi lain atau dibuat ulang.
+LaunchedEffect(Unit) {
+    applyDownloadServiceState()
+}
+
+DisposableEffect(Unit) {
+    val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == UpdateDownloadService.ACTION_PROGRESS) {
+                applyDownloadServiceState()
+            }
+        }
+    }
+    val filter = IntentFilter(UpdateDownloadService.ACTION_PROGRESS)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+    } else {
+        @Suppress("DEPRECATION")
+        registerReceiver(receiver, filter)
+    }
+    onDispose { unregisterReceiver(receiver) }
 }
 
 // ============================================================
@@ -623,6 +662,7 @@ LaunchedEffect(Unit) {
 
             if (info.isForceUpdate || !isSkipped) {
                 updateInfo = info
+                applyDownloadServiceState()
                 showUpdateDialog = true
             }
         }
@@ -630,75 +670,55 @@ LaunchedEffect(Unit) {
 }
 
 // ============================================================
-// START DOWNLOAD APK
+// START / RESUME DOWNLOAD APK
 // ============================================================
+val installDownloadedUpdate: () -> Unit = {
+    val state = UpdateDownloadService.readState(this@MainActivity)
+    val path = state.filePath
+    val apkFile = path?.let { java.io.File(it) }
+    if (apkFile == null || !ApkDownloader.isValidApk(this@MainActivity, apkFile)) {
+        downloadReady = false
+        Toast.makeText(
+            this@MainActivity,
+            "APK belum selesai atau tidak valid. Silakan download ulang.",
+            Toast.LENGTH_LONG
+        ).show()
+    } else {
+        isInstalling = true
+        val ok = ApkDownloader.installApk(this@MainActivity, apkFile.absolutePath)
+        if (!ok) {
+            isInstalling = false
+            if (!installDialogAlreadyShown) {
+                showInstallPermissionDialog = true
+                installDialogAlreadyShown = true
+            }
+        } else {
+            ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
+        }
+    }
+}
+
 val startDownload: () -> Unit = {
     val info = updateInfo
-    if (info?.downloadUrl.isNullOrBlank()) {
+    if (downloadReady) {
+        installDownloadedUpdate()
+    } else if (info?.downloadUrl.isNullOrBlank()) {
         Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
     } else if (BackupManager.needsStoragePermission()) {
         Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
         showStoragePermissionDialog = true
     } else {
         isDownloading = true
+        downloadReady = false
         downloadProgress = 0f
-
-        scope.launch {
-            ApkDownloader.downloadApk(
-                context = this@MainActivity,
-                downloadUrl = info!!.downloadUrl!!,
-                fileName = "masjid-io-${info.latestVersion}.apk"
-            ).collect { state ->
-                when {
-                    state.errorMessage != null -> {
-                        isDownloading = false
-                        isInstalling = false
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Download gagal: ${state.errorMessage}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                    state.isFinished && state.savedFilePath != null -> {
-                        isDownloading = false
-                        val apkFile = java.io.File(state.savedFilePath)
-                        if (!ApkDownloader.isValidApk(this@MainActivity, apkFile)) {
-                            isInstalling = false
-                            apkFile.delete()
-                            Toast.makeText(
-                                this@MainActivity,
-                                "APK update rusak atau bukan MASJID.IO. Download ulang.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            return@collect
-                        }
-
-                        isInstalling = true
-
-                        val ok = ApkDownloader.installApk(
-                            this@MainActivity,
-                            state.savedFilePath
-                        )
-                        if (!ok) {
-                            isInstalling = false
-                            if (!installDialogAlreadyShown) {
-                                showInstallPermissionDialog = true
-                                installDialogAlreadyShown = true
-                            }
-                        } else {
-                            ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
-                        }
-                    }
-                    else -> {
-                        downloadProgress = state.progress
-                    }
-                }
-            }
-        }
+        UpdateDownloadService.start(
+            context = this@MainActivity,
+            downloadUrl = info!!.downloadUrl!!,
+            fileName = "masjid-io-${info.latestVersion}.apk"
+        )
     }
 }
 
-// ============================================================
 // PERMISSION LAUNCHER
 // ============================================================
 val permissionLauncher = rememberLauncherForActivityResult(
@@ -1208,6 +1228,7 @@ if (showAutoOffDialog) {
                                 forceUpdate = info.isForceUpdate,
                                 downloadProgress = if (isDownloading) downloadProgress else null,
                                 isDownloading = isDownloading,
+                                downloadReady = downloadReady,
                                 isInstalling = isInstalling,
                                 onUpdateClick = { startDownload() },
                                 onLaterClick = {

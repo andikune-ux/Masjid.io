@@ -69,6 +69,7 @@ fun UpdateDialog(
     forceUpdate: Boolean = false,
     downloadProgress: Float? = null,
     isDownloading: Boolean = false,
+    downloadReady: Boolean = false,
     isInstalling: Boolean = false,
     onUpdateClick: () -> Unit,
     onLaterClick: () -> Unit,
@@ -202,7 +203,25 @@ fun UpdateDialog(
                 }
 
                 // PROGRESS BAR
-                if (isDownloading && downloadProgress != null) {
+                if (downloadReady) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(IslamicGreen.copy(alpha = 0.15f))
+                            .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "✓ Download selesai — tekan INSTALL untuk melanjutkan",
+                            fontSize = 11.sp,
+                            color = IslamicGreen,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else if (isDownloading && downloadProgress != null) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = "⬇️ Mengunduh update... ${(downloadProgress * 100).toInt()}%",
@@ -267,7 +286,7 @@ fun UpdateDialog(
                         Box(modifier = Modifier.weight(1f)) {
                             DialogButton(
                                 icon = Icons.Default.Download,
-                                text = "UPDATE",
+                                text = if (downloadReady) "INSTALL" else "UPDATE",
                                 backgroundColor = IslamicGold,
                                 textColor = Color(0xFF09141D),
                                 enabled = !isLocked,
@@ -313,7 +332,7 @@ fun UpdateDialog(
                         Box(modifier = Modifier.weight(1f)) {
                             DialogButton(
                                 icon = Icons.Default.Download,
-                                text = "UPDATE",
+                                text = if (downloadReady) "INSTALL" else "UPDATE",
                                 backgroundColor = IslamicGold,
                                 textColor = Color(0xFF09141D),
                                 enabled = !isLocked,
