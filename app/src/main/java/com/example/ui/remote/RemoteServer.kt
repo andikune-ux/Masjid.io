@@ -15,15 +15,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.BindException
 import java.net.InetSocketAddress
@@ -112,6 +113,22 @@ class RemoteServer(
     )
 
     private val streamingTransfers = ConcurrentHashMap<String, StreamingTransferState>()
+
+    data class ReceiveProgress(
+        val fileName: String,
+        val bytesReceived: Long,
+        val totalBytes: Long,
+        val phase: String,
+        val message: String
+    ) {
+        val fraction: Float
+            get() = if (totalBytes > 0L) {
+                (bytesReceived.toDouble() / totalBytes.toDouble()).toFloat().coerceIn(0f, 1f)
+            } else 0f
+    }
+
+    private val _receiveProgress = MutableStateFlow<ReceiveProgress?>(null)
+    val receiveProgress: StateFlow<ReceiveProgress?> = _receiveProgress.asStateFlow()
 
     private fun createSession(): String {
         val id = UUID.randomUUID().toString()
@@ -212,12 +229,41 @@ private fun buildErrorMessage(e: Exception?): String {
 
 fun isRunning(): Boolean = isRunning
 
+/** Membaca satu baris header HTTP tanpa buffer karakter tambahan. */
+private fun readHttpLine(input: InputStream): String? {
+    val bytes = ByteArrayOutputStream()
+    while (true) {
+        val value = input.read()
+        if (value < 0) return if (bytes.size() == 0) null else bytes.toString(Charsets.ISO_8859_1.name())
+        if (value == '\n'.code) break
+        if (value != '\r'.code) bytes.write(value)
+        if (bytes.size() > 16 * 1024) throw IllegalStateException("Header HTTP terlalu panjang")
+    }
+    return bytes.toString(Charsets.ISO_8859_1.name())
+}
+
+/** Membaca tepat sejumlah byte agar upload tidak dianggap selesai sebelum waktunya. */
+private fun readExactly(input: InputStream, length: Long): ByteArray {
+    require(length in 0L..(10L * 1024L * 1024L)) { "Body request terlalu besar" }
+    val result = ByteArray(length.toInt())
+    var offset = 0
+    while (offset < result.size) {
+        val count = input.read(result, offset, result.size - offset)
+        if (count < 0) throw java.io.EOFException("Body request terputus ($offset/${result.size} byte)")
+        offset += count
+    }
+    return result
+}
+
 private fun handleClient(client: Socket) {
     try {
-        val reader = BufferedReader(InputStreamReader(client.getInputStream()))
+        // Jangan memakai BufferedReader untuk request yang dapat berisi body biner.
+        // BufferedReader bisa mengambil sebagian body ke buffer internal saat membaca
+        // header; byte tersebut kemudian hilang ketika upload dibaca dari socket.
+        val inputStream = client.getInputStream()
         val writer = OutputStreamWriter(client.getOutputStream())
 
-        val requestLine = reader.readLine() ?: return
+        val requestLine = readHttpLine(inputStream) ?: return
         val parts = requestLine.split(" ")
         if (parts.size < 2) { client.close(); return }
 
@@ -229,10 +275,10 @@ private fun handleClient(client: Socket) {
         pathOnly = if (qIndex >= 0) fullPath.substring(0, qIndex) else fullPath
 
         val headers = mutableMapOf<String, String>()
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            if (line.isNullOrBlank()) break
-            val hp = line!!.split(":", limit = 2)
+        while (true) {
+            val line = readHttpLine(inputStream) ?: break
+            if (line.isBlank()) break
+            val hp = line.split(":", limit = 2)
             if (hp.size == 2) headers[hp[0].trim().lowercase()] = hp[1].trim()
         }
 
@@ -246,7 +292,7 @@ private fun handleClient(client: Socket) {
         if (isStreamingUpload) {
             handleStreamingUpload(
                 client = client,
-                reader = reader,
+                inputStream = inputStream,
                 writer = writer,
                 headers = headers,
                 contentLength = contentLength,
@@ -259,14 +305,8 @@ private fun handleClient(client: Socket) {
         // Route lama — baca body sebagai string (untuk endpoint kecil)
         // ============================================================
         val body = if (contentLength > 0) {
-            val buf = CharArray(contentLength.toInt())
-            var read = 0
-            while (read < contentLength) {
-                val r = reader.read(buf, read, (contentLength - read).toInt())
-                if (r < 0) break
-                read += r
-            }
-            String(buf, 0, read)
+            val bodyBytes = readExactly(inputStream, contentLength)
+            String(bodyBytes, Charsets.UTF_8)
         } else ""
 
         val cookieHeader = headers["cookie"] ?: ""
@@ -522,7 +562,7 @@ private fun handleClient(client: Socket) {
 // ============================================================
 private fun handleStreamingUpload(
     client: Socket,
-    reader: BufferedReader,
+    inputStream: InputStream,
     writer: OutputStreamWriter,
     headers: Map<String, String>,
     contentLength: Long,
@@ -578,13 +618,19 @@ private fun handleStreamingUpload(
             mimeType = mimeType
         )
         streamingTransfers[fileId] = state
+        _receiveProgress.value = ReceiveProgress(
+            fileName = fileName,
+            bytesReceived = 0L,
+            totalBytes = totalBytes,
+            phase = "receiving",
+            message = "Menerima $fileName..."
+        )
 
         Log.d(TAG, "Streaming upload START: $fileName ($totalBytes bytes) → $fieldKey")
 
         // ============================================================
         // BACA BODY STREAMING — langsung tulis ke disk
         // ============================================================
-        val inputStream: InputStream = client.getInputStream()
         val outputStream = FileOutputStream(targetFile)
 
         val buffer = ByteArray(STREAM_BUFFER_SIZE)
@@ -600,6 +646,13 @@ private fun handleStreamingUpload(
                 totalRead += read
                 remaining -= read
                 state.bytesReceived = totalRead
+                _receiveProgress.value = ReceiveProgress(
+                    fileName = fileName,
+                    bytesReceived = totalRead,
+                    totalBytes = totalBytes,
+                    phase = "receiving",
+                    message = "Menerima ${formatBytes(totalRead)} / ${formatBytes(totalBytes)}"
+                )
             }
             outputStream.flush()
         } finally {
@@ -612,6 +665,13 @@ private fun handleStreamingUpload(
         if (totalRead != contentLength) {
             state.failureReason = "Ukuran tidak cocok: $totalRead vs $contentLength"
             targetFile.delete()
+            _receiveProgress.value = ReceiveProgress(
+                fileName = fileName,
+                bytesReceived = totalRead,
+                totalBytes = totalBytes,
+                phase = "error",
+                message = "Gagal: ukuran file tidak cocok"
+            )
             sendResponse(writer, 400, "application/json",
                 """{"success":false,"error":"Ukuran file tidak cocok"}""")
             writer.flush()
@@ -621,6 +681,13 @@ private fun handleStreamingUpload(
 
         state.isFinished = true
         state.savedPath = targetFile.absolutePath
+        _receiveProgress.value = ReceiveProgress(
+            fileName = fileName,
+            bytesReceived = totalRead,
+            totalBytes = totalBytes,
+            phase = "done",
+            message = "$fileName diterima dengan baik"
+        )
 
         // Update settings otomatis (path lokal)
         applyMediaPathToSettings(fieldKey, targetFile.absolutePath)
@@ -638,6 +705,13 @@ private fun handleStreamingUpload(
 
     } catch (e: Exception) {
         Log.e(TAG, "Streaming upload error: ${e.message}", e)
+        _receiveProgress.value = ReceiveProgress(
+            fileName = headers["x-file-name"] ?: "File",
+            bytesReceived = 0L,
+            totalBytes = headers["x-total-bytes"]?.toLongOrNull() ?: contentLength,
+            phase = "error",
+            message = "Gagal menerima file: ${e.message ?: "koneksi terputus"}"
+        )
         try {
             sendResponse(writer, 500, "application/json",
                 """{"success":false,"error":"${e.message?.replace("\"", "\\\"")}"}""")
@@ -645,6 +719,12 @@ private fun handleStreamingUpload(
         } catch (_: Exception) {}
         try { client.close() } catch (_: Exception) {}
     }
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1024 * 1024 -> String.format(Locale.US, "%.1f MB", bytes / (1024f * 1024f))
+    bytes >= 1024 -> String.format(Locale.US, "%.0f KB", bytes / 1024f)
+    else -> "$bytes B"
 }
 
 // ============================================================

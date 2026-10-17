@@ -630,7 +630,7 @@ private suspend fun sendSingleMediaFileStreaming(
             }
         }
 
-        onFileProgress(0.96f, "finishing", "Menunggu respon server...")
+        onFileProgress(0.98f, "finishing", "Memverifikasi file di perangkat penerima...")
 
         // ===== BACA RESPON =====
         val responseCode = conn.responseCode

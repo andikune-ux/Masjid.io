@@ -121,7 +121,9 @@ object DeviceDiscovery {
             put("port", myPort)
         }.toString()
 
-        while (CoroutineScope(Dispatchers.IO).isActive) {
+        // Gunakan scope coroutine pemanggil; jangan membuat scope baru yang
+        // tetap aktif setelah pengguna membatalkan atau mengulang scan.
+        while (isActive) {
             try {
                 val s = DatagramSocket()
                 s.broadcast = true

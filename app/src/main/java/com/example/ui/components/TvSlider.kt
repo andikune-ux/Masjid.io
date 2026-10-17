@@ -37,7 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -122,8 +122,7 @@ fun TvSlider(
                 isFocused = it.isFocused
                 if (!it.isFocused) isSliderActive = false
             }
-            .focusable()
-            .onKeyEvent { event ->
+            .onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
@@ -131,27 +130,29 @@ fun TvSlider(
                             true
                         }
                         Key.DirectionLeft -> {
-                            if (isSliderActive) {
-                                val newValue = (value - stepSize).coerceIn(
-                                    valueRange.start, valueRange.endInclusive
-                                )
-                                onValueChange(newValue)
-                                true
-                            } else false
+                            // Beberapa remote mengirim DPAD setelah OK sebagai event
+                            // preview. Aktifkan otomatis agar arah kiri tidak menjadi
+                            // satu-satunya arah yang terasa merespon.
+                            isSliderActive = true
+                            val newValue = (value - stepSize).coerceIn(
+                                valueRange.start, valueRange.endInclusive
+                            )
+                            onValueChange(newValue)
+                            true
                         }
                         Key.DirectionRight -> {
-                            if (isSliderActive) {
-                                val newValue = (value + stepSize).coerceIn(
-                                    valueRange.start, valueRange.endInclusive
-                                )
-                                onValueChange(newValue)
-                                true
-                            } else false
+                            isSliderActive = true
+                            val newValue = (value + stepSize).coerceIn(
+                                valueRange.start, valueRange.endInclusive
+                            )
+                            onValueChange(newValue)
+                            true
                         }
                         else -> false
                     }
                 } else false
             }
+            .focusable()
             .clickable { isSliderActive = !isSliderActive }
             .padding(16.dp)
     ) {

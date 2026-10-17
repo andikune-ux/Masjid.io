@@ -119,6 +119,7 @@ fun IoControlScreen(
     deviceRole: String,
     appVersion: String,
     serverPort: Int,
+    receiveProgress: RemoteServer.ReceiveProgress?,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -506,10 +507,17 @@ fun IoControlScreen(
                 )
             }
             IoPhase.RECEIVING -> {
-                WaitingReceiveView(
-                    deviceName = selectedDevice?.name ?: "Pengirim",
-                    onCancel = { phase = IoPhase.CONNECTED }
-                )
+                if (receiveProgress == null) {
+                    WaitingReceiveView(
+                        deviceName = selectedDevice?.name ?: "Pengirim",
+                        onCancel = { phase = IoPhase.CONNECTED }
+                    )
+                } else {
+                    ReceiveProgressView(
+                        progress = receiveProgress,
+                        onCancel = { phase = IoPhase.CONNECTED }
+                    )
+                }
             }
             IoPhase.DONE -> DoneView(message = statusMessage)
             IoPhase.ERROR -> {
@@ -1716,6 +1724,72 @@ private fun SmallOutlineButton(
 // ============================================================
 // WAITING RECEIVE VIEW
 // ============================================================
+@Composable
+private fun ReceiveProgressView(
+    progress: RemoteServer.ReceiveProgress,
+    onCancel: () -> Unit
+) {
+    val color = when (progress.phase) {
+        "error" -> IoRed
+        "done" -> IoGreen
+        else -> IoGreenLight
+    }
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = when (progress.phase) {
+                "error" -> "GAGAL MENERIMA"
+                "done" -> "TRANSFER SELESAI"
+                else -> "MENERIMA MEDIA..."
+            },
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(progress.fileName, fontSize = 14.sp, color = TextPrimary, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(24.dp))
+        Box(
+            modifier = Modifier.fillMaxWidth(0.85f).height(16.dp)
+                .clip(RoundedCornerShape(8.dp)).background(Color(0xFF1A2E44))
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(progress.fraction).fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Brush.horizontalGradient(listOf(color, IoGreenLight)))
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "${(progress.fraction * 100).toInt()}%",
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(progress.message, fontSize = 13.sp, color = TextSecondary, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(32.dp))
+        val interactionSource = remember { MutableInteractionSource() }
+        val isFocused by interactionSource.collectIsFocusedAsState()
+        val isPressed by interactionSource.collectIsPressedAsState()
+        NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp) {
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x33FF5252))
+                    .focusable(interactionSource = interactionSource)
+                    .clickable(interactionSource = interactionSource, indication = null) { onCancel() }
+                    .padding(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text("BATAL", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF8A80))
+            }
+        }
+    }
+}
+
 @Composable
 private fun WaitingReceiveView(deviceName: String, onCancel: () -> Unit) {
     val infiniteTransition = rememberInfiniteTransition(label = "waiting")

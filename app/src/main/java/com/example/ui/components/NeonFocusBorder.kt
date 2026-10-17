@@ -39,6 +39,8 @@ private enum class BorderPhase {
  *
  * V1.30.6: Kembalikan animasi border berputar yang sempat tertutup
  *          oleh border solid di V1.30.5.
+ * V1.30.7: Gambar isi lebih dulu, lalu border di atasnya supaya glow
+ *          tidak tertutup background tombol/card.
  *
  * Prinsip:
  *   - Border tipis (dim gold) sebagai kerangka
@@ -100,6 +102,7 @@ fun NeonFocusBorder(
     }
 
     Box(modifier = modifier.scale(scale)) {
+        content()
         if (focused) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawGlowBorder(
@@ -113,7 +116,6 @@ fun NeonFocusBorder(
                 )
             }
         }
-        content()
     }
 }
 

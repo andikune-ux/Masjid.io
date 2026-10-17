@@ -1094,6 +1094,7 @@ MasjidTheme {
             deviceRole = deviceRole,
             appVersion = dev.andikune.masjidio.BuildConfig.VERSION_NAME,
             serverPort = settings.remoteServerPort,
+            receiveProgress = remoteServer.receiveProgress.collectAsState().value,
             onBack = { currentScreen = AppScreen.SETTINGS }
         )
     }

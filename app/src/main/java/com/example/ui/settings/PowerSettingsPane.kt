@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.data.local.PrayerTimesCalculator
 import dev.andikune.masjidio.data.model.AppSettings
 import dev.andikune.masjidio.data.model.BrightnessMode
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.components.TvSlider
 import dev.andikune.masjidio.ui.components.TvToggle
 import dev.andikune.masjidio.ui.theme.IslamicGold
@@ -81,60 +82,67 @@ private fun BrightnessModeRow(
 ) {
     var focused by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (focused) Color(0x44FFD700) else Color(0x22000000))
-            .border(
-                width = if (focused) 2.dp else 1.dp,
-                color = if (focused) IslamicGoldLight else IslamicGold.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(10.dp)
-            )
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() }
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    NeonFocusBorder(
+        focused = focused,
+        borderWidth = 3.dp,
+        cornerRadius = 10.dp,
+        glowRadius = 6.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // Radio button visual
-        Box(
+        Row(
             modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(if (selected) IslamicGold else Color.Transparent)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (focused) Color(0x44FFD700) else Color(0x22000000))
                 .border(
-                    width = 2.dp,
-                    color = if (selected) IslamicGold else TextSecondary,
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
+                    width = if (focused) 1.dp else 1.dp,
+                    color = if (focused) IslamicGoldLight else IslamicGold.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF09141D))
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) IslamicGold else Color.Transparent)
+                    .border(
+                        width = 2.dp,
+                        color = if (selected) IslamicGold else TextSecondary,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF09141D))
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (focused) IslamicGoldLight else TextPrimary
+                )
+                Text(
+                    text = description,
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    lineHeight = 15.sp
                 )
             }
-        }
-
-        Spacer(Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (focused) IslamicGoldLight else TextPrimary
-            )
-            Text(
-                text = description,
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 15.sp
-            )
         }
     }
 }
