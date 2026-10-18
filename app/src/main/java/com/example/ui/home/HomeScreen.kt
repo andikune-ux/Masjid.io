@@ -106,8 +106,9 @@ private fun HomeScreenContent(
             else -> 2 * 60_000L
         }
 
-        // Murni pakai timer, TIDAK menunggu video loop
+        // MURNI PAKAI TIMER, TIDAK MENUNGGU VIDEO LOOP
         delay(durationMs)
+        
         currentCycleIndex = (currentCycleIndex + 1) % switchCycle.size
     }
 
