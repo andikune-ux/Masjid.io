@@ -5,19 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -29,12 +17,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,354 +40,93 @@ import dev.andikune.masjidio.ui.theme.TextSecondary
 import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
-/**
- * UpdateDialog — V1.04.430
- * Fix D-pad + Compact HP
- */
 @Composable
 fun UpdateDialog(
-    currentVersion: String,
-    latestVersion: String,
-    releaseNotes: String?,
-    forceUpdate: Boolean = false,
-    downloadProgress: Float? = null,
-    isDownloading: Boolean = false,
-    downloadReady: Boolean = false,
-    isInstalling: Boolean = false,
-    onUpdateClick: () -> Unit,
-    onLaterClick: () -> Unit,
-    onSkipClick: () -> Unit,
-    onTidakClick: () -> Unit = onSkipClick
+    currentVersion: String, latestVersion: String, releaseNotes: String?, forceUpdate: Boolean = false,
+    downloadProgress: Float? = null, isDownloading: Boolean = false, downloadReady: Boolean = false,
+    isInstalling: Boolean = false, onUpdateClick: () -> Unit, onLaterClick: () -> Unit,
+    onSkipClick: () -> Unit, onTidakClick: () -> Unit = onSkipClick
 ) {
     val isLocked = isDownloading || isInstalling
-
     val updateFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) {
-        delay(500L)
-        runCatching { updateFocusRequester.requestFocus() }
-        delay(300L)
-        runCatching { updateFocusRequester.requestFocus() }
-    }
+    LaunchedEffect(Unit) { delay(500L); runCatching { updateFocusRequester.requestFocus() }; delay(300L); runCatching { updateFocusRequester.requestFocus() } }
 
-    Dialog(
-        onDismissRequest = {
-            if (!forceUpdate && !isLocked) onLaterClick()
-        },
-        properties = DialogProperties(
-            dismissOnBackPress = !forceUpdate && !isLocked,
-            dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false
-        )
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+    Dialog(onDismissRequest = { if (!forceUpdate && !isLocked) onLaterClick() }, properties = DialogProperties(dismissOnBackPress = !forceUpdate && !isLocked, dismissOnClickOutside = false, usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth(0.94f)
-                    .widthIn(max = 680.dp)
-                    .fillMaxHeight(0.94f)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFF0B1720))
-                    .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
-                    .verticalScroll(rememberScrollState())
-                    .focusGroup(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 680.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(18.dp)).background(Color(0xFF0B1720)).border(2.dp, IslamicGold, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup(),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.SystemUpdate,
-                    contentDescription = null,
-                    tint = IslamicGold,
-                    modifier = Modifier.size(40.dp)
-                )
+                Icon(Icons.Default.SystemUpdate, null, tint = IslamicGold, modifier = Modifier.size(40.dp))
+                Text("UPDATE TERSEDIA", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+                Text("Versi baru MASJID.IO sudah tersedia", fontSize = 12.sp, color = TextSecondary, textAlign = TextAlign.Center)
 
-                Text(
-                    text = "UPDATE TERSEDIA",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
-
-                Text(
-                    text = "Versi baru MASJID.IO sudah tersedia",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-
-                // INFO VERSI
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0x22000000), RoundedCornerShape(10.dp))
-                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
-                        .padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Versi Saat Ini", fontSize = 10.sp, color = TextSecondary)
-                        Text(
-                            currentVersion,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Versi Terbaru", fontSize = 10.sp, color = TextSecondary)
-                        Text(
-                            latestVersion,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = IslamicGreen
-                        )
-                    }
+                Row(modifier = Modifier.fillMaxWidth().background(Color(0x22000000), RoundedCornerShape(10.dp)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp)).padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column { Text("Versi Saat Ini", fontSize = 10.sp, color = TextSecondary); Text(currentVersion, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary) }
+                    Column(horizontalAlignment = Alignment.End) { Text("Versi Terbaru", fontSize = 10.sp, color = TextSecondary); Text(latestVersion, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGreen) }
                 }
 
-                // CHANGELOG
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0x22000000), RoundedCornerShape(10.dp))
-                        .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                        .padding(10.dp)
-                ) {
-                    Text(
-                        text = "📋 Yang Baru di Versi $latestVersion:",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGoldLight
-                    )
+                Column(modifier = Modifier.fillMaxWidth().background(Color(0x22000000), RoundedCornerShape(10.dp)).border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp)).padding(10.dp)) {
+                    Text("📋 Yang Baru di Versi $latestVersion:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                     Spacer(modifier = Modifier.height(6.dp))
-
-                    val notesText = if (releaseNotes.isNullOrBlank()) {
-                        "(Tidak ada catatan rilis)"
-                    } else {
-                        releaseNotes
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            text = notesText,
-                            fontSize = 12.sp,
-                            color = TextPrimary,
-                            lineHeight = 18.sp
-                        )
+                    val notesText = if (releaseNotes.isNullOrBlank()) "(Tidak ada catatan rilis)" else releaseNotes
+                    Box(modifier = Modifier.fillMaxWidth().height(120.dp).verticalScroll(rememberScrollState())) {
+                        Text(notesText, fontSize = 12.sp, color = TextPrimary, lineHeight = 18.sp)
                     }
                 }
 
-                // PROGRESS BAR
-                if (downloadReady) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(IslamicGreen.copy(alpha = 0.15f))
-                            .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .padding(8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "✓ Download selesai — tekan INSTALL untuk melanjutkan",
-                            fontSize = 11.sp,
-                            color = IslamicGreen,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                } else if (isDownloading && downloadProgress != null) {
+                if (isDownloading && downloadProgress != null) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "⬇️ Mengunduh update... ${(downloadProgress * 100).toInt()}%",
-                            fontSize = 11.sp,
-                            color = IslamicGoldLight,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("⬇️ Mengunduh update... ${(downloadProgress * 100).toInt()}%", fontSize = 11.sp, color = IslamicGoldLight, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0x33FFFFFF))
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(downloadProgress)
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(IslamicGold)
-                            )
+                        Box(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x33FFFFFF))) {
+                            Box(modifier = Modifier.fillMaxWidth(downloadProgress).height(8.dp).clip(RoundedCornerShape(4.dp)).background(IslamicGold))
                         }
                     }
                 }
 
                 if (isInstalling) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(IslamicGreen.copy(alpha = 0.15f))
-                            .border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .padding(8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "📦 Menginstall update...",
-                            fontSize = 12.sp,
-                            color = IslamicGreen,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(IslamicGreen.copy(alpha = 0.15f)).border(1.dp, IslamicGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).padding(8.dp), contentAlignment = Alignment.Center) {
+                        Text("📦 Menginstall update...", fontSize = 12.sp, color = IslamicGreen, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                // TOMBOL
                 if (forceUpdate) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            DialogButton(
-                                icon = Icons.Default.Cancel,
-                                text = "TIDAK",
-                                backgroundColor = Color(0xFF142735),
-                                textColor = UrgentRed,
-                                enabled = !isLocked,
-                                onClick = onTidakClick
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            DialogButton(
-                                icon = Icons.Default.Download,
-                                text = if (downloadReady) "INSTALL" else "UPDATE",
-                                backgroundColor = IslamicGold,
-                                textColor = Color(0xFF09141D),
-                                enabled = !isLocked,
-                                onClick = onUpdateClick,
-                                focusRequester = updateFocusRequester
-                            )
-                        }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(modifier = Modifier.weight(1f)) { DialogButton(Icons.Default.Cancel, "TIDAK", Color(0xFF142735), UrgentRed, !isLocked, onTidakClick) }
+                        Box(modifier = Modifier.weight(1f)) { DialogButton(Icons.Default.Download, "UPDATE", IslamicGold, Color(0xFF09141D), !isLocked, onUpdateClick, updateFocusRequester) }
                     }
-
-                    Text(
-                        text = "⚠️ Update ini WAJIB. Aplikasi tidak dapat digunakan sebelum update selesai.",
-                        fontSize = 10.sp,
-                        color = UrgentRed,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("⚠️ Update ini WAJIB. Aplikasi tidak dapat digunakan sebelum update selesai.", fontSize = 10.sp, color = UrgentRed, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            DialogButton(
-                                icon = Icons.Default.SkipNext,
-                                text = "SKIP",
-                                backgroundColor = Color(0xFF142735),
-                                textColor = UrgentRed,
-                                enabled = !isLocked,
-                                onClick = onSkipClick
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            DialogButton(
-                                icon = Icons.Default.Schedule,
-                                text = "NANTI",
-                                backgroundColor = Color(0xFF142735),
-                                textColor = TextPrimary,
-                                enabled = !isLocked,
-                                onClick = onLaterClick
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            DialogButton(
-                                icon = Icons.Default.Download,
-                                text = if (downloadReady) "INSTALL" else "UPDATE",
-                                backgroundColor = IslamicGold,
-                                textColor = Color(0xFF09141D),
-                                enabled = !isLocked,
-                                onClick = onUpdateClick,
-                                focusRequester = updateFocusRequester
-                            )
-                        }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.weight(1f)) { DialogButton(Icons.Default.SkipNext, "SKIP", Color(0xFF142735), UrgentRed, !isLocked, onSkipClick) }
+                        Box(modifier = Modifier.weight(1f)) { DialogButton(Icons.Default.Schedule, "NANTI", Color(0xFF142735), TextPrimary, !isLocked, onLaterClick) }
+                        Box(modifier = Modifier.weight(1f)) { DialogButton(Icons.Default.Download, "UPDATE", IslamicGold, Color(0xFF09141D), !isLocked, onUpdateClick, updateFocusRequester) }
                     }
-
-                    Text(
-                        text = "Nanti: muncul lagi saat app dibuka.\nSkip: tidak muncul sampai versi lebih tinggi.",
-                        fontSize = 10.sp,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 14.sp
-                    )
+                    Text("Nanti: muncul lagi saat app dibuka.\nSkip: tidak muncul sampai versi lebih tinggi.", fontSize = 10.sp, color = TextSecondary, textAlign = TextAlign.Center, lineHeight = 14.sp)
                 }
             }
         }
     }
 }
-// ============================================================
-// DIALOG BUTTON
-// ============================================================
+
 @Composable
 private fun DialogButton(
-    icon: ImageVector,
-    text: String,
-    backgroundColor: Color,
-    textColor: Color,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-    focusRequester: FocusRequester? = null
+    icon: ImageVector, text: String, backgroundColor: Color, textColor: Color,
+    enabled: Boolean = true, onClick: () -> Unit, focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val bg = if (!enabled) backgroundColor.copy(alpha = 0.3f) else backgroundColor
-    val borderColor = if (isFocused && enabled) IslamicGoldLight else Color.Transparent
 
-    NeonFocusBorder(
-        focused = isFocused && enabled,
-        cornerRadius = 12.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .let { base ->
-                if (focusRequester != null) base.focusRequester(focusRequester) else base
-            }
-            .focusable(enabled)
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(enabled) { onClick() }
-    ) {
+    NeonFocusBorder(focused = isFocused && enabled, cornerRadius = 12.dp, borderWidth = 4.dp, modifier = Modifier.fillMaxWidth().let { if (focusRequester != null) it.focusRequester(focusRequester) else it }) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(bg)
-                .padding(vertical = 10.dp, horizontal = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bg).focusable(enabled).onFocusChanged { isFocused = it.isFocused }.clickable(enabled) { onClick() }.padding(vertical = 10.dp, horizontal = 8.dp),
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = text,
-                tint = textColor,
-                modifier = Modifier.size(16.dp)
-            )
+            Icon(icon, text, tint = textColor, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = text,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor
-            )
+            Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
         }
     }
 }
