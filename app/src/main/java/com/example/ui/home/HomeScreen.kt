@@ -6,38 +6,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Nightlight
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.WbCloudy
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.WbTwilight
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,22 +37,7 @@ import dev.andikune.masjidio.data.model.BackgroundMode
 import dev.andikune.masjidio.data.model.PrayerId
 import dev.andikune.masjidio.data.model.PrayerItem
 import dev.andikune.masjidio.data.model.PrayerSchedule
-import dev.andikune.masjidio.ui.components.ArabesquePattern
-import dev.andikune.masjidio.ui.components.AspectType
-import dev.andikune.masjidio.ui.components.ClockAndDate
-import dev.andikune.masjidio.ui.components.MakkahDynamicBackground
-import dev.andikune.masjidio.ui.components.MasjidVideoPlayer
-import dev.andikune.masjidio.ui.components.MosqueHeader
-import dev.andikune.masjidio.ui.components.OfficerCarousel
-import dev.andikune.masjidio.ui.components.PhotoSlideshow
-import dev.andikune.masjidio.ui.components.PrayerCardsRow
-import dev.andikune.masjidio.ui.components.PrayerProgressBar
-import dev.andikune.masjidio.ui.components.ResponsiveRoot
-import dev.andikune.masjidio.ui.components.RunningTextMarquee
-import dev.andikune.masjidio.ui.components.ScreenInfo
-import dev.andikune.masjidio.ui.components.TopBar
-import dev.andikune.masjidio.ui.components.WeatherAmbientOverlay
-import dev.andikune.masjidio.ui.components.WisdomCardCarousel
+import dev.andikune.masjidio.ui.components.*
 import dev.andikune.masjidio.ui.focus.QRISFocusOverlay
 import dev.andikune.masjidio.ui.slides.SlideManager
 import dev.andikune.masjidio.ui.theme.IslamicGold
@@ -100,44 +61,20 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ResponsiveRoot(
-        autoScaleEnabled = settings.tvAutoScaleEnabled,
-        safeAreaPercent = settings.tvSafeAreaPercent
-    ) { screenInfo ->
-        HomeScreenContent(
-            settings = settings,
-            schedule = schedule,
-            currentTimeString = currentTimeString,
-            hijriDateString = hijriDateString,
-            gregorianDateString = gregorianDateString,
-            upcomingEvent = upcomingEvent,
-            temperature = temperature,
-            weatherCondition = weatherCondition,
-            onSettingsClick = onSettingsClick,
-            screenInfo = screenInfo,
-            modifier = modifier
-        )
+    ResponsiveRoot(autoScaleEnabled = settings.tvAutoScaleEnabled, safeAreaPercent = settings.tvSafeAreaPercent) { screenInfo ->
+        HomeScreenContent(settings, schedule, currentTimeString, hijriDateString, gregorianDateString, upcomingEvent, temperature, weatherCondition, onSettingsClick, screenInfo, modifier)
     }
 }
 
 @Composable
 private fun HomeScreenContent(
-    settings: AppSettings,
-    schedule: PrayerSchedule,
-    currentTimeString: String,
-    hijriDateString: String,
-    gregorianDateString: String,
-    upcomingEvent: IslamicEvent,
-    temperature: Int,
-    weatherCondition: String,
-    onSettingsClick: () -> Unit,
-    screenInfo: ScreenInfo,
-    modifier: Modifier = Modifier
+    settings: AppSettings, schedule: PrayerSchedule, currentTimeString: String, hijriDateString: String,
+    gregorianDateString: String, upcomingEvent: IslamicEvent, temperature: Int, weatherCondition: String,
+    onSettingsClick: () -> Unit, screenInfo: ScreenInfo, modifier: Modifier = Modifier
 ) {
     val hasVideo = settings.videoEnabled && !settings.videoUri.isNullOrBlank()
     val hasPhotos = settings.photoSlideshowEnabled && settings.photoSlideshowUris.isNotEmpty()
 
-    // Tentukan siklus rotasi berdasarkan Smart Switch
     val switchCycle = remember(hasVideo, hasPhotos, settings.smartSwitchEnabled, settings.galleryMasterEnabled) {
         if (!settings.galleryMasterEnabled) {
             listOf("NORMAL")
@@ -151,26 +88,17 @@ private fun HomeScreenContent(
     }
 
     var currentCycleIndex by remember { mutableIntStateOf(0) }
-    var videoLoopedOnce by remember { mutableStateOf(false) }
-
     val activeMode = switchCycle.getOrElse(currentCycleIndex % switchCycle.size) { "NORMAL" }
 
     LaunchedEffect(
-        settings.galleryMasterEnabled,
-        settings.smartSwitchEnabled,
-        switchCycle,
-        currentCycleIndex,
-        settings.videoModeIntervalMinutes,
-        settings.photoSlideshowIntervalSeconds,
-        settings.photoSlideshowUris.size,
-        settings.normalModeDurationMinutes,
-        settings.waitVideoFinishBeforeSwitch
+        settings.galleryMasterEnabled, settings.smartSwitchEnabled, switchCycle,
+        currentCycleIndex, settings.videoModeIntervalMinutes, settings.photoSlideshowIntervalSeconds,
+        settings.photoSlideshowUris.size, settings.normalModeDurationMinutes
     ) {
         if (switchCycle.size <= 1) return@LaunchedEffect
 
         val currentItem = switchCycle.getOrElse(currentCycleIndex % switchCycle.size) { "NORMAL" }
         
-        // Hitung durasi
         val durationMs = when (currentItem) {
             "VIDEO" -> settings.videoModeIntervalMinutes.coerceAtLeast(1) * 60_000L
             "PHOTO" -> (settings.photoSlideshowUris.size * settings.photoSlideshowIntervalSeconds).coerceAtLeast(3) * 1000L
@@ -178,115 +106,52 @@ private fun HomeScreenContent(
             else -> 2 * 60_000L
         }
 
-        // Waktu tunggu awal
+        // Murni pakai timer, TIDAK menunggu video loop
         delay(durationMs)
-
-        // Tunggu video selesai, MAKSIMAL 5 MENIT agar tidak stuck selamanya
-        if (currentItem == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
-            videoLoopedOnce = false
-            var waitTime = 0L
-            while (!videoLoopedOnce && waitTime < 300_000L) {
-                delay(500L)
-                waitTime += 500L
-            }
-        }
-
         currentCycleIndex = (currentCycleIndex + 1) % switchCycle.size
-        videoLoopedOnce = false
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF071219))
-    ) {
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF071219))) {
         when (settings.backgroundMode) {
-            BackgroundMode.MAKKAH_DYNAMIC -> {
-                MakkahDynamicBackground(
-                    weatherCondition = weatherCondition,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            BackgroundMode.MAKKAH_DYNAMIC -> MakkahDynamicBackground(weatherCondition, modifier = Modifier.fillMaxSize())
             BackgroundMode.CUSTOM -> {
                 if (!settings.customBackgroundUri.isNullOrBlank()) {
-                    AsyncImage(
-                        model = settings.customBackgroundUri,
-                        contentDescription = "Background Kustom",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                        alpha = 0.5f
-                    )
-                } else {
-                    Box(Modifier.fillMaxSize().background(DynamicSkyTheme.getSkyBrush(LocalTime.now())))
-                }
+                    AsyncImage(model = settings.customBackgroundUri, contentDescription = "Background Kustom", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.5f)
+                } else { Box(Modifier.fillMaxSize().background(DynamicSkyTheme.getSkyBrush(LocalTime.now()))) }
             }
-            BackgroundMode.KABAH -> {
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF050C15), Color(0xFF1A0D20), Color(0xFF050C15)))))
-            }
-            BackgroundMode.EMERALD_GEOMETRIC -> {
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF041A12), Color(0xFF08261B), Color(0xFF04120D)))))
-            }
-            else -> {
-                Box(Modifier.fillMaxSize().background(DynamicSkyTheme.getSkyBrush(LocalTime.now())))
-            }
+            BackgroundMode.KABAH -> Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF050C15), Color(0xFF1A0D20), Color(0xFF050C15)))))
+            BackgroundMode.EMERALD_GEOMETRIC -> Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF041A12), Color(0xFF08261B), Color(0xFF04120D)))))
+            else -> Box(Modifier.fillMaxSize().background(DynamicSkyTheme.getSkyBrush(LocalTime.now())))
         }
 
         ArabesquePattern(lineColor = Color(0x12FFD700))
-
         if (settings.animationsEnabled && settings.backgroundMode != BackgroundMode.MAKKAH_DYNAMIC) {
             WeatherAmbientOverlay(weatherCondition = weatherCondition, showBirds = settings.showBirdsAnimation)
         }
 
-        // TAMPILAN UTAMA
         if ((activeMode == "VIDEO" || activeMode == "PHOTO") && settings.galleryMasterEnabled) {
             VideoModeLayout(
-                settings = settings,
-                schedule = schedule,
-                currentTimeString = currentTimeString,
-                hijriDateString = hijriDateString,
-                gregorianDateString = gregorianDateString,
-                hasVideo = hasVideo,
-                hasPhotos = hasPhotos,
-                currentMediaSubMode = activeMode,
-                screenInfo = screenInfo,
-                onSettingsClick = onSettingsClick,
-                onVideoLooped = { videoLoopedOnce = true }
+                settings = settings, schedule = schedule, currentTimeString = currentTimeString, hijriDateString = hijriDateString,
+                gregorianDateString = gregorianDateString, hasVideo = hasVideo, hasPhotos = hasPhotos,
+                currentMediaSubMode = activeMode, screenInfo = screenInfo, onSettingsClick = onSettingsClick
             )
         } else {
             NormalModeLayout(
-                settings = settings,
-                schedule = schedule,
-                currentTimeString = currentTimeString,
-                hijriDateString = hijriDateString,
-                gregorianDateString = gregorianDateString,
-                upcomingEvent = upcomingEvent,
-                temperature = temperature,
-                weatherCondition = weatherCondition,
-                screenInfo = screenInfo,
-                onSettingsClick = onSettingsClick
+                settings = settings, schedule = schedule, currentTimeString = currentTimeString, hijriDateString = hijriDateString,
+                gregorianDateString = gregorianDateString, upcomingEvent = upcomingEvent, temperature = temperature,
+                weatherCondition = weatherCondition, screenInfo = screenInfo, onSettingsClick = onSettingsClick
             )
         }
     }
 }
-// ============================================================
-// MODE VIDEO & FOTO KEGIATAN
-// ============================================================
+
 @Composable
 private fun VideoModeLayout(
-    settings: AppSettings,
-    schedule: PrayerSchedule,
-    currentTimeString: String,
-    hijriDateString: String,
-    gregorianDateString: String,
-    hasVideo: Boolean,
-    hasPhotos: Boolean,
-    currentMediaSubMode: String = "VIDEO",
-    screenInfo: ScreenInfo,
-    onSettingsClick: () -> Unit,
-    onVideoLooped: () -> Unit
+    settings: AppSettings, schedule: PrayerSchedule, currentTimeString: String, hijriDateString: String,
+    gregorianDateString: String, hasVideo: Boolean, hasPhotos: Boolean, currentMediaSubMode: String = "VIDEO",
+    screenInfo: ScreenInfo, onSettingsClick: () -> Unit
 ) {
     val isFullMode = settings.videoFrameScale == "FULL"
-
     val contentScale: ContentScale = when (settings.videoFrameScale) {
         "POTONG" -> ContentScale.Crop
         "PAS" -> ContentScale.Fit
@@ -295,131 +160,46 @@ private fun VideoModeLayout(
         "FIT" -> ContentScale.FillBounds
         else -> ContentScale.Crop
     }
-
     val zoomFactor: Float = if (settings.videoFrameScale == "ZOOM") 1.15f else 1.0f
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier.fillMaxWidth().weight(1f)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             Row(modifier = Modifier.fillMaxSize()) {
-                // PANEL KIRI 24%
                 if (!isFullMode) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(0.24f)
-                            .background(Color(0xDD071219))
-                            .border(1.dp, IslamicGold.copy(alpha = 0.3f), RoundedCornerShape(0.dp))
-                            .padding(8.dp)
-                    ) {
-                        VideoModeLeftPanel(
-                            settings = settings,
-                            schedule = schedule,
-                            currentTimeString = currentTimeString,
-                            hijriDateString = hijriDateString,
-                            gregorianDateString = gregorianDateString
-                        )
+                    Box(modifier = Modifier.fillMaxHeight().weight(0.24f).background(Color(0xDD071219)).border(1.dp, IslamicGold.copy(alpha = 0.3f), RoundedCornerShape(0.dp)).padding(8.dp)) {
+                        VideoModeLeftPanel(settings, schedule, currentTimeString, hijriDateString, gregorianDateString)
                     }
                 }
-
-                // PANEL KANAN 76%
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(if (isFullMode) 1f else 0.76f)
-                        .background(Color.Black)
-                ) {
+                Box(modifier = Modifier.fillMaxHeight().weight(if (isFullMode) 1f else 0.76f).background(Color.Black)) {
                     if (currentMediaSubMode == "PHOTO" || (!hasVideo && hasPhotos)) {
-                        PhotoSlideshow(
-                            photoUris = settings.photoSlideshowUris,
-                            intervalSeconds = settings.photoSlideshowIntervalSeconds,
-                            isFullscreen = true,
-                            contentScale = contentScale,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        PhotoSlideshow(photoUris = settings.photoSlideshowUris, intervalSeconds = settings.photoSlideshowIntervalSeconds, isFullscreen = true, contentScale = contentScale, modifier = Modifier.fillMaxSize())
                     } else if (hasVideo) {
-                        MasjidVideoPlayer(
-                            videoUriString = settings.videoUri,
-                            isFullscreen = true,
-                            contentScale = contentScale,
-                            zoomFactor = zoomFactor,
-                            onVideoLooped = onVideoLooped,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        MasjidVideoPlayer(videoUriString = settings.videoUri, isFullscreen = true, contentScale = contentScale, zoomFactor = zoomFactor, modifier = Modifier.fillMaxSize())
                     }
-
-                    // Wisdom card overlay
-                    Box(
-                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 6.dp)
-                    ) {
-                        WisdomCardCarousel(
-                            upcomingEvent = null,
-                            intervalSeconds = settings.wisdomCardIntervalSeconds,
-                            animationType = settings.wisdomCardAnimation,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 6.dp)) {
+                        WisdomCardCarousel(upcomingEvent = null, intervalSeconds = settings.wisdomCardIntervalSeconds, animationType = settings.wisdomCardAnimation, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
-
-            // Tombol ⚙ Settings
-            Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
-                SettingsOverlayButton(onClick = onSettingsClick)
-            }
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) { SettingsOverlayButton(onClick = onSettingsClick) }
         }
-
-        // Running Text
         Box(modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            RunningTextMarquee(
-                text = settings.runningText,
-                speed = settings.runningTextSpeed,
-                fontSize = settings.runningTextFontSize,
-                modifier = Modifier.fillMaxWidth()
-            )
+            RunningTextMarquee(text = settings.runningText, speed = settings.runningTextSpeed, fontSize = settings.runningTextFontSize, modifier = Modifier.fillMaxWidth())
         }
     }
 }
 
-// ============================================================
-// PANEL KIRI VIDEO MODE
-// ============================================================
 @Composable
-private fun VideoModeLeftPanel(
-    settings: AppSettings,
-    schedule: PrayerSchedule,
-    currentTimeString: String,
-    hijriDateString: String,
-    gregorianDateString: String
-) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        // LOGO + NAMA MASJID
-        Box(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xCC091620)).border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
+private fun VideoModeLeftPanel(settings: AppSettings, schedule: PrayerSchedule, currentTimeString: String, hijriDateString: String, gregorianDateString: String) {
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xCC091620)).border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = "🕌", fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = settings.mosqueName.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    letterSpacing = 0.3.sp, lineHeight = 13.sp
-                )
+                Text(text = settings.mosqueName.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, letterSpacing = 0.3.sp, lineHeight = 13.sp)
             }
         }
-
-        // KOTAK JAM + TANGGAL
-        Box(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xCC091620)).border(1.5.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xCC091620)).border(1.5.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 6.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(text = currentTimeString, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, letterSpacing = 0.5.sp, maxLines = 1)
                 Box(modifier = Modifier.fillMaxWidth(0.55f).height(1.dp).background(IslamicGold.copy(alpha = 0.7f)))
@@ -427,41 +207,19 @@ private fun VideoModeLeftPanel(
                 Text(text = gregorianDateString, fontSize = 9.sp, color = TextSecondary, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 11.sp)
             }
         }
-
-        // LIST SHOLAT VERTIKAL
         Column(modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            schedule.items.forEach { item ->
-                PrayerRowItem(item = item, modifier = Modifier.fillMaxWidth().weight(1f))
-            }
+            schedule.items.forEach { item -> PrayerRowItem(item = item, modifier = Modifier.fillMaxWidth().weight(1f)) }
         }
-
-        // KOTAK PROGRESS
-        Box(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xCC091620)).border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xCC091620)).border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 6.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Schedule, null, tint = IslamicGold, modifier = Modifier.size(11.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "MENUJU ${schedule.nextPrayer?.id?.displayName?.uppercase() ?: "SHOLAT"}",
-                        fontSize = 9.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight, letterSpacing = 0.3.sp, maxLines = 1
-                    )
+                    Icon(Icons.Default.Schedule, null, tint = IslamicGold, modifier = Modifier.size(11.dp)); Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "MENUJU ${schedule.nextPrayer?.id?.displayName?.uppercase() ?: "SHOLAT"}", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight, letterSpacing = 0.3.sp, maxLines = 1)
                 }
-                val h = schedule.secondsToNext / 3600
-                val m = (schedule.secondsToNext % 3600) / 60
-                val s = schedule.secondsToNext % 60
-                Text(
-                    text = String.format("%02d:%02d:%02d", h, m, s),
-                    fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, fontFamily = FontFamily.Monospace, maxLines = 1
-                )
+                val h = schedule.secondsToNext / 3600; val m = (schedule.secondsToNext % 3600) / 60; val s = schedule.secondsToNext % 60
+                Text(text = String.format("%02d:%02d:%02d", h, m, s), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, fontFamily = FontFamily.Monospace, maxLines = 1)
                 Box(modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x33FFFFFF))) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(schedule.progressToNext.coerceIn(0f, 1f)).fillMaxHeight()
-                            .clip(RoundedCornerShape(2.dp)).background(Brush.horizontalGradient(listOf(IslamicGold, IslamicGoldLight)))
-                    )
+                    Box(modifier = Modifier.fillMaxWidth(schedule.progressToNext.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(Brush.horizontalGradient(listOf(IslamicGold, IslamicGoldLight))))
                 }
             }
         }
@@ -474,31 +232,11 @@ private fun PrayerRowItem(item: PrayerItem, modifier: Modifier = Modifier) {
     val borderColor = when { item.isNext -> IslamicGold; item.isActive -> IslamicGreen; item.isPassed -> Color(0x33446075); else -> Color(0x44264A66) }
     val borderWidth = when { item.isNext -> 1.5.dp; item.isActive -> 1.5.dp; else -> 1.dp }
     val textColor = when { item.isNext -> IslamicGoldLight; item.isActive -> IslamicGreen; item.isPassed -> TextSecondary.copy(alpha = 0.5f); else -> TextPrimary }
-
-    val prayerIcon: ImageVector = when (item.id) {
-        PrayerId.SUBUH -> Icons.Default.WbTwilight
-        PrayerId.SYURUQ -> Icons.Default.WbSunny
-        PrayerId.DZUHUR -> Icons.Default.LightMode
-        PrayerId.ASHAR -> Icons.Default.WbCloudy
-        PrayerId.MAGHRIB -> Icons.Default.NightsStay
-        PrayerId.ISYA -> Icons.Default.Nightlight
-    }
-
-    Row(
-        modifier = modifier.clip(RoundedCornerShape(5.dp)).background(bgColor)
-            .border(borderWidth, borderColor, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(prayerIcon, null, tint = if (item.isNext || item.isActive) textColor else TextSecondary.copy(alpha = 0.6f), modifier = Modifier.size(12.dp))
-        Spacer(modifier = Modifier.width(5.dp))
-        Text(
-            text = item.id.displayName, fontSize = 10.sp, fontWeight = if (item.isNext || item.isActive) FontWeight.Bold else FontWeight.Medium,
-            color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = item.timeFormatted, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = textColor,
-            fontFamily = FontFamily.Monospace, maxLines = 1
-        )
+    val prayerIcon: ImageVector = when (item.id) { PrayerId.SUBUH -> Icons.Default.WbTwilight; PrayerId.SYURUQ -> Icons.Default.WbSunny; PrayerId.DZUHUR -> Icons.Default.LightMode; PrayerId.ASHAR -> Icons.Default.WbCloudy; PrayerId.MAGHRIB -> Icons.Default.NightsStay; PrayerId.ISYA -> Icons.Default.Nightlight }
+    Row(modifier = modifier.clip(RoundedCornerShape(5.dp)).background(bgColor).border(borderWidth, borderColor, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(prayerIcon, null, tint = if (item.isNext || item.isActive) textColor else TextSecondary.copy(alpha = 0.6f), modifier = Modifier.size(12.dp)); Spacer(modifier = Modifier.width(5.dp))
+        Text(text = item.id.displayName, fontSize = 10.sp, fontWeight = if (item.isNext || item.isActive) FontWeight.Bold else FontWeight.Medium, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(text = item.timeFormatted, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = textColor, fontFamily = FontFamily.Monospace, maxLines = 1)
     }
 }
 
@@ -506,33 +244,16 @@ private fun PrayerRowItem(item: PrayerItem, modifier: Modifier = Modifier) {
 private fun SettingsOverlayButton(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-
-    Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xAA091620))
-            .border(width = if (isFocused) 2.dp else 1.dp, color = IslamicGold.copy(alpha = if (isFocused) 1f else 0.5f), shape = CircleShape)
-            .focusable(interactionSource = interactionSource)
-            .clickable(interactionSource = interactionSource, indication = null) { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xAA091620)).border(width = if (isFocused) 2.dp else 1.dp, color = IslamicGold.copy(alpha = if (isFocused) 1f else 0.5f), shape = CircleShape).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() }, contentAlignment = Alignment.Center) {
         Icon(Icons.Default.Settings, "Pengaturan", tint = if (isFocused) IslamicGoldLight else IslamicGold, modifier = Modifier.size(22.dp))
     }
 }
 
-// ============================================================
-// MODE NORMAL
-// ============================================================
 @Composable
 private fun NormalModeLayout(
-    settings: AppSettings,
-    schedule: PrayerSchedule,
-    currentTimeString: String,
-    hijriDateString: String,
-    gregorianDateString: String,
-    upcomingEvent: IslamicEvent,
-    temperature: Int,
-    weatherCondition: String,
-    screenInfo: ScreenInfo,
-    onSettingsClick: () -> Unit
+    settings: AppSettings, schedule: PrayerSchedule, currentTimeString: String, hijriDateString: String,
+    gregorianDateString: String, upcomingEvent: IslamicEvent, temperature: Int, weatherCondition: String,
+    screenInfo: ScreenInfo, onSettingsClick: () -> Unit
 ) {
     var showQrisModal by remember { mutableStateOf(false) }
     var showSlideOverlay by remember { mutableStateOf(false) }
@@ -554,112 +275,42 @@ private fun NormalModeLayout(
         LaunchedEffect(settings.qrisIntervalMinutes, showSlideOverlay) {
             if (showSlideOverlay) return@LaunchedEffect
             val intervalMs = settings.qrisIntervalMinutes * 60 * 1000L
-            while (true) {
-                delay(intervalMs)
-                if (schedule.secondsToNext > 300) showQrisModal = true
-            }
+            while (true) { delay(intervalMs); if (schedule.secondsToNext > 300) showQrisModal = true }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().padding(screenInfo.safePaddingDp)) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = screenInfo.widthDp.dp * layoutPad)
-                .then(if (contentMaxWidth < 1f) Modifier.width(screenInfo.widthDp.dp * contentMaxWidth) else Modifier)
-                .align(Alignment.Center),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            TopBar(
-                locationName = "${settings.city}, ${settings.province}", dayDateString = gregorianDateString,
-                currentTimeString = currentTimeString, temperature = temperature, weatherCondition = weatherCondition,
-                onSettingsClick = onSettingsClick, modifier = Modifier.weight(0.07f)
-            )
-
-            Column(
-                modifier = Modifier.weight(0.24f).fillMaxWidth(),
-                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = screenInfo.widthDp.dp * layoutPad).then(if (contentMaxWidth < 1f) Modifier.width(screenInfo.widthDp.dp * contentMaxWidth) else Modifier).align(Alignment.Center), verticalArrangement = Arrangement.SpaceBetween) {
+            TopBar(locationName = "${settings.city}, ${settings.province}", dayDateString = gregorianDateString, currentTimeString = currentTimeString, temperature = temperature, weatherCondition = weatherCondition, onSettingsClick = onSettingsClick, modifier = Modifier.weight(0.07f))
+            Column(modifier = Modifier.weight(0.24f).fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 MosqueHeader(mosqueName = settings.mosqueName)
                 ClockAndDate(timeString = currentTimeString, hijriDateString = hijriDateString, gregorianDateString = gregorianDateString)
             }
-
             PrayerCardsRow(prayerItems = schedule.items, settings = settings, modifier = Modifier.weight(0.28f).fillMaxWidth())
-
-            PrayerProgressBar(
-                nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat",
-                secondsRemaining = schedule.secondsToNext, progress = schedule.progressToNext, modifier = Modifier.weight(0.05f)
-            )
-
-            if (settings.contentRotationEnabled) {
-                ContentRotationCard(settings = settings, intervalSeconds = settings.contentRotationIntervalSeconds, modifier = Modifier.weight(0.06f))
-            } else {
-                WisdomCardCarousel(
-                    upcomingEvent = upcomingEvent, intervalSeconds = settings.wisdomCardIntervalSeconds,
-                    animationType = settings.wisdomCardAnimation, modifier = Modifier.weight(0.06f)
-                )
-            }
-
-            OfficerCarousel(
-                officers = settings.officers, weeklyOfficers = settings.weeklyOfficers, officerPhotoUri = settings.officerPhotoUri,
-                nextPrayerId = schedule.nextPrayer?.id ?: PrayerId.MAGHRIB, modifier = Modifier.weight(0.24f)
-            )
-
-            RunningTextMarquee(
-                text = settings.runningText, speed = settings.runningTextSpeed,
-                fontSize = settings.runningTextFontSize, modifier = Modifier.weight(0.06f)
-            )
+            PrayerProgressBar(nextPrayerName = schedule.nextPrayer?.id?.displayName ?: "Sholat", secondsRemaining = schedule.secondsToNext, progress = schedule.progressToNext, modifier = Modifier.weight(0.05f))
+            if (settings.contentRotationEnabled) { ContentRotationCard(settings = settings, intervalSeconds = settings.contentRotationIntervalSeconds, modifier = Modifier.weight(0.06f)) } else { WisdomCardCarousel(upcomingEvent = upcomingEvent, intervalSeconds = settings.wisdomCardIntervalSeconds, animationType = settings.wisdomCardAnimation, modifier = Modifier.weight(0.06f)) }
+            OfficerCarousel(officers = settings.officers, weeklyOfficers = settings.weeklyOfficers, officerPhotoUri = settings.officerPhotoUri, nextPrayerId = schedule.nextPrayer?.id ?: PrayerId.MAGHRIB, modifier = Modifier.weight(0.24f))
+            RunningTextMarquee(text = settings.runningText, speed = settings.runningTextSpeed, fontSize = settings.runningTextFontSize, modifier = Modifier.weight(0.06f))
         }
-
-        if (showQrisModal && !showSlideOverlay) {
-            QRISFocusOverlay(settings = settings, onDismiss = { showQrisModal = false })
-        }
-
-        if (showSlideOverlay) {
-            SlideManager(
-                settings = settings, nextPrayerSeconds = schedule.secondsToNext,
-                onDismiss = { showSlideOverlay = false; userDismissedSlide = true }, modifier = Modifier.fillMaxSize()
-            )
-        }
+        if (showQrisModal && !showSlideOverlay) { QRISFocusOverlay(settings = settings, onDismiss = { showQrisModal = false }) }
+        if (showSlideOverlay) { SlideManager(settings = settings, nextPrayerSeconds = schedule.secondsToNext, onDismiss = { showSlideOverlay = false; userDismissedSlide = true }, modifier = Modifier.fillMaxSize()) }
     }
 }
 
-// ============================================================
-// KONTEN ROTASI
-// ============================================================
 @Composable
 private fun ContentRotationCard(settings: AppSettings, intervalSeconds: Int, modifier: Modifier = Modifier) {
     var currentIndex by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(intervalSeconds) {
-        val safeInterval = intervalSeconds.coerceIn(5, 120)
-        while (true) {
-            delay(safeInterval * 1000L)
-            currentIndex = (currentIndex + 1) % 3
-        }
-    }
-
+    LaunchedEffect(intervalSeconds) { val safeInterval = intervalSeconds.coerceIn(5, 120); while (true) { delay(safeInterval * 1000L); currentIndex = (currentIndex + 1) % 3 } }
     val content = remember(currentIndex, settings) { ContentRotationStore.getContent(settings, currentIndex) }
-
     Box(modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
         if (content == null) {
-            Box(
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(0x33FFD700)),
-                contentAlignment = Alignment.Center
-            ) { Text("Aktifkan konten rotasi di pengaturan", fontSize = 13.sp, color = TextSecondary) }
+            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(0x33FFD700)), contentAlignment = Alignment.Center) { Text("Aktifkan konten rotasi di pengaturan", fontSize = 13.sp, color = TextSecondary) }
         } else {
-            Row(
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(0x33000000))
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = when (content.type) { RotationType.AYAT -> "📖"; RotationType.HADITS -> "📜"; RotationType.ASMAUL_HUSNA -> "✨"; else -> "💎" },
-                    fontSize = 20.sp
-                )
+            Row(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(0x33000000)).padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(text = when (content.type) { RotationType.AYAT -> "📖"; RotationType.HADITS -> "📜"; RotationType.ASMAUL_HUSNA -> "✨"; else -> "💎" }, fontSize = 20.sp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    if (!content.arabic.isNullOrBlank()) {
-                        Text(text = content.arabic, fontSize = 14.sp, color = IslamicGoldLight, fontWeight = FontWeight.Medium, maxLines = 1)
-                    }
+                    if (!content.arabic.isNullOrBlank()) { Text(text = content.arabic, fontSize = 14.sp, color = IslamicGoldLight, fontWeight = FontWeight.Medium, maxLines = 1) }
                     Text(text = content.latin ?: content.translation ?: "", fontSize = 12.sp, color = TextPrimary, maxLines = 1)
                 }
                 Spacer(modifier = Modifier.width(10.dp))
