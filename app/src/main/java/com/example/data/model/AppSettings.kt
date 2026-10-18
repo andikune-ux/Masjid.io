@@ -41,33 +41,12 @@ data class PrayerSchedule(
 enum class AudioMode { BEEP_ONLY, FULL_ADZAN, SILENT }
 
 enum class BackgroundMode {
-    NATURE,
-    DEFAULT_NATURE,
-    KABAH,
-    EMERALD_GEOMETRIC,
-    MAKKAH_DYNAMIC,
-    CUSTOM,
-    CUSTOM_GALLERY
+    NATURE, DEFAULT_NATURE, KABAH, EMERALD_GEOMETRIC, MAKKAH_DYNAMIC, CUSTOM, CUSTOM_GALLERY
 }
 
-enum class CctvPosition {
-    TOP_LEFT,
-    TOP_RIGHT,
-    BOTTOM_LEFT,
-    BOTTOM_RIGHT
-}
-
-enum class PinLockMode {
-    IMMEDIATE,
-    TIMEOUT_5MIN,
-    UNTIL_EXIT
-}
-
-enum class BrightnessMode {
-    MANUAL,
-    AUTO,
-    SCHEDULE
-}
+enum class CctvPosition { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
+enum class PinLockMode { IMMEDIATE, TIMEOUT_5MIN, UNTIL_EXIT }
+enum class BrightnessMode { MANUAL, AUTO, SCHEDULE }
 
 data class OfficerSchedule(
     val imamSubuh: String = "Ust. H. Ahmad Fauzi",
@@ -131,7 +110,6 @@ data class LaporanKeuangan(
     val totalPengeluaran: Long get() = pengeluaranDakwah + pengeluaranSosial + pengeluaranOperasional
     val saldoAkhir: Long get() = saldoSebelumnya + totalPemasukan - totalPengeluaran
 }
-
 data class AppSettings(
     val mosqueName: String = "MASJID AL-IKHLAS",
     val mosqueAddress: String = "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat",
@@ -188,15 +166,16 @@ data class AppSettings(
     // ============================================================
     // GALERI KEGIATAN MASJID (V1.04.431)
     // ============================================================
-    val galleryMasterEnabled: Boolean = false, // Saklar Utama Galeri
+    val galleryMasterEnabled: Boolean = false,
     val videoEnabled: Boolean = false,
     val videoUri: String? = null,
+    val videoSmartFullscreen: Boolean = true, // <-- SUDAH DITAMBAHKAN
     val videoModeIntervalMinutes: Int = 5,
     val photoSlideshowEnabled: Boolean = false,
     val photoSlideshowUris: List<String> = emptyList(),
-    val photoSlideshowIntervalSeconds: Int = 10, // Durasi per foto
-    val smartSwitchEnabled: Boolean = false, // Rotasi Cerdas
-    val normalModeDurationMinutes: Int = 2, // Durasi layar default
+    val photoSlideshowIntervalSeconds: Int = 10,
+    val smartSwitchEnabled: Boolean = false,
+    val normalModeDurationMinutes: Int = 2,
     val videoFrameScale: String = "POTONG",
     val waitVideoFinishBeforeSwitch: Boolean = true,
     
