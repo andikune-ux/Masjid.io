@@ -62,11 +62,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -96,7 +94,7 @@ enum class SettingsCategory(
     IDENTITY("Identitas Masjid", Icons.Default.Mosque),
     OFFICERS("Jadwal Petugas & Foto", Icons.Default.Person),
     QRIS_DONATION("Donasi QRIS & Rekening", Icons.Default.QrCode),
-    VIDEO_MEDIA("Video Kegiatan Masjid", Icons.Default.VideoLibrary),
+    VIDEO_MEDIA("Galeri Kegiatan Masjid", Icons.Default.VideoLibrary), // <-- DIUBAH
     APPEARANCE("Tampilan & Background", Icons.Default.Palette),
     TV_DISPLAY("Tampilan TV", Icons.Default.Tv),
     WISDOM_CARDS("Kartu Nasihat & Mutiara", Icons.Default.Book),
@@ -137,10 +135,9 @@ fun SettingsScreen(
     var isInitialLoad by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
-    val focusManager = LocalFocusManager.current
 
     // ============================================================
-    // FOKUS — V1.30.7
+    // FOKUS
     // ============================================================
     val paneFocusRequester = remember { FocusRequester() }
 
@@ -200,7 +197,7 @@ fun SettingsScreen(
         // BODY
         Row(modifier = Modifier.fillMaxSize()) {
             // ============================================================
-            // SIDEBAR — focusGroup() untuk grup fokus
+            // SIDEBAR
             // ============================================================
             Column(
                 modifier = Modifier
@@ -222,8 +219,8 @@ fun SettingsScreen(
                                     selectedCategory = cat
                                     previewCategory = cat
                                     scope.launch {
-                                        delay(150)
-                                        focusManager.moveFocus(FocusDirection.Right)
+                                        delay(200)
+                                        runCatching { paneFocusRequester.requestFocus() }
                                     }
                                 } else {
                                     showDeveloperPinDialog = true
@@ -232,12 +229,13 @@ fun SettingsScreen(
                                 selectedCategory = cat
                                 previewCategory = cat
                                 scope.launch {
-                                    delay(150)
-                                    focusManager.moveFocus(FocusDirection.Right)
+                                    delay(200)
+                                    runCatching { paneFocusRequester.requestFocus() }
                                 }
                             }
                         },
-                        onFocusChange = { /* no-op */ }
+                        onFocusChange = { /* no-op */ },
+                        rightFocusRequester = paneFocusRequester
                     )
                 }
             }
@@ -392,7 +390,6 @@ fun SettingsScreen(
         )
     }
 }
-
 // ============================================================
 // DEVELOPER LOCKED PANE
 // ============================================================
@@ -438,7 +435,8 @@ private fun SidebarItem(
     category: SettingsCategory,
     isSelected: Boolean,
     onClick: () -> Unit,
-    onFocusChange: (Boolean) -> Unit
+    onFocusChange: (Boolean) -> Unit,
+    rightFocusRequester: FocusRequester
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -462,6 +460,9 @@ private fun SidebarItem(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(bgColor)
+                .focusProperties {
+                    right = rightFocusRequester
+                }
                 .focusable(interactionSource = interactionSource)
                 .clickable(
                     interactionSource = interactionSource,
