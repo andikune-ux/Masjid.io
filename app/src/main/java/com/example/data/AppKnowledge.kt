@@ -426,6 +426,14 @@ app/src/main/java/dev/andikune/masjidio/
     - Ganti namespace dari com.example ke dev.andikune.masjidio
     - Update import di semua file yang terdampak
     - Folder fisik tetap com/example/ (Kotlin izinkan package beda dari folder)
+
+ 53. GALERI KEGIATAN MASJID (V1.04.431)
+    - Master Switch (Aktifkan Galeri) - meredupkan UI jika mati.
+    - Smart Switch (Rotasi Video -> Foto 1 putaran -> Layar Default).
+    - Pratinjau popup video (hover D-pad, ExoPlayer tunggal).
+    - Thumbnail File Picker (pakai MediaMetadataRetriever, bukan Coil).
+    - Hitung total durasi putar foto.
+    - Deteksi file hilang (⚠️).
     """.trimIndent()
         val UPDATE_HISTORY = """
 V1.04.426 (06 Oktober 2026)
@@ -804,6 +812,15 @@ Solusi: Guard text kosong + durasi minimal 1000ms
 Error: IllegalStateException Vertically scrollable infinity
 File: SettingsScreen.kt
 Solusi: Ganti Crossfade ke Box + key() + alpha fade
+
+[19-10-2026] - V1.04.431
+Error: Unresolved reference 'widthIn', 'fillMaxHeight', 'videoSmartFullscreen', 'scale', 'videoFrameMillis'.
+File: MainActivity.kt, AppSettings.kt, VideoSettingsPane.kt, VideoFilePickerDialog.kt
+Solusi: 
+- Tambah import widthIn & fillMaxHeight di MainActivity.
+- Tambah field videoSmartFullscreen di AppSettings.
+- Hapus .scale() yang tidak terdefinisi di TvActionButton (VideoSettingsPane).
+- Ganti Coil videoFrameMillis dengan MediaMetadataRetriever bawaan Android.
     """.trimIndent()
 
     val WORKFLOW_INSTRUCTION = """
@@ -910,6 +927,12 @@ ATURAN FORMAT:
 - Pakai code block (3 backtick) untuk path/URL/nama file
 - Kalau file panjang (>300 baris) -> bagi jadi 3-4 BAGIAN lebih kecil
 - Kalau paste gagal di HP -> bagi jadi lebih banyak BAGIAN
+
+=== BAGIAN 1D — ATURAN PEMBAGIAN BATCH (KHUSUS MASJID.IO) ===
+- SettingsScreen.kt: Wajib dibagi 2 BAGIAN di dalam 1 bubble chat.
+- AppSettings.kt, SettingsRepository.kt, VideoSettingsPane.kt, HomeScreen.kt, MainActivity.kt: Full Timpa 1 bubble (jika < 500 baris) atau maksimal 3 bagian per bubble.
+- VideoFilePickerDialog.kt: Full Timpa 1 bubble.
+- Tujuan: Memberi kenyamanan copy-paste di HP tanpa terpotong (truncated).
 
 ATURAN KERJA:
 - Konfirmasi dulu sebelum eksekusi
