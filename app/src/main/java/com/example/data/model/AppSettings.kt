@@ -57,30 +57,12 @@ enum class CctvPosition {
     BOTTOM_RIGHT
 }
 
-/**
- * Mode PIN Lock setelah keluar dari Settings.
- *
- *   IMMEDIATE      = Setiap kali tekan tombol Settings -> langsung minta PIN
- *   TIMEOUT_5MIN   = PIN diminta kembali 5 menit setelah kembali ke menu utama
- *   UNTIL_EXIT     = PIN hanya diminta saat pertama buka, tidak minta lagi
- *                    sampai aplikasi di-keluarkan (DEFAULT — behavior lama)
- */
 enum class PinLockMode {
     IMMEDIATE,
     TIMEOUT_5MIN,
     UNTIL_EXIT
 }
 
-/**
- * V1.04.429 — Mode Kecerahan Layar
- *
- *   MANUAL   = Brightness tetap dari slider (manualBrightnessPercent)
- *   AUTO     = Ikut jadwal sholat:
- *              siang = dayBrightnessPercent (Subuh-Maghrib)
- *              malam = nightBrightnessPercent (Maghrib-Subuh)
- *   SCHEDULE = Ikut jadwal ON/OFF (jam OFF = layar gelap total)
- *              (DEFAULT — pakai fitur Jadwal On/Off Otomatis)
- */
 enum class BrightnessMode {
     MANUAL,
     AUTO,
@@ -149,6 +131,7 @@ data class LaporanKeuangan(
     val totalPengeluaran: Long get() = pengeluaranDakwah + pengeluaranSosial + pengeluaranOperasional
     val saldoAkhir: Long get() = saldoSebelumnya + totalPemasukan - totalPengeluaran
 }
+
 data class AppSettings(
     val mosqueName: String = "MASJID AL-IKHLAS",
     val mosqueAddress: String = "Jl. Raya Madinah No. 7, Gambir, Jakarta Pusat",
@@ -201,19 +184,22 @@ data class AppSettings(
     val showAyatQuran: Boolean = true,
     val showDoaHarian: Boolean = true,
     val showSunnahReminder: Boolean = true,
+    
+    // ============================================================
+    // GALERI KEGIATAN MASJID (V1.04.431)
+    // ============================================================
+    val galleryMasterEnabled: Boolean = false, // Saklar Utama Galeri
     val videoEnabled: Boolean = false,
     val videoUri: String? = null,
-    val videoSmartFullscreen: Boolean = true,
+    val videoModeIntervalMinutes: Int = 5,
     val photoSlideshowEnabled: Boolean = false,
     val photoSlideshowUris: List<String> = emptyList(),
-    val photoSlideshowIntervalSeconds: Int = 10,
-    val autoSwitchEnabled: Boolean = false,
-    val videoModeIntervalMinutes: Int = 5,
-    val photoModeDurationMinutes: Int = 3,
-    val normalModeDurationMinutes: Int = 2,
-    val autoSwitchIncludeDefault: Boolean = true,
+    val photoSlideshowIntervalSeconds: Int = 10, // Durasi per foto
+    val smartSwitchEnabled: Boolean = false, // Rotasi Cerdas
+    val normalModeDurationMinutes: Int = 2, // Durasi layar default
     val videoFrameScale: String = "POTONG",
     val waitVideoFinishBeforeSwitch: Boolean = true,
+    
     // ============================================================
     // ALUR SHOLAT BARU
     // ============================================================
@@ -276,9 +262,7 @@ data class AppSettings(
     val manualTimeOffsetSeconds: Long = 0L,
     val keepScreenOn: Boolean = true,
     // ============================================================
-    // V1.04.423 — JADWAL ON/OFF OTOMATIS DARI JADWAL SHOLAT
-    //   ON  = Subuh - 15 menit  (auto)
-    //   OFF = Isya  + 30 menit  (auto)
+    // JADWAL ON/OFF OTOMATIS
     // ============================================================
     val autoOnOff: Boolean = false,
     val autoOffMinutesAfterIsya: Int = 30,
@@ -290,13 +274,7 @@ data class AppSettings(
     val autoBrightness: Boolean = true,
     val saveBatteryMode: Boolean = false,
     // ============================================================
-    // V1.04.429 — KECERAHAN LAYAR (PROYEK 1)
-    //
-    //   brightnessMode      = MANUAL / AUTO / SCHEDULE
-    //   manualBrightness    = 10-100 (mode MANUAL)
-    //   dayBrightness       = 10-100 (mode AUTO, Subuh-Maghrib)
-    //   nightBrightness     = 10-100 (mode AUTO, Maghrib-Subuh)
-    //   dimOverlayEnabled   = Fallback overlay hitam (Android TV)
+    // KECERAHAN LAYAR
     // ============================================================
     val brightnessMode: BrightnessMode = BrightnessMode.SCHEDULE,
     val manualBrightnessPercent: Int = 100,
@@ -304,27 +282,16 @@ data class AppSettings(
     val nightBrightnessPercent: Int = 30,
     val dimOverlayEnabled: Boolean = true,
     // ============================================================
-    // V1.04.429 — KREDENSIAL SECRET + GIST SYNC (PROYEK 2)
-    //
-    //   gistId                  = ID Gist di GitHub (untuk sync)
-    //   credentialsInitialized  = Flag: user sudah setup passphrase
-    //
-    // Token Fonnte & Group ID TIDAK disimpan di AppSettings.
-    // Disimpan di CredentialManager (file terenkripsi terpisah).
-    // Field fonnteToken/fonnteGroupId di bawah hanya untuk
-    // backward compatibility — nilainya akan selalu "" (kosong).
+    // KREDENSIAL SECRET + GIST SYNC
     // ============================================================
     val gistId: String = "",
     val credentialsInitialized: Boolean = false,
     // ============================================================
-    // FONNTE — Backward compatible (nilai selalu kosong)
-    // Sumber sebenarnya di CredentialManager
+    // FONNTE
     // ============================================================
     val fonnteToken: String = "",
     val fonnteGroupId: String = "",
     val whatsappReportEnabled: Boolean = true,
-    // ============================================================
-    // PIN LOCK MODE
     // ============================================================
     val pinLockMode: PinLockMode = PinLockMode.UNTIL_EXIT
 ) {
