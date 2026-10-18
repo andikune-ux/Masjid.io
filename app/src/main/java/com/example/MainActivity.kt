@@ -56,6 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
@@ -87,8 +89,8 @@ import dev.andikune.masjidio.data.model.PinLockMode
 import dev.andikune.masjidio.data.model.PrayerId
 import dev.andikune.masjidio.data.model.PrayerSchedule
 import dev.andikune.masjidio.kiosk.KioskManager
-import dev.andikune.masjidio.kiosk.WatchdogService
 import dev.andikune.masjidio.kiosk.UpdateDownloadService
+import dev.andikune.masjidio.kiosk.WatchdogService
 import dev.andikune.masjidio.receiver.BootReceiver
 import dev.andikune.masjidio.ui.components.AutoOffDialog
 import dev.andikune.masjidio.ui.components.NeonFocusBorder
@@ -122,29 +124,15 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-// ============================================================
-// ENUM SCREEN
-// ============================================================
+
 enum class AppScreen {
-    HOME,
-    ADZAN_SEQUENCE,
-    FOCUS_MODE,
-    SETTINGS,
-    QRIS_PREVIEW,
-    RAMADHAN,
-    IO_CONTROL
+    HOME, ADZAN_SEQUENCE, FOCUS_MODE, SETTINGS, QRIS_PREVIEW, RAMADHAN, IO_CONTROL
 }
 
-// ============================================================
-// KONSTANTA
-// ============================================================
 private const val UPDATE_PREFS = "update_prefs"
 private const val KEY_SKIPPED_VERSION = "skipped_version"
 private const val PIN_TIMEOUT_MS = 5 * 60 * 1000L
 
-// ============================================================
-// CLASS MAIN ACTIVITY
-// ============================================================
 class MainActivity : ComponentActivity() {
 
     private lateinit var settingsRepository: SettingsRepository
@@ -163,21 +151,15 @@ class MainActivity : ComponentActivity() {
         soundManager = SoundManager(this)
 
         val hasPendingCrash = CrashAutoShowHelper.hasPendingCrash(this)
-        val pendingCrashLog = if (hasPendingCrash) {
-            CrashAutoShowHelper.getLastCrashLog(this)
-        } else ""
-
+        val pendingCrashLog = if (hasPendingCrash) CrashAutoShowHelper.getLastCrashLog(this) else ""
         val deviceRole = if (isTV()) "TV" else "HP"
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
         val doSoftRestart: () -> Unit = {
             runOnUiThread {
                 try {
-                    if (needsHardRestart) {
-                        android.os.Process.killProcess(android.os.Process.myPid())
-                    } else {
-                        recreate()
-                    }
+                    if (needsHardRestart) android.os.Process.killProcess(android.os.Process.myPid())
+                    else recreate()
                 } catch (e: Exception) {
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }
@@ -191,9 +173,6 @@ class MainActivity : ComponentActivity() {
 
             var showCrashDialog by remember { mutableStateOf(hasPendingCrash) }
 
-            // ============================================================
-            // IZIN STORAGE & INSTALL (auto-show, sekali per sesi)
-            // ============================================================
             val bootPrefs = remember {
                 context.getSharedPreferences(BootReceiver.PREFS_BOOT, Context.MODE_PRIVATE)
             }
@@ -204,14 +183,8 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(Unit) {
                 delay(1500)
-
                 val needsStorage = BackupManager.needsStoragePermission()
-                val needsInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    !context.packageManager.canRequestPackageInstalls()
-                } else {
-                    false
-                }
-
+                val needsInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) !context.packageManager.canRequestPackageInstalls() else false
                 val justBooted = bootPrefs.getBoolean(BootReceiver.KEY_JUST_BOOTED, false)
 
                 if (needsStorage) {
@@ -220,15 +193,9 @@ class MainActivity : ComponentActivity() {
                     showInstallPermissionDialog = true
                     installDialogAlreadyShown = true
                 }
-
-                if (justBooted) {
-                    bootPrefs.edit().putBoolean(BootReceiver.KEY_JUST_BOOTED, false).apply()
-                }
+                if (justBooted) bootPrefs.edit().putBoolean(BootReceiver.KEY_JUST_BOOTED, false).apply()
             }
 
-            // ============================================================
-            // LIFECYCLE OBSERVER — Reset dialog saat app kembali fokus
-            // ============================================================
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -239,8 +206,7 @@ class MainActivity : ComponentActivity() {
                         } else if (showStoragePermissionDialog) {
                             showStoragePermissionDialog = false
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                if (!context.packageManager.canRequestPackageInstalls()
-                                    && !installDialogAlreadyShown) {
+                                if (!context.packageManager.canRequestPackageInstalls() && !installDialogAlreadyShown) {
                                     showInstallPermissionDialog = true
                                     installDialogAlreadyShown = true
                                 }
@@ -251,1006 +217,578 @@ class MainActivity : ComponentActivity() {
                 lifecycleOwner.lifecycle.addObserver(observer)
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
-            // ============================================================
-// STATE UPDATE
-// ============================================================
-var showRestartCountdown by remember { mutableStateOf(false) }
-var showUpdateDialog by remember { mutableStateOf(false) }
-var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
-var downloadProgress by remember { mutableFloatStateOf(0f) }
-var isDownloading by remember { mutableStateOf(false) }
-var isInstalling by remember { mutableStateOf(false) }
-var downloadReady by remember { mutableStateOf(false) }
 
-val updatePrefs = remember {
-    context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
-}
-fun getSkippedVersion(): String? =
-    updatePrefs.getString(KEY_SKIPPED_VERSION, null)
+            var showRestartCountdown by remember { mutableStateOf(false) }
+            var showUpdateDialog by remember { mutableStateOf(false) }
+            var updateInfo by remember { mutableStateOf<UpdateManager.UpdateInfo?>(null) }
+            var downloadProgress by remember { mutableFloatStateOf(0f) }
+            var isDownloading by remember { mutableStateOf(false) }
+            var isInstalling by remember { mutableStateOf(false) }
+            var downloadReady by remember { mutableStateOf(false) }
 
-fun setSkippedVersion(version: String) {
-    updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply()
-}
+            val updatePrefs = remember { context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE) }
+            fun getSkippedVersion(): String? = updatePrefs.getString(KEY_SKIPPED_VERSION, null)
+            fun setSkippedVersion(version: String) { updatePrefs.edit().putString(KEY_SKIPPED_VERSION, version).apply() }
 
-fun applyDownloadServiceState() {
-    val state = UpdateDownloadService.readState(this@MainActivity)
-    val expectedFileName = updateInfo?.let { "masjid-io-${it.latestVersion}.apk" }
-    isDownloading = state.status == UpdateDownloadService.STATUS_DOWNLOADING
-    downloadProgress = state.progress
-    downloadReady = state.status == UpdateDownloadService.STATUS_COMPLETE &&
-        expectedFileName != null &&
-        state.filePath != null &&
-        java.io.File(state.filePath).name == expectedFileName &&
-        ApkDownloader.isValidApk(this@MainActivity, java.io.File(state.filePath))
-}
-
-// State dipulihkan saat Activity kembali dari aplikasi lain atau dibuat ulang.
-LaunchedEffect(Unit) {
-    applyDownloadServiceState()
-}
-
-DisposableEffect(Unit) {
-    val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == UpdateDownloadService.ACTION_PROGRESS) {
-                applyDownloadServiceState()
+            fun applyDownloadServiceState() {
+                val state = UpdateDownloadService.readState(this@MainActivity)
+                val expectedFileName = updateInfo?.let { "masjid-io-${it.latestVersion}.apk" }
+                isDownloading = state.status == UpdateDownloadService.STATUS_DOWNLOADING
+                downloadProgress = state.progress
+                downloadReady = state.status == UpdateDownloadService.STATUS_COMPLETE &&
+                    expectedFileName != null && state.filePath != null &&
+                    java.io.File(state.filePath).name == expectedFileName &&
+                    ApkDownloader.isValidApk(this@MainActivity, java.io.File(state.filePath))
             }
-        }
-    }
-    val filter = IntentFilter(UpdateDownloadService.ACTION_PROGRESS)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-        @Suppress("DEPRECATION")
-        registerReceiver(receiver, filter)
-    }
-    onDispose { unregisterReceiver(receiver) }
-}
 
-// ============================================================
-// PIN LOCK STATE
-// ============================================================
-var sessionPinVerified by remember { mutableStateOf(false) }
-var lastPinVerifiedTime by remember { mutableLongStateOf(0L) }
+            LaunchedEffect(Unit) { applyDownloadServiceState() }
 
-fun shouldRequestPin(): Boolean {
-    return when (settings.pinLockMode) {
-        PinLockMode.IMMEDIATE -> true
-        PinLockMode.UNTIL_EXIT -> !sessionPinVerified
-        PinLockMode.TIMEOUT_5MIN -> {
-            if (!sessionPinVerified) return true
-            val elapsed = System.currentTimeMillis() - lastPinVerifiedTime
-            elapsed >= PIN_TIMEOUT_MS
-        }
-    }
-}
-
-// ============================================================
-// JADWAL ON/OFF OTOMATIS
-// ============================================================
-val todaySchedule = remember(
-    settings.latitude,
-    settings.longitude
-) {
-    PrayerTimesCalculator.calculate(
-        date = LocalDate.now(),
-        latitude = settings.latitude,
-        longitude = settings.longitude
-    )
-}
-
-fun timeToMinutes(timeStr: String): Int {
-    val parts = timeStr.split(":")
-    val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
-    val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
-    return h * 60 + m
-}
-
-fun isNowInOffSchedule(): Boolean {
-    if (!settings.autoOnOff) return false
-    val now = if (settings.isManualTimeEnabled) {
-        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
-    } else {
-        LocalDateTime.now()
-    }
-    // Jangan memakai jadwal yang di-cache dari tanggal saat Activity dibuat.
-    // Setelah tengah malam atau saat tanggal manual berubah, jadwal harus ikut
-    // tanggal waktu yang sedang dipakai aplikasi.
-    val scheduleForNow = PrayerTimesCalculator.calculate(
-        date = now.toLocalDate(),
-        latitude = settings.latitude,
-        longitude = settings.longitude
-    )
-    val currentMinute = now.hour * 60 + now.minute
-    val subuhMinute = timeToMinutes(scheduleForNow.subuh)
-    val onMinute = subuhMinute - settings.autoOnMinutesBeforeSubuh
-    val isyaMinute = timeToMinutes(scheduleForNow.isya)
-    val offMinute = isyaMinute + settings.autoOffMinutesAfterIsya
-
-    return if (onMinute < offMinute) {
-        currentMinute >= offMinute || currentMinute < onMinute
-    } else {
-        currentMinute in offMinute until onMinute
-    }
-}
-
-/**
- * V1.04.429 — Cek apakah sekarang waktu SIANG atau MALAM
- * (untuk mode AUTO — siang antara Subuh sampai Maghrib)
- */
-fun isNowInDaytime(): Boolean {
-    val now = if (settings.isManualTimeEnabled) {
-        LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
-    } else {
-        LocalDateTime.now()
-    }
-    val scheduleForNow = PrayerTimesCalculator.calculate(
-        date = now.toLocalDate(),
-        latitude = settings.latitude,
-        longitude = settings.longitude
-    )
-    val currentMinute = now.hour * 60 + now.minute
-    val subuhMinute = timeToMinutes(scheduleForNow.subuh)
-    val maghribMinute = timeToMinutes(scheduleForNow.maghrib)
-
-    return currentMinute in subuhMinute until maghribMinute
-}
-
-fun minutesToTime(minutes: Int): String {
-    val normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60)
-    val h = normalized / 60
-    val m = normalized % 60
-    return String.format("%02d:%02d", h, m)
-}
-
-val autoOnTimeStr = remember(todaySchedule.subuh, settings.autoOnMinutesBeforeSubuh) {
-    minutesToTime(timeToMinutes(todaySchedule.subuh) - settings.autoOnMinutesBeforeSubuh)
-}
-val autoOffTimeStr = remember(todaySchedule.isya, settings.autoOffMinutesAfterIsya) {
-    minutesToTime(timeToMinutes(todaySchedule.isya) + settings.autoOffMinutesAfterIsya)
-}
-// ============================================================
-// STATE BRIGHTNESS + OVERLAY HITAM
-// ============================================================
-var isDimmed by remember { mutableStateOf(false) }
-var temporaryWake by remember { mutableStateOf(false) }
-var lastKeyPressTime by remember { mutableLongStateOf(0L) }
-var showAutoOffDialog by remember { mutableStateOf(false) }
-var autoOffDialogDismissedForSession by remember { mutableStateOf(false) }
-// V1.04.429 — Overlay hitam aktif (fallback brightness TV)
-var isOverlayActive by remember { mutableStateOf(false) }
-// V1.04.429 — Trigger re-cek brightness
-var brightnessRefreshTrigger by remember { mutableLongStateOf(0L) }
-
-/**
- * V1.04.429 — Hitung brightness yang harus diterapkan.
- * Return nilai 0.01f s/d 1f.
- *
- * - MANUAL: pakai manualBrightnessPercent
- * - AUTO: siang dayBrightnessPercent, malam nightBrightnessPercent
- * - SCHEDULE: ikut jadwal ON/OFF (jam OFF = 0.01f, jam ON = 1f)
- */
-fun calculateTargetBrightness(): Float {
-    return when (settings.brightnessMode) {
-        BrightnessMode.MANUAL -> {
-            (settings.manualBrightnessPercent.toFloat() / 100f).coerceIn(0.01f, 1f)
-        }
-        BrightnessMode.AUTO -> {
-            val percent = if (isNowInDaytime()) {
-                settings.dayBrightnessPercent
-            } else {
-                settings.nightBrightnessPercent
-            }
-            (percent.toFloat() / 100f).coerceIn(0.01f, 1f)
-        }
-        BrightnessMode.SCHEDULE -> {
-            // Input user membangunkan layar sementara di dalam jadwal OFF.
-            if (temporaryWake || !isNowInOffSchedule()) 1f else 0.01f
-        }
-    }
-}
-
-/**
- * V1.04.429 — Cek apakah overlay hitam perlu aktif.
- * Overlay aktif kalau:
- *   1. dimOverlayEnabled = true
- *   2. Mode SCHEDULE dan sekarang jam OFF
- *   3. Bukan temporary wake
- *   4. Dialog AutoOff tidak sedang muncul
- */
-fun shouldOverlayActive(): Boolean {
-    if (!settings.dimOverlayEnabled) return false
-    if (settings.brightnessMode != BrightnessMode.SCHEDULE) return false
-    if (!isNowInOffSchedule()) return false
-    if (temporaryWake) return false
-    if (showAutoOffDialog) return false
-    return true
-}
-
-// ============================================================
-// POLLING JADWAL BRIGHTNESS — V1.04.429 (10 detik)
-// ============================================================
-LaunchedEffect(
-    settings.autoOnOff,
-    settings.brightnessMode,
-    settings.manualBrightnessPercent,
-    settings.dayBrightnessPercent,
-    settings.nightBrightnessPercent,
-    settings.dimOverlayEnabled,
-    settings.autoOffMinutesAfterIsya,
-    settings.autoOnMinutesBeforeSubuh,
-    settings.isManualTimeEnabled,
-    settings.manualTimeOffsetSeconds,
-    todaySchedule.subuh,
-    todaySchedule.isya,
-    todaySchedule.maghrib,
-    brightnessRefreshTrigger
-) {
-    while (true) {
-        if (!isNowInOffSchedule() && autoOffDialogDismissedForSession) {
-            autoOffDialogDismissedForSession = false
-        }
-
-        val targetBrightness = calculateTargetBrightness()
-        val shouldDim = targetBrightness < 0.5f
-
-        if (shouldDim != isDimmed) {
-            isDimmed = shouldDim
-        }
-
-        runOnUiThread {
-            try {
-                val attrs = window.attributes
-                attrs.screenBrightness = targetBrightness
-                window.attributes = attrs
-            } catch (e: Exception) {
-                android.util.Log.e(
-                    "MainActivity",
-                    "Brightness update gagal: ${e.message}"
-                )
-            }
-        }
-
-        val overlayShouldBeActive = shouldOverlayActive()
-        if (overlayShouldBeActive != isOverlayActive) {
-            isOverlayActive = overlayShouldBeActive
-        }
-
-        delay(10_000L)
-    }
-}
-// ============================================================
-// TIMER TEMPORARY WAKE
-// ============================================================
-LaunchedEffect(temporaryWake, showAutoOffDialog) {
-    if (temporaryWake && !showAutoOffDialog) {
-        delay(120_000L)
-        if (isNowInOffSchedule()) {
-            temporaryWake = false
-        }
-    }
-}
-
-LaunchedEffect(showAutoOffDialog) {
-    if (showAutoOffDialog) {
-        runOnUiThread {
-            try {
-                val attrs = window.attributes
-                attrs.screenBrightness = 1f
-                window.attributes = attrs
-            } catch (_: Exception) {}
-        }
-    } else {
-        lastKeyPressTime = System.currentTimeMillis()
-        // V1.04.429 — Trigger re-cek brightness
-        brightnessRefreshTrigger = System.currentTimeMillis()
-    }
-}
-
-// ============================================================
-// UPDATE KONFIG FONNTE SAAT SETTINGS BERUBAH
-// ============================================================
-LaunchedEffect(
-    settings.fonnteToken,
-    settings.fonnteGroupId,
-    settings.whatsappReportEnabled
-) {
-    CrashReporter.updateFonnteConfig(
-        token = settings.fonnteToken,
-        groupId = settings.fonnteGroupId,
-        enabled = settings.whatsappReportEnabled
-    )
-}
-
-// ============================================================
-// KIOSK MODE
-// ============================================================
-LaunchedEffect(settings.kioskModeEnabled) {
-    if (settings.kioskModeEnabled) {
-        KioskManager.enableKiosk(this@MainActivity)
-    } else {
-        KioskManager.disableKiosk(this@MainActivity)
-    }
-}
-
-DisposableEffect(settings.kioskModeEnabled) {
-    val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
-    if (settings.kioskModeEnabled) {
-        try { startService(serviceIntent) } catch (_: Exception) {}
-    } else {
-        try { stopService(serviceIntent) } catch (_: Exception) {}
-    }
-    onDispose {
-        try { stopService(serviceIntent) } catch (_: Exception) {}
-    }
-}
-
-// ============================================================
-// REMOTE SERVER
-// ============================================================
-val remoteServer = remember {
-    RemoteServer(
-        context = this@MainActivity,
-        settingsRepository = settingsRepository,
-        onRestart = {
-            runOnUiThread {
-                val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-                finish()
-            }
-        },
-        onSettingsReceived = { jsonBody ->
-            try {
-                val current = settingsRepository.settingsFlow.value
-                val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
-                if (newSettings != null) {
-                    settingsRepository.updateSettings(newSettings)
-                    val portBerubah = newSettings.remoteServerPort != current.remoteServerPort
-                    if (portBerubah) {
-                        needsHardRestart = true
+            DisposableEffect(Unit) {
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        if (intent?.action == UpdateDownloadService.ACTION_PROGRESS) applyDownloadServiceState()
                     }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Gagal apply received settings: ${e.message}")
+                val filter = IntentFilter(UpdateDownloadService.ACTION_PROGRESS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                else registerReceiver(receiver, filter)
+                onDispose { unregisterReceiver(receiver) }
             }
-        },
-        onFinalize = {
-            runOnUiThread {
-                android.util.Log.d("MainActivity", "onFinalize dipanggil")
-                showRestartCountdown = true
-            }
-        }
-    )
-}
-var isRemoteServerRunning by remember { mutableStateOf(false) }
-LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
-    if (settings.remoteControlEnabled) {
-        remoteServer.stop()
-        delay(300)
-        remoteServer.start(scope)
-        delay(2500)
-        val realStatus = remoteServer.isRunning()
-        isRemoteServerRunning = realStatus
-        if (!realStatus) {
-            android.util.Log.e(
-                "MainActivity",
-                "Remote Server gagal: ${remoteServer.lastError}"
-            )
-        }
-    } else {
-        remoteServer.stop()
-        isRemoteServerRunning = false
-    }
-}
 
-DisposableEffect(Unit) {
-    onDispose { remoteServer.stop() }
-}
-
-// ============================================================
-// CEK UPDATE (delay 3 detik setelah app start)
-// ============================================================
-LaunchedEffect(Unit) {
-    try {
-        delay(3000)
-        val info = UpdateManager.checkForUpdate()
-        if (info.available) {
-            val skippedVersion = getSkippedVersion()
-            val isSkipped = skippedVersion == info.latestVersion
-
-            if (info.isForceUpdate || !isSkipped) {
-                updateInfo = info
-                applyDownloadServiceState()
-                showUpdateDialog = true
-            }
-        }
-    } catch (_: Exception) { }
-}
-
-// ============================================================
-// START / RESUME DOWNLOAD APK
-// ============================================================
-val installDownloadedUpdate: () -> Unit = {
-    val state = UpdateDownloadService.readState(this@MainActivity)
-    val path = state.filePath
-    val apkFile = path?.let { java.io.File(it) }
-    if (apkFile == null || !ApkDownloader.isValidApk(this@MainActivity, apkFile)) {
-        downloadReady = false
-        Toast.makeText(
-            this@MainActivity,
-            "APK belum selesai atau tidak valid. Silakan download ulang.",
-            Toast.LENGTH_LONG
-        ).show()
-    } else {
-        isInstalling = true
-        val ok = ApkDownloader.installApk(this@MainActivity, apkFile.absolutePath)
-        if (!ok) {
-            isInstalling = false
-            if (!installDialogAlreadyShown) {
-                showInstallPermissionDialog = true
-                installDialogAlreadyShown = true
-            }
-        } else {
-            ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
-        }
-    }
-}
-
-val startDownload: () -> Unit = {
-    val info = updateInfo
-    if (downloadReady) {
-        installDownloadedUpdate()
-    } else if (info?.downloadUrl.isNullOrBlank()) {
-        Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
-    } else if (BackupManager.needsStoragePermission()) {
-        Toast.makeText(this@MainActivity, "Izin akses file diperlukan untuk download update", Toast.LENGTH_LONG).show()
-        showStoragePermissionDialog = true
-    } else {
-        isDownloading = true
-        downloadReady = false
-        downloadProgress = 0f
-        UpdateDownloadService.start(
-            context = this@MainActivity,
-            downloadUrl = info!!.downloadUrl!!,
-            fileName = "masjid-io-${info.latestVersion}.apk"
-        )
-    }
-}
-
-// PERMISSION LAUNCHER
-// ============================================================
-val permissionLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.RequestMultiplePermissions()
-) { }
-
-LaunchedEffect(Unit) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO
-            )
-        )
-    } else {
-        permissionLauncher.launch(
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        )
-    }
-}
-
-// ============================================================
-// KEEP SCREEN ON
-// ============================================================
-DisposableEffect(settings.keepScreenOn) {
-    if (settings.keepScreenOn) {
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    } else {
-        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    }
-    onDispose {}
-}
-// ============================================================
-// STATE SCREEN
-// ============================================================
-var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
-var showPinDialog by remember { mutableStateOf(false) }
-var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
-var focusPrayerTime by remember { mutableStateOf("17:52") }
-
-var currentTemperature by remember { mutableStateOf(30) }
-var currentWeatherCondition by remember { mutableStateOf("Cerah") }
-
-// ============================================================
-// WEATHER — Update tiap 30 menit
-// ============================================================
-LaunchedEffect(settings.latitude, settings.longitude) {
-    while (true) {
-        try {
-            val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
-            currentTemperature = weather.temperature
-            currentWeatherCondition = weather.condition
-        } catch (_: Exception) { }
-        delay(30 * 60 * 1000L)
-    }
-}
-
-// ============================================================
-// BACK PRESS HANDLER
-// ============================================================
-DisposableEffect(
-    settings.kioskModeEnabled,
-    currentScreen,
-    showRestartCountdown,
-    showStoragePermissionDialog,
-    showAutoOffDialog,
-    showInstallPermissionDialog
-) {
-    val callback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            if (showUpdateDialog && updateInfo?.isForceUpdate == true) return
-            if (isDownloading || isInstalling) return
-            if (showRestartCountdown) return
-            if (showStoragePermissionDialog) return
-            if (showInstallPermissionDialog) return
-            if (showAutoOffDialog) return
-
-            when (currentScreen) {
-                AppScreen.ADZAN_SEQUENCE -> {
-                    currentScreen = AppScreen.FOCUS_MODE
-                }
-                AppScreen.FOCUS_MODE -> {
-                    if (settings.focusModeAllowExitWithRemote) {
-                        currentScreen = AppScreen.HOME
-                    }
-                }
-                AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW,
-                AppScreen.RAMADHAN, AppScreen.IO_CONTROL ->
-                    currentScreen = AppScreen.HOME
-                AppScreen.HOME -> {
-                    if (settings.kioskModeEnabled) showPinDialog = true
-                    else {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
+            var sessionPinVerified by remember { mutableStateOf(false) }
+            var lastPinVerifiedTime by remember { mutableLongStateOf(0L) }
+            fun shouldRequestPin(): Boolean {
+                return when (settings.pinLockMode) {
+                    PinLockMode.IMMEDIATE -> true
+                    PinLockMode.UNTIL_EXIT -> !sessionPinVerified
+                    PinLockMode.TIMEOUT_5MIN -> {
+                        if (!sessionPinVerified) return true
+                        System.currentTimeMillis() - lastPinVerifiedTime >= PIN_TIMEOUT_MS
                     }
                 }
             }
-        }
-    }
-    onBackPressedDispatcher.addCallback(callback)
-    onDispose { callback.remove() }
-}
-// ============================================================
-// CLOCK & SCHEDULE STATE
-// ============================================================
-var currentTimeString by remember { mutableStateOf("12:00:00") }
-var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
-var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
-var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
 
-var secondsToImsak by remember { mutableLongStateOf(0L) }
-var secondsToMaghrib by remember { mutableLongStateOf(0L) }
-var userDismissedRamadhan by remember { mutableStateOf(false) }
+            val todaySchedule = remember(settings.latitude, settings.longitude) {
+                PrayerTimesCalculator.calculate(date = LocalDate.now(), latitude = settings.latitude, longitude = settings.longitude)
+            }
 
-val today = remember { LocalDate.now() }
-val upcomingEvent = remember {
-    val hDate = IslamicCalendar.getHijriDate(today)
-    IslamicCalendar.getUpcomingEvent(hDate)
-}
+            fun timeToMinutes(timeStr: String): Int {
+                val parts = timeStr.split(":")
+                return (parts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (parts.getOrNull(1)?.toIntOrNull() ?: 0)
+            }
 
-// ============================================================
-// LOOP UTAMA — Update jam tiap 1 detik
-// Deteksi waktu sholat -> trigger Adzan
-// ============================================================
-LaunchedEffect(
-    settings.latitude,
-    settings.longitude,
-    settings.isManualTimeEnabled,
-    settings.manualTimeOffsetSeconds
-) {
-    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
-    var lastTriggeredPrayerMinute: String? = null
+            fun isNowInOffSchedule(): Boolean {
+                if (!settings.autoOnOff) return false
+                val now = if (settings.isManualTimeEnabled) LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds) else LocalDateTime.now()
+                val scheduleForNow = PrayerTimesCalculator.calculate(date = now.toLocalDate(), latitude = settings.latitude, longitude = settings.longitude)
+                val currentMinute = now.hour * 60 + now.minute
+                val onMinute = timeToMinutes(scheduleForNow.subuh) - settings.autoOnMinutesBeforeSubuh
+                val offMinute = timeToMinutes(scheduleForNow.isya) + settings.autoOffMinutesAfterIsya
+                return if (onMinute < offMinute) currentMinute >= offMinute || currentMinute < onMinute else currentMinute in offMinute until onMinute
+            }
 
-    while (true) {
-        val currentDateTime = if (settings.isManualTimeEnabled) {
-            LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds)
-        } else {
-            LocalDateTime.now()
-        }
+            fun isNowInDaytime(): Boolean {
+                val now = if (settings.isManualTimeEnabled) LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds) else LocalDateTime.now()
+                val scheduleForNow = PrayerTimesCalculator.calculate(date = now.toLocalDate(), latitude = settings.latitude, longitude = settings.longitude)
+                val currentMinute = now.hour * 60 + now.minute
+                return currentMinute in timeToMinutes(scheduleForNow.subuh) until timeToMinutes(scheduleForNow.maghrib)
+            }
 
-        val now = currentDateTime.toLocalTime()
-        currentTimeString = now.format(timeFormatter)
+            fun minutesToTime(minutes: Int): String {
+                val normalized = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60)
+                return String.format("%02d:%02d", normalized / 60, normalized % 60)
+            }
 
-        val currentDate = currentDateTime.toLocalDate()
-        val hDate = IslamicCalendar.getHijriDate(currentDate)
-        hijriDateString = IslamicCalendar.formatHijriDateString(hDate)
-        gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
+            val autoOnTimeStr = remember(todaySchedule.subuh, settings.autoOnMinutesBeforeSubuh) { minutesToTime(timeToMinutes(todaySchedule.subuh) - settings.autoOnMinutesBeforeSubuh) }
+            val autoOffTimeStr = remember(todaySchedule.isya, settings.autoOffMinutesAfterIsya) { minutesToTime(timeToMinutes(todaySchedule.isya) + settings.autoOffMinutesAfterIsya) }
 
-        val schedule = PrayerTimesCalculator.calculate(
-            date = currentDate,
-            latitude = settings.latitude,
-            longitude = settings.longitude
-        )
-        prayerSchedule = schedule
+            var isDimmed by remember { mutableStateOf(false) }
+            var temporaryWake by remember { mutableStateOf(false) }
+            var lastKeyPressTime by remember { mutableLongStateOf(0L) }
+            var showAutoOffDialog by remember { mutableStateOf(false) }
+            var autoOffDialogDismissedForSession by remember { mutableStateOf(false) }
+            var isOverlayActive by remember { mutableStateOf(false) }
+            var brightnessRefreshTrigger by remember { mutableLongStateOf(0L) }
 
-        secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
-        secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
-
-        val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
-        if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
-            for (item in schedule.items) {
-                if (item.timeFormatted == currentMinuteStr && item.id != PrayerId.SYURUQ) {
-                    lastTriggeredPrayerMinute = currentMinuteStr
-                    focusPrayerId = item.id
-                    focusPrayerTime = item.timeFormatted
-                    soundManager.playPrayerAlert(
-                        mode = settings.audioMode,
-                        beepVolume = settings.beepVolume,
-                        beepCount = settings.beepCount,
-                        beepDurationMs = settings.beepDurationMs,
-                        beepIntervalMs = settings.beepIntervalMs,
-                        adzanStyle = settings.adzanFile,
-                        adzanVolume = settings.adzanVolume
-                    )
-                    userDismissedRamadhan = false
-                    currentScreen = AppScreen.ADZAN_SEQUENCE
-                    break
+            fun calculateTargetBrightness(): Float {
+                return when (settings.brightnessMode) {
+                    BrightnessMode.MANUAL -> (settings.manualBrightnessPercent.toFloat() / 100f).coerceIn(0.01f, 1f)
+                    BrightnessMode.AUTO -> {
+                        val percent = if (isNowInDaytime()) settings.dayBrightnessPercent else settings.nightBrightnessPercent
+                        (percent.toFloat() / 100f).coerceIn(0.01f, 1f)
+                    }
+                    BrightnessMode.SCHEDULE -> if (temporaryWake || !isNowInOffSchedule()) 1f else 0.01f
                 }
             }
-        }
-        delay(1000)
-    }
-}
 
-// ============================================================
-// RAMADHAN OVERLAY TRIGGER
-// Muncul 1 jam sebelum Imsak atau Maghrib
-// ============================================================
-LaunchedEffect(
-    settings.ramadhanModeEnabled,
-    secondsToImsak,
-    secondsToMaghrib,
-    currentScreen,
-    userDismissedRamadhan
-) {
-    if (!settings.ramadhanModeEnabled) return@LaunchedEffect
-    if (currentScreen != AppScreen.HOME) return@LaunchedEffect
-    if (userDismissedRamadhan) return@LaunchedEffect
+            fun shouldOverlayActive(): Boolean {
+                if (!settings.dimOverlayEnabled || settings.brightnessMode != BrightnessMode.SCHEDULE) return false
+                if (!isNowInOffSchedule() || temporaryWake || showAutoOffDialog) return false
+                return true
+            }
 
-    val nearImsak = secondsToImsak in 1..3600
-    val nearMaghrib = secondsToMaghrib in 1..3600
+            LaunchedEffect(
+                settings.autoOnOff, settings.brightnessMode, settings.manualBrightnessPercent, settings.dayBrightnessPercent,
+                settings.nightBrightnessPercent, settings.dimOverlayEnabled, settings.autoOffMinutesAfterIsya,
+                settings.autoOnMinutesBeforeSubuh, settings.isManualTimeEnabled, settings.manualTimeOffsetSeconds,
+                todaySchedule.subuh, todaySchedule.isya, todaySchedule.maghrib, brightnessRefreshTrigger
+            ) {
+                while (true) {
+                    if (!isNowInOffSchedule() && autoOffDialogDismissedForSession) autoOffDialogDismissedForSession = false
+                    val targetBrightness = calculateTargetBrightness()
+                    val shouldDim = targetBrightness < 0.5f
+                    if (shouldDim != isDimmed) isDimmed = shouldDim
+                    runOnUiThread {
+                        try {
+                            val attrs = window.attributes
+                            attrs.screenBrightness = targetBrightness
+                            window.attributes = attrs
+                        } catch (_: Exception) {}
+                    }
+                    val overlayShouldBeActive = shouldOverlayActive()
+                    if (overlayShouldBeActive != isOverlayActive) isOverlayActive = overlayShouldBeActive
+                    delay(10_000L)
+                }
+            }
 
-    if (nearImsak || nearMaghrib) {
-        currentScreen = AppScreen.RAMADHAN
-    }
-}
+            LaunchedEffect(temporaryWake, showAutoOffDialog) {
+                if (temporaryWake && !showAutoOffDialog) {
+                    delay(120_000L)
+                    if (isNowInOffSchedule()) temporaryWake = false
+                }
+            }
 
-LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
-    if (currentScreen == AppScreen.RAMADHAN) {
-        if (secondsToImsak <= 0 && secondsToMaghrib <= 0) {
-            currentScreen = AppScreen.HOME
-        }
-    }
-}
-// ============================================================
-// THEME + UI
-// ============================================================
-MasjidTheme {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MosqueDeepBg
-    ) {
-        Box(
-    modifier = Modifier
-        .fillMaxSize()
-        .pointerInput(Unit) {
-            detectTapGestures(
-                onPress = {
-                    val now = System.currentTimeMillis()
-                    if (now - lastKeyPressTime > 500L) {
-                        lastKeyPressTime = now
-                        if (isNowInOffSchedule()) {
-                            temporaryWake = true
-                            if (settings.autoOffDialogEnabled &&
-                                !showAutoOffDialog &&
-                                !autoOffDialogDismissedForSession
-                            ) {
-                                showAutoOffDialog = true
+            LaunchedEffect(showAutoOffDialog) {
+                if (showAutoOffDialog) {
+                    runOnUiThread {
+                        try {
+                            val attrs = window.attributes
+                            attrs.screenBrightness = 1f
+                            window.attributes = attrs
+                        } catch (_: Exception) {}
+                    }
+                } else {
+                    lastKeyPressTime = System.currentTimeMillis()
+                    brightnessRefreshTrigger = System.currentTimeMillis()
+                }
+            }
+
+            LaunchedEffect(settings.fonnteToken, settings.fonnteGroupId, settings.whatsappReportEnabled) {
+                CrashReporter.updateFonnteConfig(token = settings.fonnteToken, groupId = settings.fonnteGroupId, enabled = settings.whatsappReportEnabled)
+            }
+
+            LaunchedEffect(settings.kioskModeEnabled) {
+                if (settings.kioskModeEnabled) KioskManager.enableKiosk(this@MainActivity) else KioskManager.disableKiosk(this@MainActivity)
+            }
+
+            DisposableEffect(settings.kioskModeEnabled) {
+                val serviceIntent = Intent(this@MainActivity, WatchdogService::class.java)
+                if (settings.kioskModeEnabled) {
+                    try { startService(serviceIntent) } catch (_: Exception) {}
+                } else {
+                    try { stopService(serviceIntent) } catch (_: Exception) {}
+                }
+                onDispose { try { stopService(serviceIntent) } catch (_: Exception) {} }
+            }
+
+            val remoteServer = remember {
+                RemoteServer(
+                    context = this@MainActivity, settingsRepository = settingsRepository,
+                    onRestart = {
+                        runOnUiThread {
+                            val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
+                            startActivity(intent)
+                            finish()
                         }
-                    }
-                }
-            )
-        }
-        .onKeyEvent { event ->
-            if (event.type == KeyEventType.KeyDown) {
-                val now = System.currentTimeMillis()
-                if (now - lastKeyPressTime > 500L) {
-                    lastKeyPressTime = now
-                    if (isNowInOffSchedule()) {
-                        temporaryWake = true
-                        if (settings.autoOffDialogEnabled &&
-                            !showAutoOffDialog &&
-                            !autoOffDialogDismissedForSession
-                        ) {
-                            showAutoOffDialog = true
-                        }
-                    }
-                }
-                false
-            } else false
-        }
-) {
-            if (showCrashDialog) {
-                CrashLogDialog(
-                    log = pendingCrashLog,
-                    onDismiss = {
-                        CrashAutoShowHelper.markAsSeen(this@MainActivity)
-                        showCrashDialog = false
-                    }
+                    },
+                    onSettingsReceived = { jsonBody ->
+                        try {
+                            val current = settingsRepository.settingsFlow.value
+                            val newSettings = SettingsTransferHelper.deserializeSettings(jsonBody, current)
+                            if (newSettings != null) {
+                                settingsRepository.updateSettings(newSettings)
+                                if (newSettings.remoteServerPort != current.remoteServerPort) needsHardRestart = true
+                            }
+                        } catch (_: Exception) {}
+                    },
+                    onFinalize = { runOnUiThread { showRestartCountdown = true } }
                 )
-            } else {
-                Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
-                    when (screen) {
-                        // ============================================================
-                        // HOME
-                        // ============================================================
-                        AppScreen.HOME -> HomeScreen(
-                            settings = settings,
-                            schedule = prayerSchedule,
-                            currentTimeString = currentTimeString,
-                            hijriDateString = hijriDateString,
-                            gregorianDateString = gregorianDateString,
-                            upcomingEvent = upcomingEvent,
-                            temperature = currentTemperature,
-                            weatherCondition = currentWeatherCondition,
-                            onSettingsClick = {
-                                if (shouldRequestPin()) {
-                                    showPinDialog = true
-                                } else {
-                                    currentScreen = AppScreen.SETTINGS
+            }
+            var isRemoteServerRunning by remember { mutableStateOf(false) }
+
+            LaunchedEffect(settings.remoteControlEnabled, settings.remoteServerPort, settings.remoteAuthToken) {
+                if (settings.remoteControlEnabled) {
+                    remoteServer.stop()
+                    delay(300)
+                    remoteServer.start(scope)
+                    delay(2500)
+                    isRemoteServerRunning = remoteServer.isRunning()
+                } else {
+                    remoteServer.stop()
+                    isRemoteServerRunning = false
+                }
+            }
+
+            DisposableEffect(Unit) { onDispose { remoteServer.stop() } }
+
+            LaunchedEffect(Unit) {
+                try {
+                    delay(3000)
+                    val info = UpdateManager.checkForUpdate()
+                    if (info.available) {
+                        if (info.isForceUpdate || getSkippedVersion() != info.latestVersion) {
+                            updateInfo = info
+                            applyDownloadServiceState()
+                            showUpdateDialog = true
+                        }
+                    }
+                } catch (_: Exception) { }
+            }
+
+            val installDownloadedUpdate: () -> Unit = {
+                val state = UpdateDownloadService.readState(this@MainActivity)
+                val path = state.filePath
+                val apkFile = path?.let { java.io.File(it) }
+                if (apkFile == null || !ApkDownloader.isValidApk(this@MainActivity, apkFile)) {
+                    downloadReady = false
+                    Toast.makeText(this@MainActivity, "APK belum selesai atau tidak valid.", Toast.LENGTH_LONG).show()
+                } else {
+                    isInstalling = true
+                    val ok = ApkDownloader.installApk(this@MainActivity, apkFile.absolutePath)
+                    if (!ok) {
+                        isInstalling = false
+                        if (!installDialogAlreadyShown) {
+                            showInstallPermissionDialog = true
+                            installDialogAlreadyShown = true
+                        }
+                    } else ApkDownloader.deleteOldApks(this@MainActivity, keepCount = 2)
+                }
+            }
+
+            val startDownload: () -> Unit = {
+                val info = updateInfo
+                if (downloadReady) {
+                    installDownloadedUpdate()
+                } else if (info?.downloadUrl.isNullOrBlank()) {
+                    Toast.makeText(this@MainActivity, "URL download tidak tersedia", Toast.LENGTH_LONG).show()
+                } else if (BackupManager.needsStoragePermission()) {
+                    Toast.makeText(this@MainActivity, "Izin akses file diperlukan", Toast.LENGTH_LONG).show()
+                    showStoragePermissionDialog = true
+                } else {
+                    isDownloading = true
+                    downloadReady = false
+                    downloadProgress = 0f
+                    UpdateDownloadService.start(context = this@MainActivity, downloadUrl = info!!.downloadUrl!!, fileName = "masjid-io-${info.latestVersion}.apk")
+                }
+            }
+
+            val permissionLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { }
+            LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO))
+                } else {
+                    permissionLauncher.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
+                }
+            }
+
+            DisposableEffect(settings.keepScreenOn) {
+                if (settings.keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                onDispose {}
+            }
+
+            var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
+            var showPinDialog by remember { mutableStateOf(false) }
+            var focusPrayerId by remember { mutableStateOf(PrayerId.MAGHRIB) }
+            var focusPrayerTime by remember { mutableStateOf("17:52") }
+            var currentTemperature by remember { mutableStateOf(30) }
+            var currentWeatherCondition by remember { mutableStateOf("Cerah") }
+
+            LaunchedEffect(settings.latitude, settings.longitude) {
+                while (true) {
+                    try {
+                        val weather = WeatherService.fetchWeather(settings.latitude, settings.longitude)
+                        currentTemperature = weather.temperature
+                        currentWeatherCondition = weather.condition
+                    } catch (_: Exception) { }
+                    delay(30 * 60 * 1000L)
+                }
+            }
+
+            DisposableEffect(settings.kioskModeEnabled, currentScreen, showRestartCountdown, showStoragePermissionDialog, showAutoOffDialog, showInstallPermissionDialog) {
+                val callback = object : OnBackPressedCallback(true) {
+                    override fun handleOnBackPressed() {
+                        if (showUpdateDialog && updateInfo?.isForceUpdate == true) return
+                        if (isDownloading || isInstalling) return
+                        if (showRestartCountdown || showStoragePermissionDialog || showInstallPermissionDialog || showAutoOffDialog) return
+                        when (currentScreen) {
+                            AppScreen.ADZAN_SEQUENCE -> currentScreen = AppScreen.FOCUS_MODE
+                            AppScreen.FOCUS_MODE -> if (settings.focusModeAllowExitWithRemote) currentScreen = AppScreen.HOME
+                            AppScreen.SETTINGS, AppScreen.QRIS_PREVIEW, AppScreen.RAMADHAN, AppScreen.IO_CONTROL -> currentScreen = AppScreen.HOME
+                            AppScreen.HOME -> {
+                                if (settings.kioskModeEnabled) showPinDialog = true
+                                else {
+                                    isEnabled = false
+                                    onBackPressedDispatcher.onBackPressed()
                                 }
                             }
-                        )
+                        }
+                    }
+                }
+                onBackPressedDispatcher.addCallback(callback)
+                onDispose { callback.remove() }
+            }
 
-                        // ============================================================
-                        // ADZAN SEQUENCE
-                        // ============================================================
-                        AppScreen.ADZAN_SEQUENCE -> AdzanSequenceOverlay(
-                            prayerId = focusPrayerId,
-                            adzanDurationSeconds = settings.adzanDisplayDurationSeconds,
-                            silentPhoneDurationSeconds = settings.silentPhoneDisplayDurationSeconds,
-                            qobliyahDurationSeconds = settings.qobliyahNiatDisplayDurationSeconds,
-                            iqamahWaitMinutes = settings.iqamahWaitMinutes,
-                            onComplete = {
-                                android.util.Log.d("MainActivity", "Adzan sequence selesai -> Mode Fokus")
-                                currentScreen = AppScreen.FOCUS_MODE
-                            },
-                            onSkip = {
-                                android.util.Log.d("MainActivity", "Adzan sequence di-skip -> Mode Fokus")
-                                currentScreen = AppScreen.FOCUS_MODE
+            var currentTimeString by remember { mutableStateOf("12:00:00") }
+            var hijriDateString by remember { mutableStateOf("17 Rajab 1447 H") }
+            var gregorianDateString by remember { mutableStateOf("Jum'at, 24 September 2026") }
+            var prayerSchedule by remember { mutableStateOf(PrayerSchedule()) }
+            var secondsToImsak by remember { mutableLongStateOf(0L) }
+            var secondsToMaghrib by remember { mutableLongStateOf(0L) }
+            var userDismissedRamadhan by remember { mutableStateOf(false) }
+
+            val today = remember { LocalDate.now() }
+            val upcomingEvent = remember {
+                val hDate = IslamicCalendar.getHijriDate(today)
+                IslamicCalendar.getUpcomingEvent(hDate)
+            }
+
+            LaunchedEffect(settings.latitude, settings.longitude, settings.isManualTimeEnabled, settings.manualTimeOffsetSeconds) {
+                val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+                var lastTriggeredPrayerMinute: String? = null
+                while (true) {
+                    val currentDateTime = if (settings.isManualTimeEnabled) LocalDateTime.now().plusSeconds(settings.manualTimeOffsetSeconds) else LocalDateTime.now()
+                    val now = currentDateTime.toLocalTime()
+                    currentTimeString = now.format(timeFormatter)
+                    val currentDate = currentDateTime.toLocalDate()
+                    hijriDateString = IslamicCalendar.formatHijriDateString(IslamicCalendar.getHijriDate(currentDate))
+                    gregorianDateString = IslamicCalendar.formatIndonesianDate(currentDate)
+                    val schedule = PrayerTimesCalculator.calculate(date = currentDate, latitude = settings.latitude, longitude = settings.longitude)
+                    prayerSchedule = schedule
+                    secondsToImsak = calculateSecondsTo(schedule.imsak, currentDateTime)
+                    secondsToMaghrib = calculateSecondsTo(schedule.maghrib, currentDateTime)
+
+                    val currentMinuteStr = String.format("%02d:%02d", now.hour, now.minute)
+                    if (now.second == 0 && currentMinuteStr != lastTriggeredPrayerMinute) {
+                        for (item in schedule.items) {
+                            if (item.timeFormatted == currentMinuteStr && item.id != PrayerId.SYURUQ) {
+                                lastTriggeredPrayerMinute = currentMinuteStr
+                                focusPrayerId = item.id
+                                focusPrayerTime = item.timeFormatted
+                                soundManager.playPrayerAlert(
+                                    mode = settings.audioMode, beepVolume = settings.beepVolume, beepCount = settings.beepCount,
+                                    beepDurationMs = settings.beepDurationMs, beepIntervalMs = settings.beepIntervalMs,
+                                    adzanStyle = settings.adzanFile, adzanVolume = settings.adzanVolume
+                                )
+                                userDismissedRamadhan = false
+                                currentScreen = AppScreen.ADZAN_SEQUENCE
+                                break
                             }
-                        )
-                                // ============================================================
-        // FOCUS MODE
-        // ============================================================
-        AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
-            prayerId = focusPrayerId,
-            prayerTimeFormatted = focusPrayerTime,
-            totalDurationMinutes = settings.prayerFocusDurationMinutes,
-            iqamahWaitMinutes = settings.iqamahWaitMinutes,
-            qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
-            settings = settings,
-            onDismiss = {
-                android.util.Log.d("MainActivity", "Mode Fokus selesai -> Home")
-                currentScreen = AppScreen.HOME
+                        }
+                    }
+                    delay(1000)
+                }
             }
-        )
 
-        // ============================================================
-        // SETTINGS
-        // ============================================================
-        AppScreen.SETTINGS -> SettingsScreen(
-            currentSettings = settings,
-            soundManager = soundManager,
-            isRemoteServerRunning = isRemoteServerRunning,
-            onAutoSaveSettings = { updated ->
-                settingsRepository.updateSettings(updated)
-            },
-            onSaveSettings = { updated ->
-                settingsRepository.updateSettings(updated)
-                currentScreen = AppScreen.HOME
-            },
-            onBack = { currentScreen = AppScreen.HOME },
-            onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
-            onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
-        )
-
-        // ============================================================
-        // QRIS PREVIEW
-        // ============================================================
-        AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
-            settings = settings,
-            onDismiss = { currentScreen = AppScreen.SETTINGS }
-        )
-
-        // ============================================================
-        // RAMADHAN
-        // ============================================================
-        AppScreen.RAMADHAN -> RamadhanOverlay(
-            settings = settings,
-            currentTimeString = currentTimeString,
-            imsakTime = prayerSchedule.imsak,
-            maghribTime = prayerSchedule.maghrib,
-            secondsToImsak = secondsToImsak,
-            secondsToMaghrib = secondsToMaghrib,
-            onDismiss = {
-                currentScreen = AppScreen.HOME
-                userDismissedRamadhan = true
+            LaunchedEffect(settings.ramadhanModeEnabled, secondsToImsak, secondsToMaghrib, currentScreen, userDismissedRamadhan) {
+                if (!settings.ramadhanModeEnabled || currentScreen != AppScreen.HOME || userDismissedRamadhan) return@LaunchedEffect
+                if ((secondsToImsak in 1..3600) || (secondsToMaghrib in 1..3600)) currentScreen = AppScreen.RAMADHAN
             }
-        )
 
-        // ============================================================
-        // IO CONTROL
-        // ============================================================
-        AppScreen.IO_CONTROL -> IoControlScreen(
-            settingsRepository = settingsRepository,
-            deviceName = deviceName,
-            deviceRole = deviceRole,
-            appVersion = dev.andikune.masjidio.BuildConfig.VERSION_NAME,
-            serverPort = settings.remoteServerPort,
-            receiveProgress = remoteServer.receiveProgress.collectAsState().value,
-            onBack = { currentScreen = AppScreen.SETTINGS }
-        )
-    }
-}
-
-// ============================================================
-// V1.04.429 — OVERLAY HITAM FULLSCREEN (FALLBACK BRIGHTNESS)
-//
-// Android TV (Xiaomi, Mi Box, dll) sering abaikan
-// screenBrightness=0f. Overlay hitam ini memastikan
-// layar benar-benar gelap saat jam OFF.
-//
-// Layer:
-//   - zIndex(100f): di atas semua screen
-//   - Alpha 0.98f: tidak menutup total
-//   - focusable: intercept D-pad supaya tidak tembus
-// ============================================================
-if (isOverlayActive) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.98f))
-            .zIndex(100f)
-            .focusable()
-    ) {
-        // Tidak ada content — layar benar-benar gelap
-    }
-}
-// ============================================================
-// PIN DIALOG
-// ============================================================
-if (showPinDialog) {
-    PinDialog(
-        correctPin = settings.pinCode,
-        onSuccess = {
-            showPinDialog = false
-            sessionPinVerified = true
-            lastPinVerifiedTime = System.currentTimeMillis()
-            if (currentScreen == AppScreen.FOCUS_MODE) {
-                currentScreen = AppScreen.HOME
-            } else {
-                currentScreen = AppScreen.SETTINGS
+            LaunchedEffect(currentScreen, secondsToImsak, secondsToMaghrib) {
+                if (currentScreen == AppScreen.RAMADHAN && secondsToImsak <= 0 && secondsToMaghrib <= 0) currentScreen = AppScreen.HOME
             }
-        },
-        onDismiss = { showPinDialog = false }
-    )
-}
-
-// ============================================================
-// AUTO-OFF DIALOG
-// ============================================================
-if (showAutoOffDialog) {
-    AutoOffDialog(
-        offStartTime = autoOffTimeStr,
-        offEndTime = autoOnTimeStr,
-        autoDismissSeconds = 120,
-        onConfirmTrue = {
-            settingsRepository.updateSettings(
-                settings.copy(autoOnOff = false)
-            )
-            showAutoOffDialog = false
-            temporaryWake = true
-            autoOffDialogDismissedForSession = true
-            // V1.04.429 — Re-cek brightness
-            brightnessRefreshTrigger = System.currentTimeMillis()
-            Toast.makeText(
-                this@MainActivity,
-                "Jadwal ON/OFF dimatikan. Layar tetap nyala sampai TV dimatikan manual.",
-                Toast.LENGTH_LONG
-            ).show()
-        },
-        onConfirmFalse = {
-            showAutoOffDialog = false
-            // TIDAK menutup popup, tetapi layar tetap menyala sementara.
-            // LaunchedEffect(temporaryWake, showAutoOffDialog) akan meredupkan
-            // kembali setelah timeout agar sentuhan tidak langsung sia-sia.
-            temporaryWake = true
-            autoOffDialogDismissedForSession = true
-            // V1.04.429 — Re-cek brightness
-            brightnessRefreshTrigger = System.currentTimeMillis()
-        }
-    )
-}
-                        // ============================================================
-                        // STORAGE PERMISSION DIALOG
-                        // ============================================================
-                        if (showStoragePermissionDialog) {
-                            StoragePermissionDialog(
-                                onGrantClick = {
-                                    BackupManager.openPermissionSettings(this@MainActivity)
-                                },
-                                onSkipClick = {
-                                    showStoragePermissionDialog = false
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        if (!context.packageManager.canRequestPackageInstalls()
-                                            && !installDialogAlreadyShown) {
-                                            showInstallPermissionDialog = true
-                                            installDialogAlreadyShown = true
+                    MasjidTheme {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MosqueDeepBg
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastKeyPressTime > 500L) {
+                                        lastKeyPressTime = now
+                                        if (isNowInOffSchedule()) {
+                                            temporaryWake = true
+                                            if (settings.autoOffDialogEnabled && !showAutoOffDialog && !autoOffDialogDismissedForSession) {
+                                                showAutoOffDialog = true
+                                            }
                                         }
                                     }
                                 }
                             )
                         }
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown) {
+                                val now = System.currentTimeMillis()
+                                if (now - lastKeyPressTime > 500L) {
+                                    lastKeyPressTime = now
+                                    if (isNowInOffSchedule()) {
+                                        temporaryWake = true
+                                        if (settings.autoOffDialogEnabled && !showAutoOffDialog && !autoOffDialogDismissedForSession) {
+                                            showAutoOffDialog = true
+                                        }
+                                    }
+                                }
+                                false
+                            } else false
+                        }
+                ) {
+                    if (showCrashDialog) {
+                        CrashLogDialog(
+                            log = pendingCrashLog,
+                            onDismiss = {
+                                CrashAutoShowHelper.markAsSeen(this@MainActivity)
+                                showCrashDialog = false
+                            }
+                        )
+                    } else {
+                        Crossfade(targetState = currentScreen, label = "screen_fade") { screen ->
+                            when (screen) {
+                                AppScreen.HOME -> HomeScreen(
+                                    settings = settings, schedule = prayerSchedule,
+                                    currentTimeString = currentTimeString, hijriDateString = hijriDateString,
+                                    gregorianDateString = gregorianDateString, upcomingEvent = upcomingEvent,
+                                    temperature = currentTemperature, weatherCondition = currentWeatherCondition,
+                                    onSettingsClick = {
+                                        if (shouldRequestPin()) showPinDialog = true
+                                        else currentScreen = AppScreen.SETTINGS
+                                    }
+                                )
 
-                        // ============================================================
-                        // INSTALL PERMISSION DIALOG
-                        // ============================================================
-                        if (showInstallPermissionDialog) {
-                            InstallPermissionDialog(
-                                onGrantClick = {
-                                    ApkDownloader.openInstallPermissionSettings(this@MainActivity)
-                                    showInstallPermissionDialog = false
-                                    installDialogAlreadyShown = true
+                                AppScreen.ADZAN_SEQUENCE -> AdzanSequenceOverlay(
+                                    prayerId = focusPrayerId, adzanDurationSeconds = settings.adzanDisplayDurationSeconds,
+                                    silentPhoneDurationSeconds = settings.silentPhoneDisplayDurationSeconds,
+                                    qobliyahDurationSeconds = settings.qobliyahNiatDisplayDurationSeconds,
+                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                                    onComplete = { currentScreen = AppScreen.FOCUS_MODE },
+                                    onSkip = { currentScreen = AppScreen.FOCUS_MODE }
+                                )
+
+                                AppScreen.FOCUS_MODE -> PrayerFocusOverlay(
+                                    prayerId = focusPrayerId, prayerTimeFormatted = focusPrayerTime,
+                                    totalDurationMinutes = settings.prayerFocusDurationMinutes,
+                                    iqamahWaitMinutes = settings.iqamahWaitMinutes,
+                                    qobliyahWaitMinutes = settings.qobliyahWaitMinutes,
+                                    settings = settings,
+                                    onDismiss = { currentScreen = AppScreen.HOME }
+                                )
+
+                                AppScreen.SETTINGS -> SettingsScreen(
+                                    currentSettings = settings, soundManager = soundManager,
+                                    isRemoteServerRunning = isRemoteServerRunning,
+                                    onAutoSaveSettings = { settingsRepository.updateSettings(it) },
+                                    onSaveSettings = {
+                                        settingsRepository.updateSettings(it)
+                                        currentScreen = AppScreen.HOME
+                                    },
+                                    onBack = { currentScreen = AppScreen.HOME },
+                                    onTestQrisFocus = { currentScreen = AppScreen.QRIS_PREVIEW },
+                                    onOpenIoControl = { currentScreen = AppScreen.IO_CONTROL }
+                                )
+
+                                AppScreen.QRIS_PREVIEW -> QRISFocusOverlay(
+                                    settings = settings,
+                                    onDismiss = { currentScreen = AppScreen.SETTINGS }
+                                )
+
+                                AppScreen.RAMADHAN -> RamadhanOverlay(
+                                    settings = settings, currentTimeString = currentTimeString,
+                                    imsakTime = prayerSchedule.imsak, maghribTime = prayerSchedule.maghrib,
+                                    secondsToImsak = secondsToImsak, secondsToMaghrib = secondsToMaghrib,
+                                    onDismiss = { currentScreen = AppScreen.HOME; userDismissedRamadhan = true }
+                                )
+
+                                AppScreen.IO_CONTROL -> IoControlScreen(
+                                    settingsRepository = settingsRepository, deviceName = deviceName,
+                                    deviceRole = deviceRole, appVersion = dev.andikune.masjidio.BuildConfig.VERSION_NAME,
+                                    serverPort = settings.remoteServerPort,
+                                    receiveProgress = remoteServer.receiveProgress.collectAsState().value,
+                                    onBack = { currentScreen = AppScreen.SETTINGS }
+                                )
+                            }
+                        }
+
+                        // Overlay Hitam
+                        if (isOverlayActive) {
+                            Box(
+                                modifier = Modifier.fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.98f))
+                                    .zIndex(100f).focusable()
+                            ) { }
+                        }
+
+                        // DIALOGS
+                        if (showPinDialog) {
+                            PinDialog(
+                                correctPin = settings.pinCode,
+                                onSuccess = {
+                                    showPinDialog = false
+                                    sessionPinVerified = true
+                                    lastPinVerifiedTime = System.currentTimeMillis()
+                                    currentScreen = if (currentScreen == AppScreen.FOCUS_MODE) AppScreen.HOME else AppScreen.SETTINGS
                                 },
-                                onSkipClick = {
-                                    showInstallPermissionDialog = false
-                                    installDialogAlreadyShown = true
+                                onDismiss = { showPinDialog = false }
+                            )
+                        }
+
+                        if (showAutoOffDialog) {
+                            AutoOffDialog(
+                                offStartTime = autoOffTimeStr, offEndTime = autoOnTimeStr, autoDismissSeconds = 120,
+                                onConfirmTrue = {
+                                    settingsRepository.updateSettings(settings.copy(autoOnOff = false))
+                                    showAutoOffDialog = false; temporaryWake = true; autoOffDialogDismissedForSession = true
+                                    brightnessRefreshTrigger = System.currentTimeMillis()
+                                    Toast.makeText(this@MainActivity, "Jadwal ON/OFF dimatikan.", Toast.LENGTH_LONG).show()
+                                },
+                                onConfirmFalse = {
+                                    showAutoOffDialog = false; temporaryWake = true; autoOffDialogDismissedForSession = true
+                                    brightnessRefreshTrigger = System.currentTimeMillis()
                                 }
                             )
                         }
 
-                        // ============================================================
-                        // UPDATE DIALOG
-                        // ============================================================
+                        if (showStoragePermissionDialog) {
+                            StoragePermissionDialog(
+                                onGrantClick = { BackupManager.openPermissionSettings(this@MainActivity) },
+                                onSkipClick = {
+                                    showStoragePermissionDialog = false
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls() && !installDialogAlreadyShown) {
+                                        showInstallPermissionDialog = true
+                                        installDialogAlreadyShown = true
+                                    }
+                                }
+                            )
+                        }
+
+                        if (showInstallPermissionDialog) {
+                            InstallPermissionDialog(
+                                onGrantClick = {
+                                    ApkDownloader.openInstallPermissionSettings(this@MainActivity)
+                                    showInstallPermissionDialog = false; installDialogAlreadyShown = true
+                                },
+                                onSkipClick = { showInstallPermissionDialog = false; installDialogAlreadyShown = true }
+                            )
+                        }
+
                         if (showUpdateDialog && updateInfo != null) {
                             val info = updateInfo!!
-
                             UpdateDialog(
-                                currentVersion = info.currentVersion,
-                                latestVersion = info.latestVersion,
-                                releaseNotes = info.releaseNotes,
-                                forceUpdate = info.isForceUpdate,
+                                currentVersion = info.currentVersion, latestVersion = info.latestVersion,
+                                releaseNotes = info.releaseNotes, forceUpdate = info.isForceUpdate,
                                 downloadProgress = if (isDownloading) downloadProgress else null,
-                                isDownloading = isDownloading,
-                                downloadReady = downloadReady,
-                                isInstalling = isInstalling,
+                                isDownloading = isDownloading, downloadReady = downloadReady, isInstalling = isInstalling,
                                 onUpdateClick = { startDownload() },
-                                onLaterClick = {
-                                    showUpdateDialog = false
-                                },
-                                onSkipClick = {
-                                    setSkippedVersion(info.latestVersion)
-                                    showUpdateDialog = false
-                                },
+                                onLaterClick = { showUpdateDialog = false },
+                                onSkipClick = { setSkippedVersion(info.latestVersion); showUpdateDialog = false },
                                 onTidakClick = {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Aplikasi wajib diupdate. Menutup aplikasi...",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    Toast.makeText(this@MainActivity, "Aplikasi wajib diupdate. Menutup...", Toast.LENGTH_LONG).show()
                                     scope.launch {
                                         delay(1500)
                                         this@MainActivity.finishAffinity()
@@ -1260,26 +798,18 @@ if (showAutoOffDialog) {
                             )
                         }
 
-                        // ============================================================
-                        // RESTART COUNTDOWN OVERLAY
-                        // ============================================================
                         if (showRestartCountdown) {
                             RestartCountdownOverlay(
-                                countdownStart = 5,
-                                message = "Pengaturan & media baru sedang diterapkan",
-                                onComplete = {
-                                    android.util.Log.d("MainActivity", "Countdown selesai - restart sekarang")
-                                    showRestartCountdown = false
-                                    doSoftRestart()
-                                }
+                                countdownStart = 5, message = "Pengaturan & media baru sedang diterapkan",
+                                onComplete = { showRestartCountdown = false; doSoftRestart() }
                             )
                         }
-                    }   // penutup else (showCrashDialog)
-                }       // penutup Box (Surface)
-            }           // penutup Surface
-        }               // penutup MasjidTheme
-    }                   // penutup setContent
-}                       // penutup onCreate
+                    }
+                }
+            }
+        }
+    }
+    }
         // ============================================================
     // LIFECYCLE
     // ============================================================
@@ -1342,10 +872,7 @@ if (showAutoOffDialog) {
 
 // ============================================================
 // STORAGE PERMISSION DIALOG
-// V1.04.429 — FIX: tombol tidak terlihat di HP
-//   - fillMaxWidth(0.92f) + widthIn(max = 560.dp)
-//   - fillMaxHeight(0.92f)
-//   - verticalScroll supaya bisa scroll
+// V1.04.431 — FIX: Fokus awal menyala + Compact HP
 // ============================================================
 @Composable
 private fun StoragePermissionDialog(
@@ -1354,6 +881,13 @@ private fun StoragePermissionDialog(
 ) {
     var isFocusedGrant by remember { mutableStateOf(false) }
     var isFocusedSkip by remember { mutableStateOf(false) }
+
+    // TAMBAHKAN FOCUS REQUESTER
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(300)
+        runCatching { firstFocusRequester.requestFocus() }
+    }
 
     Dialog(
         onDismissRequest = { },
@@ -1364,18 +898,18 @@ private fun StoragePermissionDialog(
         )
     ) {
         Column(
-    modifier = Modifier
-        .fillMaxWidth(0.94f)
-        .widthIn(max = 560.dp)
-        .fillMaxHeight(0.94f)
-        .clip(RoundedCornerShape(20.dp))
-        .background(Color(0xFF0B1720))
-        .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-        .padding(horizontal = 16.dp, vertical = 14.dp)
-        .verticalScroll(rememberScrollState()),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.spacedBy(10.dp)
-) {
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .widthIn(max = 560.dp)
+                .fillMaxHeight(0.94f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0B1720))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -1455,6 +989,7 @@ private fun StoragePermissionDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
+                        .focusRequester(firstFocusRequester) // <-- FIX FOKUS AWAL
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
                         .border(
@@ -1484,6 +1019,7 @@ private fun StoragePermissionDialog(
                     }
                 }
             }
+
             NeonFocusBorder(
                 focused = isFocusedSkip,
                 cornerRadius = 10.dp
@@ -1512,6 +1048,7 @@ private fun StoragePermissionDialog(
                     )
                 }
             }
+
             Text(
                 text = "⚠️ Tanpa izin ini, update & backup tidak akan berfungsi",
                 fontSize = 10.sp,
@@ -1523,12 +1060,10 @@ private fun StoragePermissionDialog(
         }
     }
 }
+
 // ============================================================
 // INSTALL PERMISSION DIALOG
-// V1.04.429 — FIX: tombol tidak terlihat di HP
-//   - fillMaxWidth(0.92f) + widthIn(max = 560.dp)
-//   - fillMaxHeight(0.92f)
-//   - verticalScroll supaya bisa scroll
+// V1.04.431 — FIX: Fokus awal menyala + Compact HP
 // ============================================================
 @Composable
 private fun InstallPermissionDialog(
@@ -1537,6 +1072,13 @@ private fun InstallPermissionDialog(
 ) {
     var isFocusedGrant by remember { mutableStateOf(false) }
     var isFocusedSkip by remember { mutableStateOf(false) }
+
+    // TAMBAHKAN FOCUS REQUESTER
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(300)
+        runCatching { firstFocusRequester.requestFocus() }
+    }
 
     Dialog(
         onDismissRequest = { },
@@ -1547,18 +1089,18 @@ private fun InstallPermissionDialog(
         )
     ) {
         Column(
-    modifier = Modifier
-        .fillMaxWidth(0.94f)
-        .widthIn(max = 560.dp)
-        .fillMaxHeight(0.94f)
-        .clip(RoundedCornerShape(20.dp))
-        .background(Color(0xFF0B1720))
-        .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
-        .padding(horizontal = 16.dp, vertical = 14.dp)
-        .verticalScroll(rememberScrollState()),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.spacedBy(10.dp)
-) {
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .widthIn(max = 560.dp)
+                .fillMaxHeight(0.94f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0B1720))
+                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -1632,6 +1174,7 @@ private fun InstallPermissionDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
+                        .focusRequester(firstFocusRequester) // <-- FIX FOKUS AWAL
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (isFocusedGrant) IslamicGoldLight else IslamicGold)
                         .border(
@@ -1656,6 +1199,7 @@ private fun InstallPermissionDialog(
                     }
                 }
             }
+
             NeonFocusBorder(
                 focused = isFocusedSkip,
                 cornerRadius = 10.dp
@@ -1684,6 +1228,7 @@ private fun InstallPermissionDialog(
                     )
                 }
             }
+
             Text(
                 text = "⚠️ Tanpa izin ini, update otomatis tidak bisa install APK",
                 fontSize = 10.sp,
