@@ -29,13 +29,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -43,6 +45,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,9 +53,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -89,31 +91,24 @@ fun VideoSettingsPane(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // ============================================================
-    // V1.04.425 — State Dialog Custom File Picker
-    // ============================================================
     var showVideoPicker by remember { mutableStateOf(false) }
     var showPhotoPicker by remember { mutableStateOf(false) }
+    
+    // Cek apakah file video ada
+    val isVideoMissing = remember(settings.videoUri) {
+        !settings.videoUri.isNullOrBlank() && !File(settings.videoUri).exists()
+    }
 
-    // ============================================================
-    // V1.04.425 — Helper: proses file video terpilih
-    // ============================================================
     fun processVideoFile(file: File) {
         scope.launch {
             val localPath = withContext(Dispatchers.IO) {
                 MediaPersistenceHelper.copyToPermanent(
-                    context = context,
-                    sourceUri = file.absolutePath,
-                    folder = MediaPersistenceHelper.FOLDER_VIDEO,
-                    fileNamePrefix = "video"
+                    context = context, sourceUri = file.absolutePath,
+                    folder = MediaPersistenceHelper.FOLDER_VIDEO, fileNamePrefix = "video"
                 )
             }
             if (localPath != null) {
-                MediaPersistenceHelper.cleanupFolder(
-                    context,
-                    MediaPersistenceHelper.FOLDER_VIDEO,
-                    3
-                )
+                MediaPersistenceHelper.cleanupFolder(context, MediaPersistenceHelper.FOLDER_VIDEO, 3)
                 onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
             } else {
                 onUpdate(settings.copy(videoUri = file.absolutePath, videoEnabled = true))
@@ -125,38 +120,16 @@ fun VideoSettingsPane(
         scope.launch {
             val localPath = withContext(Dispatchers.IO) {
                 MediaPersistenceHelper.copyToPermanent(
-                    context = context,
-                    sourceUri = file.absolutePath,
-                    folder = MediaPersistenceHelper.FOLDER_SLIDESHOW,
-                    fileNamePrefix = "foto"
+                    context = context, sourceUri = file.absolutePath,
+                    folder = MediaPersistenceHelper.FOLDER_SLIDESHOW, fileNamePrefix = "foto"
                 )
             }
-            if (localPath != null) {
-                val newList = settings.photoSlideshowUris + localPath
-                onUpdate(
-                    settings.copy(
-                        photoSlideshowUris = newList,
-                        photoSlideshowEnabled = true
-                    )
-                )
-            } else {
-                val newList = settings.photoSlideshowUris + file.absolutePath
-                onUpdate(
-                    settings.copy(
-                        photoSlideshowUris = newList,
-                        photoSlideshowEnabled = true
-                    )
-                )
-            }
+            val newItem = localPath ?: file.absolutePath
+            val newList = settings.photoSlideshowUris + newItem
+            onUpdate(settings.copy(photoSlideshowUris = newList, photoSlideshowEnabled = true))
         }
     }
 
-    // ============================================================
-    // V1.04.425 BARU — GALERI LAUNCHER (Android Native)
-    // Tombol GALERI pakai galeri bawaan HP — lebih mudah untuk user HP
-    // ============================================================
-
-    // Video dari Galeri
     val videoGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -165,21 +138,12 @@ fun VideoSettingsPane(
                 val localPath = withContext(Dispatchers.IO) {
                     MediaPersistenceHelper.copyVideoToPermanent(context, uri.toString())
                 }
-                if (localPath != null) {
-                    MediaPersistenceHelper.cleanupFolder(
-                        context,
-                        MediaPersistenceHelper.FOLDER_VIDEO,
-                        3
-                    )
-                    onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
-                } else {
-                    onUpdate(settings.copy(videoUri = uri.toString(), videoEnabled = true))
-                }
+                val newItem = localPath ?: uri.toString()
+                onUpdate(settings.copy(videoUri = newItem, videoEnabled = true))
             }
         }
     }
 
-    // Foto dari Galeri (multi-select)
     val photoGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
@@ -188,842 +152,407 @@ fun VideoSettingsPane(
                 val localPaths = withContext(Dispatchers.IO) {
                     uris.mapNotNull { uri ->
                         MediaPersistenceHelper.copyToPermanent(
-                            context = context,
-                            sourceUri = uri.toString(),
-                            folder = MediaPersistenceHelper.FOLDER_SLIDESHOW,
-                            fileNamePrefix = "foto"
+                            context = context, sourceUri = uri.toString(),
+                            folder = MediaPersistenceHelper.FOLDER_SLIDESHOW, fileNamePrefix = "foto"
                         )
                     }
                 }
                 if (localPaths.isNotEmpty()) {
                     val newUris = settings.photoSlideshowUris + localPaths
-                    onUpdate(
-                        settings.copy(
-                            photoSlideshowUris = newUris,
-                            photoSlideshowEnabled = true
-                        )
-                    )
+                    onUpdate(settings.copy(photoSlideshowUris = newUris, photoSlideshowEnabled = true))
                 }
             }
         }
     }
 
+    val isGalleryEnabled = settings.galleryMasterEnabled
+
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Video Kegiatan & Rutinitas Masjid",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight
+            text = "Galeri Kegiatan Masjid",
+            fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight
         )
-
-        // ============================================================
-        // 1. VIDEO TOGGLE
-        // ============================================================
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Aktifkan Pemutaran Video Masjid",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "Menayangkan rekaman kegiatan, kajian, atau dokumentasi masjid secara berulang (looping) tanpa suara.",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    lineHeight = 16.sp
-                )
-            }
-            Switch(
-                checked = settings.videoEnabled,
-                onCheckedChange = { onUpdate(settings.copy(videoEnabled = it)) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = IslamicGold,
-                    checkedTrackColor = IslamicGreen
-                )
-            )
-        }
-
-        // ============================================================
-        // 2. VIDEO PICKER — 2 tombol: GALERI + FILE MANAGER
-        // ============================================================
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "File Video Masjid (Format MP4 / MKV / WEBM)",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Preview video
-                Box(
-                    modifier = Modifier
-                        .size(width = 160.dp, height = 90.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.Black)
-                        .border(1.dp, IslamicGold, RoundedCornerShape(10.dp))
-                ) {
-                    if (!settings.videoUri.isNullOrBlank()) {
-                        MasjidVideoPlayer(
-                            videoUriString = settings.videoUri,
-                            isFullscreen = false,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Tidak Ada Video",
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = if (!settings.videoUri.isNullOrBlank())
-                            "Video terpilih (tersimpan permanen)"
-                        else "Belum ada file video yang dipilih.",
-                        fontSize = 12.sp,
-                        color = if (!settings.videoUri.isNullOrBlank()) IslamicGreen else TextSecondary
-                    )
-
-                    // ============================================================
-                    // V1.04.425 — 2 TOMBOL: GALERI + FILE
-                    // ============================================================
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Tombol GALERI (buka galeri bawaan HP)
-                        TvActionButton(
-                            icon = Icons.Default.PhotoLibrary,
-                            label = "GALERI",
-                            backgroundColor = IslamicGold,
-                            textColor = Color(0xFF09141D),
-                            onClick = { videoGalleryLauncher.launch("video/*") }
-                        )
-                        // Tombol FILE (buka custom picker)
-                        TvActionButton(
-                            icon = Icons.Default.FolderOpen,
-                            label = "FILE",
-                            backgroundColor = IslamicGold,
-                            textColor = Color(0xFF09141D),
-                            onClick = { showVideoPicker = true }
-                        )
-                        if (!settings.videoUri.isNullOrBlank()) {
-                            TvActionButton(
-                                icon = Icons.Default.Delete,
-                                label = "HAPUS",
-                                backgroundColor = Color.Transparent,
-                                textColor = UrgentRed,
-                                isOutlined = true,
-                                onClick = {
-                                    settings.videoUri?.let { MediaPersistenceHelper.deleteFile(it) }
-                                    onUpdate(settings.copy(videoUri = null, videoEnabled = false))
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            Text(
-                text = "💡 GALERI = pakai aplikasi galeri HP. FILE = pilih dari folder (cocok untuk TV).",
-                fontSize = 11.sp,
-                color = TextSecondary.copy(alpha = 0.8f)
-            )
-        }
-        // ============================================================
-// 3. PENGATURAN UKURAN FRAME
-// ============================================================
-Column(
-    modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(14.dp))
-        .background(Color(0xFF091620))
-        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-        .padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(12.dp)
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = Icons.Default.AspectRatio,
-            contentDescription = null,
-            tint = IslamicGold,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(
-                text = "PENGATURAN UKURAN FRAME",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-            Text(
-                text = "Cara video/foto menyesuaikan diri dengan frame. " +
-                        "Berlaku untuk video dan foto slideshow.",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 15.sp
-            )
-        }
-    }
-
-    FrameModeOption(
-        title = "POTONG (Crop)",
-        description = "Video/foto penuhi frame, sisi berlebih dipotong. Seperti Instagram Reels.",
-        emojiLabel = "✂️",
-        isSelected = settings.videoFrameScale == "POTONG",
-        onClick = { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
-    )
-
-    FrameModeOption(
-        title = "PAS (Fit / Letterbox)",
-        description = "Video/foto tampil utuh, ada ruang hitam di sisi. Seperti Netflix.",
-        emojiLabel = "📺",
-        isSelected = settings.videoFrameScale == "PAS",
-        onClick = { onUpdate(settings.copy(videoFrameScale = "PAS")) }
-    )
-
-    FrameModeOption(
-        title = "ZOOM (Fill)",
-        description = "Video/foto diperbesar penuhi frame, tengah fokus. Seperti TikTok.",
-        emojiLabel = "🔍",
-        isSelected = settings.videoFrameScale == "ZOOM",
-        onClick = { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
-    )
-
-    FrameModeOption(
-        title = "FULL (Fullscreen)",
-        description = "Video/foto menutupi seluruh layar. Panel kiri (jam & jadwal) disembunyikan.",
-        emojiLabel = "🖥️",
-        isSelected = settings.videoFrameScale == "FULL",
-        onClick = { onUpdate(settings.copy(videoFrameScale = "FULL")) }
-    )
-
-    FrameModeOption(
-        title = "FIT (Stretch / Paksa Sesuaikan)",
-        description = "Video/foto ditarik & dipaksa memenuhi frame (bisa distorsi). Untuk dimensi aneh.",
-        emojiLabel = "📐",
-        isSelected = settings.videoFrameScale == "FIT",
-        onClick = { onUpdate(settings.copy(videoFrameScale = "FIT")) }
-    )
-}
-
-// ============================================================
-// 4. AUTO-SWITCH MODE
-// ============================================================
-Column(
-    modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(14.dp))
-        .background(Color(0xFF091620))
-        .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-        .padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(12.dp)
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = Icons.Default.Autorenew,
-            contentDescription = null,
-            tint = IslamicGold,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(
-                text = "AUTO-SWITCH MODE",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-            Text(
-                text = "Otomatis bolak-balik antara Mode Video dan Mode Normal lengkap. " +
-                        "Jeda otomatis saat Mode Fokus / Slide Fullscreen / Ramadhan aktif.",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 15.sp
-            )
-        }
-    }
-
-    TvToggle(
-        label = "Aktifkan Auto-Switch Kegiatan",
-        description = if (settings.autoSwitchEnabled)
-            "Mode akan otomatis berganti antara Video, Foto Kegiatan, dan Layar Default"
-        else
-            "Auto-Switch nonaktif (media tampil terus tanpa berganti)",
-        isChecked = settings.autoSwitchEnabled,
-        onToggle = { onUpdate(settings.copy(autoSwitchEnabled = it)) }
-    )
-
-    if (settings.autoSwitchEnabled) {
-        if (settings.videoEnabled) {
-            TvSlider(
-                label = "Durasi Tampil Video",
-                value = settings.videoModeIntervalMinutes.toFloat(),
-                onValueChange = {
-                    onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt()))
-                },
-                valueRange = 1f..60f,
-                steps = 58,
-                unit = " menit"
-            )
-
-            TvToggle(
-                label = "Tunggu Video Selesai",
-                description = if (settings.waitVideoFinishBeforeSwitch)
-                    "Switch ke mode berikutnya menunggu video selesai loop 1x (tidak terpotong)"
-                else
-                    "Switch langsung saat durasi habis (video bisa terpotong)",
-                isChecked = settings.waitVideoFinishBeforeSwitch,
-                onToggle = { onUpdate(settings.copy(waitVideoFinishBeforeSwitch = it)) }
-            )
-        }
-
-        if (settings.photoSlideshowEnabled) {
-            TvSlider(
-                label = "Durasi Tampil Foto Kegiatan",
-                value = settings.photoModeDurationMinutes.toFloat(),
-                onValueChange = {
-                    onUpdate(settings.copy(photoModeDurationMinutes = it.toInt()))
-                },
-                valueRange = 1f..30f,
-                steps = 28,
-                unit = " menit"
-            )
-        }
-
-        TvToggle(
-            label = "Sertakan Layar Default / Normal",
-            description = if (settings.autoSwitchIncludeDefault)
-                "Layar utama normal (background foto kustom / dinamis) ikut tampil dalam siklus"
-            else
-                "Hanya berganti antara Video dan Foto (tanpa layar normal)",
-            isChecked = settings.autoSwitchIncludeDefault,
-            onToggle = { onUpdate(settings.copy(autoSwitchIncludeDefault = it)) }
-        )
-
-        if (settings.autoSwitchIncludeDefault) {
-            TvSlider(
-                label = "Durasi Layar Normal / Default",
-                value = settings.normalModeDurationMinutes.toFloat(),
-                onValueChange = {
-                    onUpdate(settings.copy(normalModeDurationMinutes = it.toInt()))
-                },
-                valueRange = 1f..30f,
-                steps = 28,
-                unit = " menit"
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0x22FFD700))
-                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                .padding(12.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "📋 Cara Kerja Auto-Switch:",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
-                val siklusItems = buildList {
-                    if (settings.videoEnabled) add("Video (${settings.videoModeIntervalMinutes} mnt)")
-                    if (settings.photoSlideshowEnabled) add("Foto Slideshow (${settings.photoModeDurationMinutes} mnt)")
-                    if (settings.autoSwitchIncludeDefault) add("Layar Normal (${settings.normalModeDurationMinutes} mnt)")
-                }
-                Text(
-                    text = "• Urutan Siklus: ${if (siklusItems.isNotEmpty()) siklusItems.joinToString(" ➔ ") else "Pilih media yang aktif"}\n" +
-                            "• Tampilan Default: Mengikuti foto background kustom yang sudah di-upload atau tema langit dinamis\n" +
-                            "• Otomatis JEDA saat Sholat Masuk, Adzan, Iqomah, atau Dzikir",
-                    fontSize = 11.sp,
-                    color = TextPrimary,
-                    lineHeight = 16.sp
-                )
-            }
-        }
-
-        if (settings.videoUri.isNullOrBlank() && settings.photoSlideshowUris.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0x33FF5252))
-                    .border(1.dp, UrgentRed.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "⚠️ Belum ada video / foto yang di-upload. " +
-                            "Auto-switch tidak akan jalan sampai ada video atau foto.",
-                    fontSize = 11.sp,
-                    color = Color(0xFFFF8A80),
-                    lineHeight = 16.sp
-                )
-            }
-        }
-    }
-}
-        // ============================================================
-        // 5. FOTO SLIDESHOW — V1.04.425 (2 tombol: GALERI + FILE)
-        // ============================================================
         Text(
-            text = "Foto Kegiatan Masjid (Slideshow)",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = IslamicGoldLight
+            text = "Atur tampilan video dan foto yang akan diputar di layar TV.",
+            fontSize = 13.sp, color = TextSecondary
         )
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Aktifkan Foto Slideshow",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "Foto akan tampil di posisi video kalau video tidak aktif.",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    lineHeight = 16.sp
-                )
-            }
-            Switch(
-                checked = settings.photoSlideshowEnabled,
-                onCheckedChange = { onUpdate(settings.copy(photoSlideshowEnabled = it)) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = IslamicGold,
-                    checkedTrackColor = IslamicGreen
-                )
-            )
-        }
+        // ============================================================
+        // MASTER SWITCH
+        // ============================================================
+        TvToggle(
+            label = "Aktifkan Galeri Kegiatan",
+            description = "Jika dimatikan, TV hanya menampilkan Layar Default / Background.",
+            isChecked = isGalleryEnabled,
+            onToggle = { onUpdate(settings.copy(galleryMasterEnabled = it)) }
+        )
 
+        // ============================================================
+        // KONTEN (REDUP JIKA MASTER OFF)
+        // ============================================================
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF091620))
-                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(14.dp))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .alpha(if (isGalleryEnabled) 1f else 0.35f)
+                .focusable(isGalleryEnabled), // Kunci fokus jika mati
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // ============================================================
+            // BAGIAN VIDEO
+            // ============================================================
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Daftar Foto (${settings.photoSlideshowUris.size} foto)",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
+                    text = "📹 VIDEO KEGIATAN",
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight
                 )
-                if (settings.photoSlideshowUris.isNotEmpty()) {
-                    TvActionButton(
-                        icon = Icons.Default.DeleteSweep,
-                        label = "HAPUS SEMUA",
-                        backgroundColor = Color.Transparent,
-                        textColor = UrgentRed,
-                        isOutlined = true,
-                        onClick = {
-                            settings.photoSlideshowUris.forEach { path ->
-                                MediaPersistenceHelper.deleteFile(path)
-                            }
-                            onUpdate(settings.copy(photoSlideshowUris = emptyList()))
-                        }
-                    )
-                }
-            }
+                
+                TvToggle(
+                    label = "Aktifkan Video",
+                    description = "Putar video kegiatan di layar TV.",
+                    isChecked = settings.videoEnabled,
+                    onToggle = { onUpdate(settings.copy(videoEnabled = it)) }
+                )
 
-            if (settings.photoSlideshowUris.isNotEmpty()) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    itemsIndexed(settings.photoSlideshowUris) { index, uri ->
-                        Box(
-                            modifier = Modifier
-                                .size(width = 140.dp, height = 90.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color.Black)
-                                .border(1.dp, IslamicGold, RoundedCornerShape(10.dp))
-                        ) {
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = "Foto ${index + 1}",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(6.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xAA000000))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "#${index + 1}",
-                                    fontSize = 10.sp,
-                                    color = IslamicGoldLight,
-                                    fontWeight = FontWeight.Bold
-                                )
+                if (settings.videoEnabled) {
+                    // Kotak Input Video
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF091620))
+                            .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("File Video Masjid", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+                        
+                        if (isVideoMissing) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Warning, null, tint = UrgentRed, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("⚠️ File video terhapus atau tidak ditemukan.", fontSize = 12.sp, color = UrgentRed)
                             }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp)
-                                    .size(28.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(UrgentRed)
-                                    .clickable {
-                                        val newList = settings.photoSlideshowUris.toMutableList()
-                                        val removed = newList.removeAt(index)
-                                        MediaPersistenceHelper.deleteFile(removed)
-                                        onUpdate(settings.copy(photoSlideshowUris = newList))
-                                    },
-                                contentAlignment = Alignment.Center
+                                modifier = Modifier.size(width = 160.dp, height = 90.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color.Black)
+                                    .border(1.dp, IslamicGold, RoundedCornerShape(10.dp))
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Hapus foto",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                if (!settings.videoUri.isNullOrBlank()) {
+                                    MasjidVideoPlayer(
+                                        videoUriString = settings.videoUri,
+                                        isFullscreen = false,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text("Belum ada video", fontSize = 11.sp, color = TextSecondary)
+                                    }
+                                }
+                            }
+
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TvActionButton(
+                                        icon = Icons.Default.PhotoLibrary, label = "GALERI",
+                                        backgroundColor = IslamicGold, textColor = Color(0xFF09141D),
+                                        onClick = { videoGalleryLauncher.launch("video/*") }
+                                    )
+                                    TvActionButton(
+                                        icon = Icons.Default.FolderOpen, label = "FILE",
+                                        backgroundColor = IslamicGold, textColor = Color(0xFF09141D),
+                                        onClick = { showVideoPicker = true }
+                                    )
+                                    if (!settings.videoUri.isNullOrBlank()) {
+                                        TvActionButton(
+                                            icon = Icons.Default.Delete, label = "HAPUS",
+                                            backgroundColor = Color.Transparent, textColor = UrgentRed, isOutlined = true,
+                                            onClick = {
+                                                settings.videoUri?.let { MediaPersistenceHelper.deleteFile(it) }
+                                                onUpdate(settings.copy(videoUri = null, videoEnabled = false))
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
+
+                    // Slider Durasi Video
+                    TvSlider(
+                        label = "Durasi Tampil Video",
+                        value = settings.videoModeIntervalMinutes.toFloat(),
+                        onValueChange = { onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt())) },
+                        valueRange = 1f..60f, steps = 58, unit = " menit"
+                    )
                 }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(90.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0x22000000))
-                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
+            }
+            
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
+                        // ============================================================
+            // BAGIAN FOTO
+            // ============================================================
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "📷 FOTO KEGIATAN",
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight
+                )
+                
+                TvToggle(
+                    label = "Aktifkan Foto",
+                    description = "Tampilkan slideshow foto kegiatan di layar TV.",
+                    isChecked = settings.photoSlideshowEnabled,
+                    onToggle = { onUpdate(settings.copy(photoSlideshowEnabled = it)) }
+                )
+
+                if (settings.photoSlideshowEnabled) {
+                    // Kotak Input Foto
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF091620))
+                            .border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Daftar Foto (${settings.photoSlideshowUris.size})", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+                            if (settings.photoSlideshowUris.isNotEmpty()) {
+                                TvActionButton(
+                                    icon = Icons.Default.DeleteSweep, label = "HAPUS SEMUA",
+                                    backgroundColor = Color.Transparent, textColor = UrgentRed, isOutlined = true,
+                                    onClick = {
+                                        settings.photoSlideshowUris.forEach { MediaPersistenceHelper.deleteFile(it) }
+                                        onUpdate(settings.copy(photoSlideshowUris = emptyList()))
+                                    }
+                                )
+                            }
+                        }
+
+                        if (settings.photoSlideshowUris.isNotEmpty()) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                itemsIndexed(settings.photoSlideshowUris) { index, uri ->
+                                    val isMissing = !File(uri).exists()
+                                    Box(
+                                        modifier = Modifier.size(width = 140.dp, height = 90.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color.Black)
+                                            .border(1.dp, if(isMissing) UrgentRed else IslamicGold, RoundedCornerShape(10.dp))
+                                    ) {
+                                        if (!isMissing) {
+                                            AsyncImage(
+                                                model = uri, contentDescription = "Foto ${index + 1}",
+                                                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Warning, null, tint = UrgentRed)
+                                            }
+                                        }
+                                        
+                                        // Tombol Hapus (X)
+                                        Box(
+                                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(28.dp)
+                                                .clip(RoundedCornerShape(14.dp)).background(UrgentRed)
+                                                .clickable {
+                                                    val newList = settings.photoSlideshowUris.toMutableList()
+                                                    val removed = newList.removeAt(index)
+                                                    MediaPersistenceHelper.deleteFile(removed)
+                                                    onUpdate(settings.copy(photoSlideshowUris = newList))
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Delete, "Hapus", tint = Color.White, modifier = Modifier.size(16.dp))
+                                        }
+                                        
+                                        // Tombol Geser Kiri (jika bukan index 0)
+                                        if (index > 0) {
+                                            Box(
+                                                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(24.dp)
+                                                    .clip(RoundedCornerShape(12.dp)).background(Color(0xAA000000))
+                                                    .clickable {
+                                                        val list = settings.photoSlideshowUris.toMutableList()
+                                                        val item = list.removeAt(index)
+                                                        list.add(index - 1, item)
+                                                        onUpdate(settings.copy(photoSlideshowUris = list))
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(Icons.Default.ArrowBack, "Kiri", tint = Color.White, modifier = Modifier.size(14.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TvActionButton(
+                                icon = Icons.Default.PhotoLibrary, label = "GALERI",
+                                backgroundColor = IslamicGold, textColor = Color(0xFF09141D),
+                                onClick = { photoGalleryLauncher.launch("image/*") }
+                            )
+                            TvActionButton(
+                                icon = Icons.Default.Add, label = "FILE",
+                                backgroundColor = IslamicGold, textColor = Color(0xFF09141D),
+                                onClick = { showPhotoPicker = true }
+                            )
+                        }
+                    }
+
+                    // Slider Durasi Per Foto
+                    TvSlider(
+                        label = "Durasi per Foto",
+                        value = settings.photoSlideshowIntervalSeconds.toFloat(),
+                        onValueChange = { onUpdate(settings.copy(photoSlideshowIntervalSeconds = it.toInt())) },
+                        valueRange = 3f..30f, steps = 27, unit = " detik"
+                    )
+                    
+                    // Hitung Total Durasi
+                    val totalDetik = settings.photoSlideshowUris.size * settings.photoSlideshowIntervalSeconds
+                    val menit = totalDetik / 60
+                    val sisaDetik = totalDetik % 60
                     Text(
-                        text = "Belum ada foto. Tekan tombol di bawah untuk menambah.",
-                        fontSize = 12.sp,
-                        color = TextSecondary
+                        text = "ℹ️ Total waktu putar: $menit Menit $sisaDetik Detik (untuk ${settings.photoSlideshowUris.size} foto)",
+                        fontSize = 12.sp, color = TextSecondary
                     )
                 }
             }
 
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
+
             // ============================================================
-            // V1.04.425 — 2 TOMBOL: GALERI + FILE
+            // SMART SWITCH
             // ============================================================
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Tombol GALERI (buka galeri bawaan HP, multi-select)
-                TvActionButton(
-                    icon = Icons.Default.PhotoLibrary,
-                    label = "GALERI",
-                    backgroundColor = IslamicGold,
-                    textColor = Color(0xFF09141D),
-                    onClick = { photoGalleryLauncher.launch("image/*") }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "🔄 SMART SWITCH (Rotasi Cerdas)",
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight
                 )
-                // Tombol FILE (buka custom picker)
-                TvActionButton(
-                    icon = Icons.Default.Add,
-                    label = "FILE",
-                    backgroundColor = IslamicGold,
-                    textColor = Color(0xFF09141D),
-                    onClick = { showPhotoPicker = true }
+                
+                TvToggle(
+                    label = "Tampilkan Layar Default",
+                    description = "Jika aktif, layar akan bergantian: Video -> Foto -> Layar Default.",
+                    isChecked = settings.smartSwitchEnabled,
+                    onToggle = { onUpdate(settings.copy(smartSwitchEnabled = it)) }
                 )
+
+                if (settings.smartSwitchEnabled) {
+                    TvSlider(
+                        label = "Durasi Layar Default",
+                        value = settings.normalModeDurationMinutes.toFloat(),
+                        onValueChange = { onUpdate(settings.copy(normalModeDurationMinutes = it.toInt())) },
+                        valueRange = 1f..30f, steps = 28, unit = " menit"
+                    )
+                }
             }
 
-            Text(
-                text = "💡 GALERI = pakai galeri HP (bisa pilih banyak foto sekaligus). FILE = pilih satu per satu dari folder.",
-                fontSize = 11.sp,
-                color = TextSecondary.copy(alpha = 0.8f),
-                lineHeight = 15.sp
-            )
-        }
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
 
-        TvSlider(
-            label = "Interval Ganti Foto",
-            value = settings.photoSlideshowIntervalSeconds.toFloat(),
-            onValueChange = {
-                onUpdate(settings.copy(photoSlideshowIntervalSeconds = it.toInt()))
-            },
-            valueRange = 3f..120f,
-            steps = 38,
-            unit = " detik"
-        )
+            // ============================================================
+            // PENGATURAN FRAME (Berlaku untuk Video & Foto)
+            // ============================================================
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AspectRatio, null, tint = IslamicGold, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("PENGATURAN UKURAN FRAME", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+                }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0x22FFD700), RoundedCornerShape(10.dp))
-                .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                .padding(14.dp)
-        ) {
-            Column {
-                Text(
-                    text = "ℹ️ Info",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Foto & video otomatis disalin ke folder permanen aplikasi. " +
-                            "Aman meski app ditutup, di-update, atau TV di-reboot.",
-                    fontSize = 12.sp,
-                    color = TextPrimary,
-                    lineHeight = 18.sp
-                )
+                FrameModeOption(title = "POTONG (Crop)", desc = "Penuhi frame, potong sisi berlebih.", emoji = "✂️", isSelected = settings.videoFrameScale == "POTONG") { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
+                FrameModeOption(title = "PAS (Fit)", desc = "Tampil utuh, ada ruang hitam.", emoji = "📺", isSelected = settings.videoFrameScale == "PAS") { onUpdate(settings.copy(videoFrameScale = "PAS")) }
+                FrameModeOption(title = "ZOOM (Fill)", desc = "Diperbesar penuhi frame, tengah fokus.", emoji = "🔍", isSelected = settings.videoFrameScale == "ZOOM") { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
+                FrameModeOption(title = "FULL (Fullscreen)", desc = "Menutupi seluruh layar (panel kiri hilang).", emoji = "🖥️", isSelected = settings.videoFrameScale == "FULL") { onUpdate(settings.copy(videoFrameScale = "FULL")) }
+                FrameModeOption(title = "FIT (Stretch)", desc = "Dipaksa memenuhi frame (bisa distorsi).", emoji = "📐", isSelected = settings.videoFrameScale == "FIT") { onUpdate(settings.copy(videoFrameScale = "FIT")) }
             }
-        }
-
-        // ============================================================
-        // PICKER DIALOG CALLERS (custom file picker)
-        // ============================================================
-        if (showVideoPicker) {
-            VideoFilePickerDialog(
-                mode = FilePickerMode.VIDEO,
-                title = "Pilih File Video",
-                onFileSelected = { file ->
-                    showVideoPicker = false
-                    processVideoFile(file)
-                },
-                onDismiss = { showVideoPicker = false }
-            )
-        }
-
-        if (showPhotoPicker) {
-            VideoFilePickerDialog(
-                mode = FilePickerMode.IMAGE,
-                title = "Pilih File Foto",
-                onFileSelected = { file ->
-                    showPhotoPicker = false
-                    processPhotoFile(file)
-                },
-                onDismiss = { showPhotoPicker = false }
-            )
         }
     }
+
+    // PICKER DIALOG CALLERS
+    if (showVideoPicker) {
+        VideoFilePickerDialog(
+            mode = FilePickerMode.VIDEO, title = "Pilih File Video",
+            onFileSelected = { file -> showVideoPicker = false; processVideoFile(file) },
+            onDismiss = { showVideoPicker = false }
+        )
+    }
+
+    if (showPhotoPicker) {
+        VideoFilePickerDialog(
+            mode = FilePickerMode.IMAGE, title = "Pilih File Foto",
+            onFileSelected = { file -> showPhotoPicker = false; processPhotoFile(file) },
+            onDismiss = { showPhotoPicker = false }
+        )
+    }
 }
+
 // ============================================================
 // KOMPONEN PENDUKUNG
 // ============================================================
-
 @Composable
 private fun FrameModeOption(
-    title: String,
-    description: String,
-    emojiLabel: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
+    title: String, desc: String, emoji: String, isSelected: Boolean, onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
-    val borderWidth by animateDpAsState(
-        targetValue = if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp,
-        animationSpec = tween(200),
-        label = "frame_border_width"
-    )
-
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.02f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
-        label = "frame_scale"
-    )
-
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isFocused) 10.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "frame_shadow"
-    )
+    val borderWidth by animateDpAsState(if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp, label = "border")
+    val scale by animateFloatAsState(if (isFocused) 1.02f else 1f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f), label = "scale")
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(10.dp),
-                ambientColor = Color(0x66FFD700),
-                spotColor = Color(0x66FFD700)
-            )
+        modifier = Modifier.fillMaxWidth().scale(scale)
             .clip(RoundedCornerShape(10.dp))
-            .background(
-                when {
-                    isSelected -> Color(0x33FFD700)
-                    isFocused -> Color(0x22FFD700)
-                    else -> Color(0x22000000)
-                }
-            )
-            .border(
-                width = borderWidth,
-                color = when {
-                    isFocused -> Color(0xFFFFE44D)
-                    isSelected -> IslamicGold
-                    else -> Color(0x22FFFFFF)
-                },
-                shape = RoundedCornerShape(10.dp)
-            )
+            .background(if (isSelected) Color(0x33FFD700) else if (isFocused) Color(0x22FFD700) else Color(0x22000000))
+            .border(borderWidth, if (isFocused) Color(0xFFFFE44D) else if (isSelected) IslamicGold else Color(0x22FFFFFF), RoundedCornerShape(10.dp))
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (isSelected) IslamicGold.copy(alpha = 0.25f)
-                        else Color(0x22FFFFFF)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = emojiLabel, fontSize = 18.sp)
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(if (isSelected) IslamicGold.copy(alpha = 0.25f) else Color(0x22FFFFFF)), contentAlignment = Alignment.Center) {
+                Text(emoji, fontSize = 18.sp)
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        isSelected -> IslamicGoldLight
-                        isFocused -> Color(0xFFFFE44D)
-                        else -> TextPrimary
-                    }
-                )
-                Text(
-                    text = description,
-                    fontSize = 11.sp,
-                    color = TextSecondary,
-                    lineHeight = 15.sp
-                )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (isSelected) IslamicGoldLight else if (isFocused) Color(0xFFFFE44D) else TextPrimary)
+                Text(desc, fontSize = 11.sp, color = TextSecondary, lineHeight = 15.sp)
             }
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(selectedColor = IslamicGold)
-            )
+            RadioButton(selected = isSelected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = IslamicGold))
         }
     }
 }
 
 @Composable
 private fun TvActionButton(
-    icon: ImageVector,
-    label: String,
-    backgroundColor: Color,
-    textColor: Color,
-    onClick: () -> Unit,
-    isOutlined: Boolean = false
+    icon: ImageVector, label: String, backgroundColor: Color, textColor: Color, onClick: () -> Unit, isOutlined: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
-    val borderWidth by animateDpAsState(
-        targetValue = if (isFocused) 4.dp else if (isOutlined) 1.5.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "btn_border_width"
-    )
-
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.05f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
-        label = "btn_scale"
-    )
-
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isFocused) 12.dp else 0.dp,
-        animationSpec = tween(200),
-        label = "btn_shadow"
-    )
-
+    val borderWidth by animateDpAsState(if (isFocused) 4.dp else if (isOutlined) 1.5.dp else 0.dp, label = "border")
+    
     Row(
         modifier = Modifier
-            .scale(scale)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(10.dp),
-                ambientColor = Color(0x88FFD700),
-                spotColor = Color(0x88FFD700)
-            )
             .clip(RoundedCornerShape(10.dp))
             .background(if (isOutlined) Color.Transparent else backgroundColor)
-            .border(
-                width = borderWidth,
-                color = when {
-                    isFocused -> Color(0xFFFFE44D)
-                    isOutlined -> textColor.copy(alpha = 0.6f)
-                    else -> Color.Transparent
-                },
-                shape = RoundedCornerShape(10.dp)
-            )
+            .border(borderWidth, if (isFocused) Color(0xFFFFE44D) else if (isOutlined) textColor.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(10.dp))
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = textColor,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
+        Icon(icon, label, tint = textColor, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor)
     }
 }
