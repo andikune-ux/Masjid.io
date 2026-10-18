@@ -14,11 +14,28 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.04.431",
+            date = "19 Oktober 2026",
+            title = "Galeri Kegiatan Masjid + Smart Switch & Fix D-Pad",
+            features = listOf(
+                "Fitur BARU: Galeri Kegiatan Masjid (menggantikan menu Video Kegiatan)",
+                "Tambah Master Switch (Aktifkan Galeri) - meredupkan menu jika OFF",
+                "Tambah Smart Switch (Rotasi Video -> Foto 1 putaran -> Layar Default)",
+                "Tambah fitur hitung total durasi putar foto (Contoh: 2 Menit 30 Detik)",
+                "Tambah pratinjau popup video (hover D-pad) & thumbnail di File Picker",
+                "Tambah deteksi file hilang (Missing File Warning)",
+                "Fix TvSlider D-pad kanan tidak berfungsi (onPreviewKeyEvent)",
+                "Fix NeonFocusBorder (animasi Canvas putih-emas dikembalikan)",
+                "Fix Fokus awal dialog (Storage & Install) langsung menyala",
+                "Fix Auto-Switch stuck (batas maksimal tunggu video 5 menit)",
+                "Catatan AI: SettingsScreen.kt dibagi 2 bagian, file lain full 1 bubble"
+            )
+        ),
+        UpdateEntry(
             version = "V1.04.426",
             date = "06 Oktober 2026",
             title = "Fix Transfer Media Gagal + Color Coding Template .iO + Namespace Consistency",
             features = listOf(
-                // ===== FIX TRANSFER MEDIA (STREAMING UPLOAD) =====
                 "Fix CRITICAL: transfer foto & video via iO Control yang selalu gagal",
                 "Metode baru: STREAMING UPLOAD — 1 request HTTP per file (bukan chunk + Base64)",
                 "TCP handle retransmisi otomatis — tidak perlu retry chunk manual",
@@ -28,20 +45,17 @@ object UpdateHistory {
                 "File dibaca langsung dari disk → socket (tidak buffer semua di memori)",
                 "Support path lokal & content URI (auto-copy ke cache untuk URI)",
                 "Auto-hapus file temp setelah transfer selesai",
-                // ===== FOREGROUND SERVICE + WIFILOCK =====
                 "Fitur BARU: TransferForegroundService — jaga server tetap hidup saat transfer",
                 "File baru: TransferForegroundService.kt (Foreground Service + WiFiLock + WakeLock)",
                 "WiFiLock: WiFi tidak mati saat layar TV off (penyebab utama transfer putus)",
                 "WakeLock: CPU tetap jalan saat layar TV off (max 30 menit safety)",
                 "Notifikasi permanen di status bar TV saat transfer aktif",
                 "Android tidak boleh bunuh proses ini selama transfer berlangsung",
-                // ===== ENDPOINT BARU =====
                 "Endpoint baru: POST /api/io/upload-stream (streaming upload)",
                 "Endpoint baru: GET /api/io/upload-status (cek progress)",
                 "Header baru: X-File-Id, X-Field-Key, X-File-Name, X-File-Type, X-Total-Bytes, X-Mime-Type",
                 "Auto-save file ke folder sesuai fieldKey (qris, logo, video, dll)",
                 "Backward compatible: endpoint chunk lama tetap ada",
-                // ===== COLOR CODING TEMPLATE .IO =====
                 "Fitur BARU: Color coding tombol template .iO berdasarkan persentase transfer",
                 "HIJAU (100%) = semua file berhasil dikirim",
                 "KUNING (50-99%) = sebagian besar berhasil",
@@ -53,21 +67,17 @@ object UpdateHistory {
                 "Border kartu template ikut warna kategori",
                 "Dialog INFO/DELETE/RESTART juga pakai warna kategori",
                 "File template yang gagal sebagian tetap bisa dipakai (file yang berhasil tetap masuk)",
-                // ===== FOLDER PROTECTION =====
                 "Auto-bikin file .nomedia di folder /sdcard/masjid.io/Terima/",
                 "Folder Terima tidak dianggap cache oleh aplikasi cleaner",
                 "File .iO tidak akan dihapus otomatis oleh Clean Master, dll",
-                // ===== NAMESPACE CONSISTENCY =====
                 "Fix: namespace konsisten dev.andikune.masjidio di semua file",
                 "Ganti namespace dari com.example ke dev.andikune.masjidio",
                 "Update import di semua file yang terdampak",
                 "Folder fisik tetap com/example/ (Kotlin izinkan package beda dari folder)",
-                // ===== INSTALL DIALOG FIX =====
                 "Fix: InstallPermissionDialog tidak muncul berulang setelah user grant/skip",
                 "Tambah state installDialogAlreadyShown (muncul sekali per sesi)",
                 "Fix: tombol dialog izin (Storage & Install) height fixed 56dp → teks & ikon muncul",
                 "Ganti Row dengan padding ke Box dengan height fixed + contentAlignment Center",
-                // ===== TOMBOL GALERI =====
                 "Fitur BARU: Tombol GALERI di samping FILE untuk semua picker media",
                 "Video Kegiatan: GALERI + FILE (pilih via galeri HP atau custom picker)",
                 "Logo Masjid: GALERI + FILE",
@@ -76,7 +86,6 @@ object UpdateHistory {
                 "Foto Petugas: menu 3 opsi (GALERI / FILE / HAPUS) saat tap foto",
                 "GALERI pakai ActivityResultContracts.GetContent (galeri bawaan HP)",
                 "FILE pakai VideoFilePickerDialog custom (TV friendly)",
-                // ===== FILE YANG DIUBAH =====
                 "File baru: TransferForegroundService.kt",
                 "File diubah: AndroidManifest.xml (izin + service)",
                 "File diubah: RemoteServer.kt (endpoint streaming + WiFiLock)",
@@ -152,7 +161,7 @@ object UpdateHistory {
                 "File baru: AdzanSequenceOverlay.kt"
             )
         ),
-                UpdateEntry(
+        UpdateEntry(
             version = "V1.04.420",
             date = "04 Oktober 2026",
             title = "Layout Opsi H + Auto-Switch Mode + Ukuran Frame",
