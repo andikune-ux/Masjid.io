@@ -134,43 +134,63 @@ private fun HomeScreenContent(
     screenInfo: ScreenInfo,
     modifier: Modifier = Modifier
 ) {
-    var currentMode by remember { mutableStateOf("VIDEO") }
-    var videoLoopedOnce by remember { mutableStateOf(false) }
-
     val hasVideo = settings.videoEnabled && !settings.videoUri.isNullOrBlank()
     val hasPhotos = settings.photoSlideshowEnabled && settings.photoSlideshowUris.isNotEmpty()
     val hasAnyMedia = hasVideo || hasPhotos
 
-    val effectiveMode = if (!hasAnyMedia) "NORMAL" else currentMode
+    // Siklus Auto-Switch antara Video, Foto Slideshow, dan Layar Default Normal
+    val switchCycle = remember(hasVideo, hasPhotos, settings.autoSwitchIncludeDefault) {
+        buildList {
+            if (hasVideo) add("VIDEO")
+            if (hasPhotos) add("PHOTO")
+            if (settings.autoSwitchIncludeDefault || (!hasVideo && !hasPhotos)) {
+                add("NORMAL")
+            }
+        }.ifEmpty { listOf("NORMAL") }
+    }
+
+    var currentCycleIndex by remember { mutableIntStateOf(0) }
+    var videoLoopedOnce by remember { mutableStateOf(false) }
+
+    val activeMode = if (!hasAnyMedia) {
+        "NORMAL"
+    } else if (settings.autoSwitchEnabled) {
+        switchCycle.getOrElse(currentCycleIndex % switchCycle.size) { "NORMAL" }
+    } else {
+        if (hasVideo) "VIDEO" else if (hasPhotos) "PHOTO" else "NORMAL"
+    }
 
     LaunchedEffect(
         settings.autoSwitchEnabled,
-        effectiveMode,
+        switchCycle,
+        currentCycleIndex,
         hasAnyMedia,
         settings.videoModeIntervalMinutes,
+        settings.photoModeDurationMinutes,
         settings.normalModeDurationMinutes,
         settings.waitVideoFinishBeforeSwitch
     ) {
-        if (!settings.autoSwitchEnabled) return@LaunchedEffect
-        if (!hasAnyMedia) return@LaunchedEffect
+        if (!settings.autoSwitchEnabled || switchCycle.size <= 1) return@LaunchedEffect
 
-        val durationMin = if (effectiveMode == "VIDEO") {
-            settings.videoModeIntervalMinutes
-        } else {
-            settings.normalModeDurationMinutes
+        val currentItem = switchCycle.getOrElse(currentCycleIndex % switchCycle.size) { "NORMAL" }
+        val durationMin = when (currentItem) {
+            "VIDEO" -> settings.videoModeIntervalMinutes
+            "PHOTO" -> settings.photoModeDurationMinutes
+            "NORMAL" -> settings.normalModeDurationMinutes
+            else -> 2
         }
         val durationMs = durationMin.coerceAtLeast(1) * 60_000L
 
         delay(durationMs)
 
-        if (effectiveMode == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
+        if (currentItem == "VIDEO" && settings.waitVideoFinishBeforeSwitch && hasVideo) {
             videoLoopedOnce = false
             while (!videoLoopedOnce) {
                 delay(500L)
             }
         }
 
-        currentMode = if (effectiveMode == "VIDEO") "NORMAL" else "VIDEO"
+        currentCycleIndex = (currentCycleIndex + 1) % switchCycle.size
         videoLoopedOnce = false
     }
 
@@ -243,7 +263,7 @@ private fun HomeScreenContent(
             )
         }
 
-        if (effectiveMode == "VIDEO" && hasAnyMedia) {
+        if ((activeMode == "VIDEO" || activeMode == "PHOTO") && hasAnyMedia) {
             VideoModeLayout(
                 settings = settings,
                 schedule = schedule,
@@ -252,6 +272,7 @@ private fun HomeScreenContent(
                 gregorianDateString = gregorianDateString,
                 hasVideo = hasVideo,
                 hasPhotos = hasPhotos,
+                currentMediaSubMode = activeMode,
                 screenInfo = screenInfo,
                 onSettingsClick = onSettingsClick,
                 onVideoLooped = { videoLoopedOnce = true }
@@ -273,7 +294,7 @@ private fun HomeScreenContent(
     }
 }
 // ============================================================
-// MODE VIDEO (Opsi H) — V1.04.423 FINAL
+// MODE VIDEO & FOTO KEGIATAN — V1.04.426 AUTO-SWITCH
 // ============================================================
 @Composable
 private fun VideoModeLayout(
@@ -284,6 +305,7 @@ private fun VideoModeLayout(
     gregorianDateString: String,
     hasVideo: Boolean,
     hasPhotos: Boolean,
+    currentMediaSubMode: String = "VIDEO",
     screenInfo: ScreenInfo,
     onSettingsClick: () -> Unit,
     onVideoLooped: () -> Unit
@@ -342,21 +364,21 @@ private fun VideoModeLayout(
                         .weight(if (isFullMode) 1f else 0.76f)
                         .background(Color.Black)
                 ) {
-                    if (hasVideo) {
+                    if (currentMediaSubMode == "PHOTO" || (!hasVideo && hasPhotos)) {
+                        PhotoSlideshow(
+                            photoUris = settings.photoSlideshowUris,
+                            intervalSeconds = settings.photoSlideshowIntervalSeconds,
+                            isFullscreen = true,
+                            contentScale = contentScale,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (hasVideo) {
                         MasjidVideoPlayer(
                             videoUriString = settings.videoUri,
                             isFullscreen = true,
                             contentScale = contentScale,
                             zoomFactor = zoomFactor,
                             onVideoLooped = onVideoLooped,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else if (hasPhotos) {
-                        PhotoSlideshow(
-                            photoUris = settings.photoSlideshowUris,
-                            intervalSeconds = settings.photoSlideshowIntervalSeconds,
-                            isFullscreen = true,
-                            contentScale = contentScale,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

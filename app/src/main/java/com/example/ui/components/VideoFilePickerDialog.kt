@@ -710,27 +710,29 @@ private fun EmptyView(mode: FilePickerMode) {
 private fun CloseHeaderButton(onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isFocused) Color(0x44FFD700) else Color(0xFF142735))
-            .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+    NeonFocusBorder(
+        focused = isFocused,
+        cornerRadius = 10.dp,
+        borderWidth = 3.dp,
+        modifier = Modifier.size(40.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Tutup",
-            tint = if (isFocused) IslamicGoldLight else IslamicGold,
-            modifier = Modifier.size(22.dp)
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isFocused) Color(0x44FFD700) else Color(0xFF142735))
+                .onFocusChanged { isFocused = it.isFocused }
+                .focusable()
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Tutup",
+                tint = if (isFocused) IslamicGoldLight else IslamicGold,
+                modifier = Modifier.size(22.dp)
+            )
+        }
     }
 }
 
@@ -749,34 +751,37 @@ private fun PickerFooterButton(
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
-    Row(
+    NeonFocusBorder(
+        focused = isFocused && enabled,
+        cornerRadius = 10.dp,
+        borderWidth = 3.5.dp,
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(backgroundColor)
-            .border(
-                width = if (isFocused && enabled) 3.dp else 0.dp,
-                color = if (isFocused && enabled) IslamicGoldLight else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable(enabled)
-            .clickable(enabled) { onClick() }
-            .padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = textColor,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(backgroundColor)
+                .onFocusChanged { isFocused = it.isFocused }
+                .focusable(enabled)
+                .clickable(enabled) { onClick() }
+                .padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = textColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+        }
     }
 }

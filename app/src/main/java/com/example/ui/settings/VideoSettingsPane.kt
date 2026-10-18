@@ -481,47 +481,74 @@ Column(
     }
 
     TvToggle(
-        label = "Aktifkan Auto-Switch",
+        label = "Aktifkan Auto-Switch Kegiatan",
         description = if (settings.autoSwitchEnabled)
-            "Mode akan otomatis berganti sesuai interval di bawah"
+            "Mode akan otomatis berganti antara Video, Foto Kegiatan, dan Layar Default"
         else
-            "Mode Video tampil terus (tidak berganti)",
+            "Auto-Switch nonaktif (media tampil terus tanpa berganti)",
         isChecked = settings.autoSwitchEnabled,
         onToggle = { onUpdate(settings.copy(autoSwitchEnabled = it)) }
     )
 
     if (settings.autoSwitchEnabled) {
-        TvSlider(
-            label = "Interval Mode Video",
-            value = settings.videoModeIntervalMinutes.toFloat(),
-            onValueChange = {
-                onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt()))
-            },
-            valueRange = 1f..60f,
-            steps = 58,
-            unit = " menit"
-        )
+        if (settings.videoEnabled) {
+            TvSlider(
+                label = "Durasi Tampil Video",
+                value = settings.videoModeIntervalMinutes.toFloat(),
+                onValueChange = {
+                    onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt()))
+                },
+                valueRange = 1f..60f,
+                steps = 58,
+                unit = " menit"
+            )
 
-        TvSlider(
-            label = "Durasi Mode Normal",
-            value = settings.normalModeDurationMinutes.toFloat(),
-            onValueChange = {
-                onUpdate(settings.copy(normalModeDurationMinutes = it.toInt()))
-            },
-            valueRange = 1f..30f,
-            steps = 28,
-            unit = " menit"
-        )
+            TvToggle(
+                label = "Tunggu Video Selesai",
+                description = if (settings.waitVideoFinishBeforeSwitch)
+                    "Switch ke mode berikutnya menunggu video selesai loop 1x (tidak terpotong)"
+                else
+                    "Switch langsung saat durasi habis (video bisa terpotong)",
+                isChecked = settings.waitVideoFinishBeforeSwitch,
+                onToggle = { onUpdate(settings.copy(waitVideoFinishBeforeSwitch = it)) }
+            )
+        }
+
+        if (settings.photoSlideshowEnabled) {
+            TvSlider(
+                label = "Durasi Tampil Foto Kegiatan",
+                value = settings.photoModeDurationMinutes.toFloat(),
+                onValueChange = {
+                    onUpdate(settings.copy(photoModeDurationMinutes = it.toInt()))
+                },
+                valueRange = 1f..30f,
+                steps = 28,
+                unit = " menit"
+            )
+        }
 
         TvToggle(
-            label = "Tunggu Video Selesai",
-            description = if (settings.waitVideoFinishBeforeSwitch)
-                "Switch ke Mode Normal menunggu video selesai loop 1x (video tidak terpotong)"
+            label = "Sertakan Layar Default / Normal",
+            description = if (settings.autoSwitchIncludeDefault)
+                "Layar utama normal (background foto kustom / dinamis) ikut tampil dalam siklus"
             else
-                "Switch langsung saat interval habis (video bisa terpotong)",
-            isChecked = settings.waitVideoFinishBeforeSwitch,
-            onToggle = { onUpdate(settings.copy(waitVideoFinishBeforeSwitch = it)) }
+                "Hanya berganti antara Video dan Foto (tanpa layar normal)",
+            isChecked = settings.autoSwitchIncludeDefault,
+            onToggle = { onUpdate(settings.copy(autoSwitchIncludeDefault = it)) }
         )
+
+        if (settings.autoSwitchIncludeDefault) {
+            TvSlider(
+                label = "Durasi Layar Normal / Default",
+                value = settings.normalModeDurationMinutes.toFloat(),
+                onValueChange = {
+                    onUpdate(settings.copy(normalModeDurationMinutes = it.toInt()))
+                },
+                valueRange = 1f..30f,
+                steps = 28,
+                unit = " menit"
+            )
+        }
 
         Box(
             modifier = Modifier
@@ -533,19 +560,20 @@ Column(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "📋 Cara Kerja:",
+                    text = "📋 Cara Kerja Auto-Switch:",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = IslamicGoldLight
                 )
+                val siklusItems = buildList {
+                    if (settings.videoEnabled) add("Video (${settings.videoModeIntervalMinutes} mnt)")
+                    if (settings.photoSlideshowEnabled) add("Foto Slideshow (${settings.photoModeDurationMinutes} mnt)")
+                    if (settings.autoSwitchIncludeDefault) add("Layar Normal (${settings.normalModeDurationMinutes} mnt)")
+                }
                 Text(
-                    text = "• Mode Video tampil ${settings.videoModeIntervalMinutes} menit\n" +
-                            "• Lalu switch ke Mode Normal ${settings.normalModeDurationMinutes} menit\n" +
-                            "• Balik lagi ke Mode Video, dan seterusnya\n" +
-                            "• Otomatis JEDA saat:\n" +
-                            "  - Mode Fokus Sholat aktif\n" +
-                            "  - Slide Fullscreen tampil\n" +
-                            "  - Mode Ramadhan aktif",
+                    text = "• Urutan Siklus: ${if (siklusItems.isNotEmpty()) siklusItems.joinToString(" ➔ ") else "Pilih media yang aktif"}\n" +
+                            "• Tampilan Default: Mengikuti foto background kustom yang sudah di-upload atau tema langit dinamis\n" +
+                            "• Otomatis JEDA saat Sholat Masuk, Adzan, Iqomah, atau Dzikir",
                     fontSize = 11.sp,
                     color = TextPrimary,
                     lineHeight = 16.sp

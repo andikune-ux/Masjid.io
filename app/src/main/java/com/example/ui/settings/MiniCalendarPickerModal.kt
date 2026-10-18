@@ -26,8 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.IslamicGreen
@@ -252,53 +254,74 @@ fun MiniCalendarPickerModal(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            var isFocusedHariIni by remember { mutableStateOf(false) }
+            var isFocusedGunakan by remember { mutableStateOf(false) }
+
             // Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedButton(
-                    onClick = {
-                        val today = LocalDate.now()
-                        selectedDate = today
-                        currentYearMonth = YearMonth.from(today)
-                        Toast.makeText(context, "Tanggal direset ke hari ini", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                    shape = RoundedCornerShape(10.dp)
+                NeonFocusBorder(
+                    focused = isFocusedHariIni,
+                    cornerRadius = 10.dp,
+                    borderWidth = 3.dp,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(text = "Hari Ini", fontSize = 12.sp)
+                    OutlinedButton(
+                        onClick = {
+                            val today = LocalDate.now()
+                            selectedDate = today
+                            currentYearMonth = YearMonth.from(today)
+                            Toast.makeText(context, "Tanggal direset ke hari ini", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isFocusedHariIni = it.isFocused },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(text = "Hari Ini", fontSize = 12.sp)
+                    }
                 }
 
-                Button(
-                    onClick = {
-                        onDateSelected(selectedDate)
-                        Toast.makeText(
-                            context,
-                            "Tanggal berhasil disimpan: ${selectedDate.format(displayDateFormatter)}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1.4f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = IslamicGreen,
-                        contentColor = Color(0xFF09141D)
-                    ),
-                    shape = RoundedCornerShape(10.dp)
+                NeonFocusBorder(
+                    focused = isFocusedGunakan,
+                    cornerRadius = 10.dp,
+                    borderWidth = 3.5.dp,
+                    modifier = Modifier.weight(1.4f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "GUNAKAN TANGGAL",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Button(
+                        onClick = {
+                            onDateSelected(selectedDate)
+                            Toast.makeText(
+                                context,
+                                "Tanggal berhasil disimpan: ${selectedDate.format(displayDateFormatter)}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isFocusedGunakan = it.isFocused },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = IslamicGreen,
+                            contentColor = Color(0xFF09141D)
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "GUNAKAN TANGGAL",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

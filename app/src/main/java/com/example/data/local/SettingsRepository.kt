@@ -99,6 +99,13 @@ class SettingsRepository(context: Context) {
             photoSlideshowEnabled = prefs.getBoolean("photoSlideshowEnabled", false),
             photoSlideshowUris = loadStringList("photoSlideshowUris"),
             photoSlideshowIntervalSeconds = prefs.getInt("photoSlideshowIntervalSeconds", 10),
+            autoSwitchEnabled = prefs.getBoolean("autoSwitchEnabled", false),
+            videoModeIntervalMinutes = prefs.getInt("videoModeIntervalMinutes", 5),
+            photoModeDurationMinutes = prefs.getInt("photoModeDurationMinutes", 3),
+            normalModeDurationMinutes = prefs.getInt("normalModeDurationMinutes", 2),
+            autoSwitchIncludeDefault = prefs.getBoolean("autoSwitchIncludeDefault", true),
+            videoFrameScale = prefs.getString("videoFrameScale", "POTONG") ?: "POTONG",
+            waitVideoFinishBeforeSwitch = prefs.getBoolean("waitVideoFinishBeforeSwitch", true),
             slideEnabled = prefs.getBoolean("slideEnabled", false),
             slideIntervalSeconds = prefs.getInt("slideIntervalSeconds", 15),
             qrisSlideEnabled = prefs.getBoolean("qrisSlideEnabled", true),
@@ -244,6 +251,13 @@ private fun saveSettings(s: AppSettings) {
         putBoolean("photoSlideshowEnabled", s.photoSlideshowEnabled)
         saveStringList("photoSlideshowUris", s.photoSlideshowUris)
         putInt("photoSlideshowIntervalSeconds", s.photoSlideshowIntervalSeconds)
+        putBoolean("autoSwitchEnabled", s.autoSwitchEnabled)
+        putInt("videoModeIntervalMinutes", s.videoModeIntervalMinutes)
+        putInt("photoModeDurationMinutes", s.photoModeDurationMinutes)
+        putInt("normalModeDurationMinutes", s.normalModeDurationMinutes)
+        putBoolean("autoSwitchIncludeDefault", s.autoSwitchIncludeDefault)
+        putString("videoFrameScale", s.videoFrameScale)
+        putBoolean("waitVideoFinishBeforeSwitch", s.waitVideoFinishBeforeSwitch)
         putBoolean("slideEnabled", s.slideEnabled)
         putInt("slideIntervalSeconds", s.slideIntervalSeconds)
         putBoolean("qrisSlideEnabled", s.qrisSlideEnabled)

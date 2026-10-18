@@ -209,7 +209,9 @@ data class AppSettings(
     val photoSlideshowIntervalSeconds: Int = 10,
     val autoSwitchEnabled: Boolean = false,
     val videoModeIntervalMinutes: Int = 5,
+    val photoModeDurationMinutes: Int = 3,
     val normalModeDurationMinutes: Int = 2,
+    val autoSwitchIncludeDefault: Boolean = true,
     val videoFrameScale: String = "POTONG",
     val waitVideoFinishBeforeSwitch: Boolean = true,
     // ============================================================

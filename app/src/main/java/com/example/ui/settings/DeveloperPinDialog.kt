@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.TextPrimary
@@ -204,70 +205,74 @@ fun DeveloperPinDialog(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // ---------- TOMBOL BATAL ----------
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (isFocusedBatal) Color(0xFF1F3A52)
-                                else Color(0xFF142735)
-                            )
-                            .border(
-                                width = if (isFocusedBatal) 3.dp else 0.dp,
-                                color = if (isFocusedBatal) IslamicGoldLight else Color.Transparent,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .focusable()
-                            .onFocusChanged { isFocusedBatal = it.isFocused }
-                            .clickable { onDismiss() }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
+                    NeonFocusBorder(
+                        focused = isFocusedBatal,
+                        cornerRadius = 10.dp,
+                        borderWidth = 3.5.dp,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Text(
-                            text = "BATAL",
-                            color = if (isFocusedBatal) IslamicGoldLight else TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isFocusedBatal) Color(0xFF1F3A52)
+                                    else Color(0xFF142735)
+                                )
+                                .focusable()
+                                .onFocusChanged { isFocusedBatal = it.isFocused }
+                                .clickable { onDismiss() }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "BATAL",
+                                color = if (isFocusedBatal) IslamicGoldLight else TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
 
                     // ---------- TOMBOL MASUK ----------
                     val canSubmit = pin.length == 6
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                when {
-                                    !canSubmit -> Color(0x33FFD700)
-                                    isFocusedMasuk -> Color(0xFFFFE44D)
-                                    else -> IslamicGold
-                                }
-                            )
-                            .border(
-                                width = if (isFocusedMasuk && canSubmit) 3.dp else 0.dp,
-                                color = if (isFocusedMasuk && canSubmit) Color.White else Color.Transparent,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .focusable(enabled = canSubmit)
-                            .onFocusChanged { isFocusedMasuk = it.isFocused }
-                            .clickable(enabled = canSubmit) {
-                                if (pin == correctPin) {
-                                    onSuccess()
-                                } else {
-                                    errorMessage = "PIN salah"
-                                    pin = ""
-                                }
-                            }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
+                    NeonFocusBorder(
+                        focused = isFocusedMasuk && canSubmit,
+                        cornerRadius = 10.dp,
+                        borderWidth = 3.5.dp,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Text(
-                            text = "MASUK",
-                            color = if (canSubmit) Color(0xFF09141D) else TextSecondary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    when {
+                                        !canSubmit -> Color(0x33FFD700)
+                                        isFocusedMasuk -> Color(0xFFFFE44D)
+                                        else -> IslamicGold
+                                    }
+                                )
+                                .focusable(enabled = canSubmit)
+                                .onFocusChanged { isFocusedMasuk = it.isFocused }
+                                .clickable(enabled = canSubmit) {
+                                    if (pin == correctPin) {
+                                        onSuccess()
+                                    } else {
+                                        errorMessage = "PIN salah"
+                                        pin = ""
+                                    }
+                                }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "MASUK",
+                                color = if (canSubmit) Color(0xFF09141D) else TextSecondary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
             }

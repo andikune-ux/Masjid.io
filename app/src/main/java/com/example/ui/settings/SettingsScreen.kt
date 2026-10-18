@@ -62,9 +62,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -135,6 +137,7 @@ fun SettingsScreen(
     var isInitialLoad by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     // ============================================================
     // FOKUS — V1.30.7
@@ -219,8 +222,8 @@ fun SettingsScreen(
                                     selectedCategory = cat
                                     previewCategory = cat
                                     scope.launch {
-                                        delay(200)
-                                        runCatching { paneFocusRequester.requestFocus() }
+                                        delay(150)
+                                        focusManager.moveFocus(FocusDirection.Right)
                                     }
                                 } else {
                                     showDeveloperPinDialog = true
@@ -229,13 +232,12 @@ fun SettingsScreen(
                                 selectedCategory = cat
                                 previewCategory = cat
                                 scope.launch {
-                                    delay(200)
-                                    runCatching { paneFocusRequester.requestFocus() }
+                                    delay(150)
+                                    focusManager.moveFocus(FocusDirection.Right)
                                 }
                             }
                         },
-                        onFocusChange = { /* no-op */ },
-                        rightFocusRequester = paneFocusRequester
+                        onFocusChange = { /* no-op */ }
                     )
                 }
             }
@@ -436,8 +438,7 @@ private fun SidebarItem(
     category: SettingsCategory,
     isSelected: Boolean,
     onClick: () -> Unit,
-    onFocusChange: (Boolean) -> Unit,
-    rightFocusRequester: FocusRequester
+    onFocusChange: (Boolean) -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -461,9 +462,6 @@ private fun SidebarItem(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(bgColor)
-                .focusProperties {
-                    right = rightFocusRequester
-                }
                 .focusable(interactionSource = interactionSource)
                 .clickable(
                     interactionSource = interactionSource,
