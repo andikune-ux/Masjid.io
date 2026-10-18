@@ -100,14 +100,24 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
         Text("Galeri Kegiatan Masjid", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
         Text("Atur tampilan video dan foto yang akan diputar di layar TV.", fontSize = 13.sp, color = TextSecondary)
 
-        TvToggle("Aktifkan Galeri Kegiatan", "Jika dimatikan, TV hanya menampilkan Layar Default / Background.", isGalleryEnabled) { onUpdate(settings.copy(galleryMasterEnabled = it)) }
+        TvToggle(
+            label = "Aktifkan Galeri Kegiatan",
+            description = "Jika dimatikan, TV hanya menampilkan Layar Default / Background.",
+            isChecked = isGalleryEnabled,
+            onToggle = { onUpdate(settings.copy(galleryMasterEnabled = it)) }
+        )
 
         Column(modifier = Modifier.alpha(if (isGalleryEnabled) 1f else 0.35f).focusable(isGalleryEnabled), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             
             // --- VIDEO ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("📹 VIDEO KEGIATAN", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-                TvToggle("Aktifkan Video", "Putar video kegiatan di layar TV.", settings.videoEnabled) { onUpdate(settings.copy(videoEnabled = it)) }
+                TvToggle(
+                    label = "Aktifkan Video",
+                    description = "Putar video kegiatan di layar TV.",
+                    isChecked = settings.videoEnabled,
+                    onToggle = { onUpdate(settings.copy(videoEnabled = it)) }
+                )
 
                 if (settings.videoEnabled) {
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091620)).border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -135,7 +145,12 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                             }
                         }
                     }
-                    TvSlider("Durasi Tampil Video", settings.videoModeIntervalMinutes.toFloat(), { onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt())) }, valueRange = 1f..60f, steps = 58, unit = " menit")
+                    TvSlider(
+                        label = "Durasi Tampil Video",
+                        value = settings.videoModeIntervalMinutes.toFloat(),
+                        onValueChange = { onUpdate(settings.copy(videoModeIntervalMinutes = it.toInt())) },
+                        valueRange = 1f..60f, steps = 58, unit = " menit"
+                    )
                 }
             }
             
@@ -144,7 +159,12 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             // --- FOTO ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("📷 FOTO KEGIATAN", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-                TvToggle("Aktifkan Foto", "Tampilkan slideshow foto kegiatan di layar TV.", settings.photoSlideshowEnabled) { onUpdate(settings.copy(photoSlideshowEnabled = it)) }
+                TvToggle(
+                    label = "Aktifkan Foto",
+                    description = "Tampilkan slideshow foto kegiatan di layar TV.",
+                    isChecked = settings.photoSlideshowEnabled,
+                    onToggle = { onUpdate(settings.copy(photoSlideshowEnabled = it)) }
+                )
 
                 if (settings.photoSlideshowEnabled) {
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091620)).border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -176,7 +196,12 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                             TvActionButton(Icons.Default.Add, "FILE", IslamicGold, Color(0xFF09141D)) { showPhotoPicker = true }
                         }
                     }
-                    TvSlider("Durasi per Foto", settings.photoSlideshowIntervalSeconds.toFloat(), { onUpdate(settings.copy(photoSlideshowIntervalSeconds = it.toInt())) }, valueRange = 3f..30f, steps = 27, unit = " detik")
+                    TvSlider(
+                        label = "Durasi per Foto",
+                        value = settings.photoSlideshowIntervalSeconds.toFloat(),
+                        onValueChange = { onUpdate(settings.copy(photoSlideshowIntervalSeconds = it.toInt())) },
+                        valueRange = 3f..30f, steps = 27, unit = " detik"
+                    )
                     val totalDetik = settings.photoSlideshowUris.size * settings.photoSlideshowIntervalSeconds
                     Text("ℹ️ Total waktu putar: ${totalDetik / 60} Menit ${totalDetik % 60} Detik (untuk ${settings.photoSlideshowUris.size} foto)", fontSize = 12.sp, color = TextSecondary)
                 }
@@ -187,8 +212,18 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             // --- SMART SWITCH ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("🔄 SMART SWITCH (Rotasi Cerdas)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-                TvToggle("Tampilkan Layar Default", "Layar bergantian: Video -> Foto -> Layar Default.", settings.smartSwitchEnabled) { onUpdate(settings.copy(smartSwitchEnabled = it)) }
-                if (settings.smartSwitchEnabled) TvSlider("Durasi Layar Default", settings.normalModeDurationMinutes.toFloat(), { onUpdate(settings.copy(normalModeDurationMinutes = it.toInt())) }, valueRange = 1f..30f, steps = 28, unit = " menit")
+                TvToggle(
+                    label = "Tampilkan Layar Default",
+                    description = "Layar bergantian: Video -> Foto -> Layar Default.",
+                    isChecked = settings.smartSwitchEnabled,
+                    onToggle = { onUpdate(settings.copy(smartSwitchEnabled = it)) }
+                )
+                if (settings.smartSwitchEnabled) TvSlider(
+                    label = "Durasi Layar Default",
+                    value = settings.normalModeDurationMinutes.toFloat(),
+                    onValueChange = { onUpdate(settings.copy(normalModeDurationMinutes = it.toInt())) },
+                    valueRange = 1f..30f, steps = 28, unit = " menit"
+                )
             }
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
