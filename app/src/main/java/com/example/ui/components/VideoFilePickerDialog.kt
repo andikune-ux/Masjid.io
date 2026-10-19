@@ -52,9 +52,11 @@ import dev.andikune.masjidio.ui.theme.TextSecondary
 import dev.andikune.masjidio.util.BackupManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import kotlin.coroutines.coroutineContext
 
 enum class FilePickerMode { VIDEO, IMAGE, ALL }
 
@@ -68,14 +70,14 @@ fun VideoFilePickerDialog(
     var isLoading by remember { mutableStateOf(true) }
     var hasPermission by remember { mutableStateOf(!BackupManager.needsStoragePermission()) }
 
-    // FIX: Auto-refresh saat kembali dari menu izin
+    val exoPlayer = remember { ExoPlayer.Builder(context).build().apply { playWhenReady = true; volume = 0f } }
+    DisposableEffect(Unit) { onDispose { exoPlayer.release() } }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 val currentPerm = !BackupManager.needsStoragePermission()
-                if (currentPerm != hasPermission) {
-                    hasPermission = currentPerm
-                }
+                if (currentPerm != hasPermission) hasPermission = currentPerm
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -85,31 +87,21 @@ fun VideoFilePickerDialog(
     LaunchedEffect(mode, hasPermission) {
         if (!hasPermission) return@LaunchedEffect
         isLoading = true
-        val files = withContext(Dispatchers.IO) { scanFiles(mode) }
-        fileList = files
+        fileList = withContext(Dispatchers.IO) {
+            coroutineContext.ensureActive()
+            scanFiles(mode)
+        }
         isLoading = false
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(
-            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.92f)
-                .clip(RoundedCornerShape(20.dp)).background(Color(0xFF0B1720))
-                .border(2.dp, IslamicGold, RoundedCornerShape(20.dp)).padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.92f).clip(RoundedCornerShape(20.dp)).background(Color(0xFF0B1720)).border(2.dp, IslamicGold, RoundedCornerShape(20.dp)).padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-                Box(
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
-                        .background(Color(0x33FF5252)).clickable { onDismiss() },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Default.Close, "Tutup", tint = Color.White) }
+                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Color(0x33FF5252)).clickable { onDismiss() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, "Tutup", tint = Color.White) }
             }
 
             if (!hasPermission) {
-                // TAMPILAN MINTA IZIN
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Icon(Icons.Default.Folder, null, tint = IslamicGold, modifier = Modifier.size(64.dp))
@@ -126,7 +118,12 @@ fun VideoFilePickerDialog(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tidak ada file ditemukan.", color = TextSecondary) }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(fileList) { file -> FileItemRow(file = file, onSelect = { onFileSelected(file) }) }
+                    items(fileList, key = { it.absolutePath }) { file -> 
+                        FileItemRow(file = file, exoPlayer = exoPlayer, onSelect = { 
+                            if (file.exists()) onFileSelected(file) 
+                            else onDismiss()
+                        }) 
+                    }
                 }
             }
         }
@@ -134,61 +131,44 @@ fun VideoFilePickerDialog(
 }
 
 @Composable
-private fun FileItemRow(file: File, onSelect: () -> Unit) {
+private fun FileItemRow(file: File, exoPlayer: ExoPlayer, onSelect: () -> Unit) {
     val context = LocalContext.current
     var isFocused by remember { mutableStateOf(false) }
     var isPreviewing by remember { mutableStateOf(false) }
-    var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-    var isPlayerReady by remember { mutableStateOf(false) }
-
     val isVideo = file.extension.lowercase(Locale.getDefault()) in listOf("mp4", "mkv", "webm", "avi")
 
-    val thumbnailBitmap = remember(file) {
+    val thumbnailBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, file) {
         if (isVideo) {
-            try {
-                val retriever = android.media.MediaMetadataRetriever()
-                retriever.setDataSource(file.absolutePath)
-                val bmp = retriever.getFrameAtTime(1000000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                retriever.release()
-                bmp
-            } catch (e: Exception) { null }
-        } else null
-    }
-
-    LaunchedEffect(isFocused, isPreviewing) {
-        val shouldPreview = isFocused || isPreviewing
-        if (shouldPreview && isVideo) {
-            if (exoPlayer == null) {
-                exoPlayer = ExoPlayer.Builder(context).build().apply {
-                    setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
-                    prepare()
-                    playWhenReady = true
-                    volume = 0f
-                }
-                delay(300) 
-                isPlayerReady = true
+            value = withContext(Dispatchers.IO) {
+                try {
+                    val retriever = android.media.MediaMetadataRetriever()
+                    retriever.setDataSource(file.absolutePath)
+                    val bmp = retriever.getFrameAtTime(1000000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    retriever.release()
+                    bmp
+                } catch (e: Exception) { null }
             }
-        } else {
-            exoPlayer?.release()
-            exoPlayer = null
-            isPlayerReady = false
         }
     }
 
-    DisposableEffect(Unit) { onDispose { exoPlayer?.release() } }
+    LaunchedEffect(isFocused, isPreviewing) {
+        if ((isFocused || isPreviewing) && isVideo) {
+            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            exoPlayer.prepare()
+            exoPlayer.play()
+        } else {
+            exoPlayer.pause()
+        }
+    }
 
     Box {
         AnimatedVisibility(
-            visible = (isFocused || isPreviewing) && isVideo && isPlayerReady,
+            visible = (isFocused || isPreviewing) && isVideo,
             enter = fadeIn(), exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter).padding(bottom = 80.dp)
         ) {
-            Box(modifier = Modifier.width(280.dp).aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(12.dp)).background(Color.Black).border(2.dp, IslamicGold, RoundedCornerShape(12.dp))
-            ) {
-                exoPlayer?.let { player ->
-                    AndroidView(factory = { ctx -> PlayerView(ctx).apply { useController = false; this.player = player } }, modifier = Modifier.fillMaxSize())
-                }
+            Box(modifier = Modifier.width(280.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Color.Black).border(2.dp, IslamicGold, RoundedCornerShape(12.dp))) {
+                AndroidView(factory = { ctx -> PlayerView(ctx).apply { useController = false; this.player = exoPlayer } }, modifier = Modifier.fillMaxSize())
             }
         }
 
@@ -206,7 +186,7 @@ private fun FileItemRow(file: File, onSelect: () -> Unit) {
         ) {
             Box(modifier = Modifier.size(width = 120.dp, height = 68.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
                 if (thumbnailBitmap != null) {
-                    Image(bitmap = thumbnailBitmap.asImageBitmap(), contentDescription = "Thumbnail", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    Image(bitmap = thumbnailBitmap!!.asImageBitmap(), contentDescription = "Thumbnail", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 } else {
                     AsyncImage(model = ImageRequest.Builder(context).data(file).crossfade(true).build(), contentDescription = "Thumbnail", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
