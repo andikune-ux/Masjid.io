@@ -117,7 +117,7 @@ object SettingsNavState {
     var isDeveloperUnlocked: Boolean = false
 }
 
-@OptIn(ExperimentalComposeUiApi::class) // <-- TAMBAHKAN INI
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SettingsScreen(
     currentSettings: AppSettings,
@@ -180,7 +180,9 @@ fun SettingsScreen(
             SaveButton(onClick = { forceSave(); onSaveSettings(draftSettings) })
         }
 
-        Row(modifier = Modifier.fillMaxSize()) {
+        // FIX: Tambahkan focusGroup() di Row ini agar fokus gak keluar ke TopBar
+        Row(modifier = Modifier.fillMaxSize().focusGroup()) {
+            // SIDEBAR (KIRI)
             Column(
                 modifier = Modifier
                     .weight(0.32f)
@@ -188,7 +190,6 @@ fun SettingsScreen(
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = 16.dp, horizontal = 16.dp)
-                    .focusProperties { up = FocusRequester.Cancel }
                     .focusRequester(sidebarFocusRequester),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -212,13 +213,13 @@ fun SettingsScreen(
                 }
             }
 
+            // PANE KANAN
             Box(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
                     .focusProperties { 
-                        up = FocusRequester.Cancel 
                         left = sidebarFocusRequester 
                     }
                     .focusRequester(paneFocusRequester)
@@ -233,7 +234,6 @@ fun SettingsScreen(
                             DeveloperLockedPane()
                         } else {
                             when (previewCategory) {
-                                // FIX: Gunakan NAMED PARAMETER (settings =, onUpdate =)
                                 SettingsCategory.LOCATION -> LocationSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
                                 SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
                                 SettingsCategory.COUNTDOWN -> CountdownSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
@@ -287,7 +287,7 @@ private fun DeveloperLockedPane() {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class) // <-- TAMBAHKAN INI UNTUK SIDEBAR
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun SidebarItem(
     category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit, onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester
