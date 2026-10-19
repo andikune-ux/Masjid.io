@@ -46,7 +46,15 @@ fun AutoOffDialog(
     offStartTime: String, offEndTime: String, autoDismissSeconds: Int, onConfirmTrue: () -> Unit, onConfirmFalse: () -> Unit
 ) {
     val yaFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(500L); runCatching { yaFocusRequester.requestFocus() }; delay(300L); runCatching { yaFocusRequester.requestFocus() } }
+    
+    // LOOP RETRY FOKUS
+    LaunchedEffect(Unit) {
+        repeat(3) {
+            delay(400L)
+            runCatching { yaFocusRequester.requestFocus() }
+        }
+    }
+    
     LaunchedEffect(Unit) { if (autoDismissSeconds > 0) { delay(autoDismissSeconds * 1000L); onConfirmFalse() } }
 
     Dialog(onDismissRequest = { onConfirmFalse() }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
@@ -80,7 +88,7 @@ fun AutoOffDialog(
                 }
                 Spacer(Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AutoOffButton(text = "YA", isConfirm = true, modifier = Modifier.weight(1f).focusRequester(yaFocusRequester), onClick = onConfirmTrue)
+                    AutoOffButton(text = "YA", isConfirm = true, modifier = Modifier.weight(1f), focusRequester = yaFocusRequester, onClick = onConfirmTrue)
                     AutoOffButton(text = "TIDAK", isConfirm = false, modifier = Modifier.weight(1f), onClick = onConfirmFalse)
                 }
             }
@@ -89,15 +97,25 @@ fun AutoOffDialog(
 }
 
 @Composable
-private fun AutoOffButton(text: String, isConfirm: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun AutoOffButton(
+    text: String, isConfirm: Boolean, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, onClick: () -> Unit
+) {
     var focused by remember { mutableStateOf(false) }
     val baseColor = if (isConfirm) Color(0xFF1BAA5F) else Color(0xFF1A4A9E)
     val focusColor = if (isConfirm) Color(0xFF3DDC84) else Color(0xFF2A6FE0)
     val bgColor = if (focused) focusColor else baseColor
 
+    var boxModifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(bgColor)
+    
+    if (focusRequester != null) {
+        boxModifier = boxModifier.focusRequester(focusRequester)
+    }
+    
+    boxModifier = boxModifier.onFocusChanged { focused = it.isFocused }.focusable().clickable { onClick() }
+
     NeonFocusBorder(focused = focused, cornerRadius = 14.dp, borderWidth = 4.dp, modifier = modifier.height(56.dp)) {
         Box(
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(bgColor).focusable().onFocusChanged { focused = it.isFocused }.clickable { onClick() },
+            modifier = boxModifier,
             contentAlignment = Alignment.Center
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
