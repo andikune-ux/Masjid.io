@@ -70,6 +70,7 @@ import dev.andikune.masjidio.util.CrashReporter
 import dev.andikune.masjidio.util.CredentialManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
 @Composable
 fun DeveloperSettingsPane(
     settings: AppSettings,
@@ -97,7 +98,7 @@ fun DeveloperSettingsPane(
     var backupProgress by remember { mutableStateOf("") }
 
     // ============================================================
-    // V1.04.429 — KREDENSIAL & PASSPHRASE
+    // KREDENSIAL & PASSPHRASE
     // ============================================================
     var isUnlocked by remember { mutableStateOf(CredentialManager.isUnlocked()) }
     var hasPassphrase by remember {
@@ -121,775 +122,524 @@ fun DeveloperSettingsPane(
     // State sync
     var isSyncing by remember { mutableStateOf(false) }
     var lastSyncStatus by remember { mutableStateOf<String?>(null) }
+
     // ============================================================
-// AUTO-INIT CREDENTIAL SAAT PANE DIBUKA
-// ============================================================
-LaunchedEffect(Unit) {
-    CredentialManager.init(context)
-    delay(500)
-    if (!hasPassphrase) {
-        showPassphraseDialog = true
-        isSetupMode = true
+    // AUTO-INIT CREDENTIAL SAAT PANE DIBUKA
+    // ============================================================
+    LaunchedEffect(Unit) {
+        CredentialManager.init(context)
+        delay(500)
+        if (!hasPassphrase) {
+            showPassphraseDialog = true
+            isSetupMode = true
+        }
     }
-}
 
-// ============================================================
-// LOAD CREDENTIALS SAAT UNLOCKED
-// (Kosongkan form input — tidak reveal token lama)
-// ============================================================
-LaunchedEffect(isUnlocked) {
-    if (isUnlocked) {
-        tokenInput = ""
-        groupIdInput = ""
-        patInput = ""
-        isEditingCredentials = false
+    // ============================================================
+    // LOAD CREDENTIALS SAAT UNLOCKED
+    // (Kosongkan form input — tidak reveal token lama)
+    // ============================================================
+    LaunchedEffect(isUnlocked) {
+        if (isUnlocked) {
+            tokenInput = ""
+            groupIdInput = ""
+            patInput = ""
+            isEditingCredentials = false
+        }
     }
-}
 
-// ============================================================
-// EARLY RETURN — TAMPILKAN RIWAYAT CRASH
-// ============================================================
-if (showCrashHistory) {
-    RiwayatCrashScreen(
-        onBack = { showCrashHistory = false },
-        modifier = modifier
-    )
-    return
-}
-// ============================================================
-// DIALOG PASSPHRASE
-// ============================================================
-if (showPassphraseDialog) {
-    PassphraseDialog(
-        isSetupMode = isSetupMode,
-        passphrase = passphraseInput,
-        passphraseConfirm = passphraseConfirm,
-        errorMessage = passphraseError,
-        onPassphraseChange = {
-            passphraseInput = it
-            passphraseError = null
-        },
-        onConfirmChange = {
-            passphraseConfirm = it
-            passphraseError = null
-        },
-        onConfirm = {
-            if (isSetupMode) {
-                // Mode setup: bikin passphrase baru
-                if (passphraseInput.length < 12) {
-                    passphraseError = "Passphrase minimal 12 karakter"
-                    return@PassphraseDialog
-                }
-                if (passphraseInput != passphraseConfirm) {
-                    passphraseError = "Passphrase tidak cocok"
-                    return@PassphraseDialog
-                }
-                val ok = CredentialManager.setPassphrase(context, passphraseInput)
-                if (ok) {
-                    hasPassphrase = true
-                    isUnlocked = true
-                    showPassphraseDialog = false
-                    passphraseInput = ""
-                    passphraseConfirm = ""
-                    Toast.makeText(
-                        context,
-                        "Passphrase berhasil dibuat. Catat dan simpan dengan aman!",
-                        Toast.LENGTH_LONG
-                    ).show()
-                } else {
-                    passphraseError = "Gagal membuat passphrase"
-                }
-            } else {
-                // Mode unlock: verifikasi passphrase
-                scope.launch {
-                    val ok = kotlinx.coroutines.withContext(
-                        kotlinx.coroutines.Dispatchers.IO
-                    ) {
-                        CredentialManager.unlock(context, passphraseInput)
+    // ============================================================
+    // EARLY RETURN — TAMPILKAN RIWAYAT CRASH
+    // ============================================================
+    if (showCrashHistory) {
+        RiwayatCrashScreen(
+            onBack = { showCrashHistory = false },
+            modifier = modifier
+        )
+        return
+    }
+
+    // ============================================================
+    // DIALOG PASSPHRASE
+    // ============================================================
+    if (showPassphraseDialog) {
+        PassphraseDialog(
+            isSetupMode = isSetupMode,
+            passphrase = passphraseInput,
+            passphraseConfirm = passphraseConfirm,
+            errorMessage = passphraseError,
+            onPassphraseChange = {
+                passphraseInput = it
+                passphraseError = null
+            },
+            onConfirmChange = {
+                passphraseConfirm = it
+                passphraseError = null
+            },
+            onConfirm = {
+                if (isSetupMode) {
+                    // Mode setup: bikin passphrase baru
+                    if (passphraseInput.length < 12) {
+                        passphraseError = "Passphrase minimal 12 karakter"
+                        return@PassphraseDialog
                     }
+                    if (passphraseInput != passphraseConfirm) {
+                        passphraseError = "Passphrase tidak cocok"
+                        return@PassphraseDialog
+                    }
+                    val ok = CredentialManager.setPassphrase(context, passphraseInput)
                     if (ok) {
+                        hasPassphrase = true
                         isUnlocked = true
                         showPassphraseDialog = false
                         passphraseInput = ""
+                        passphraseConfirm = ""
                         Toast.makeText(
                             context,
-                            "Passphrase benar. Kredensial terbuka.",
-                            Toast.LENGTH_SHORT
+                            "Passphrase berhasil dibuat. Catat dan simpan dengan aman!",
+                            Toast.LENGTH_LONG
                         ).show()
                     } else {
-                        passphraseError = "Passphrase salah"
+                        passphraseError = "Gagal membuat passphrase"
                     }
-                }
-            }
-        },
-        onDismiss = {
-            showPassphraseDialog = false
-            passphraseInput = ""
-            passphraseConfirm = ""
-            passphraseError = null
-        }
-    )
-}
-// ============================================================
-// MAIN COLUMN
-// ============================================================
-Column(
-    modifier = modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState()),
-    verticalArrangement = Arrangement.spacedBy(16.dp)
-) {
-    // ============================================================
-    // HEADER
-    // ============================================================
-    Text(
-        text = "OPSI DEVELOPER",
-        fontSize = 20.sp,
-        fontWeight = FontWeight.Bold,
-        color = IslamicGoldLight
-    )
-    Text(
-        text = "Menu khusus owner. Jangan dibagikan ke orang lain.",
-        fontSize = 13.sp,
-        color = TextSecondary
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-
-    InfoBox(
-        icon = Icons.Default.Info,
-        title = "Versi Aplikasi",
-        value = try {
-            BuildConfig.VERSION_NAME
-        } catch (e: Exception) {
-            "Unknown"
-        },
-        description = "Versi build saat ini"
-    )
-
-    // ============================================================
-    // REFRESH BUILD HISTORY
-    // ============================================================
-    Text(
-        text = "RIWAYAT BUILD",
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Bold,
-        color = IslamicGoldLight
-    )
-    Text(
-        text = "Fetch 10 build terakhir dari GitHub Actions. Hasilnya akan ikut ke Backup Aman.",
-        fontSize = 12.sp,
-        color = TextSecondary
-    )
-
-    DeveloperButton(
-        icon = Icons.Default.Refresh,
-        title = if (isFetchingBuild) "MENGAMBIL DATA..." else "REFRESH BUILD HISTORY",
-        description = lastFetchStatus ?: "Ambil data build terbaru dari GitHub",
-        disabled = isFetchingBuild,
-        onClick = {
-            if (isFetchingBuild) return@DeveloperButton
-            isFetchingBuild = true
-            lastFetchStatus = null
-            scope.launch {
-                val builds = BuildHistoryFetcher.fetchRecentBuilds()
-                isFetchingBuild = false
-                if (builds.isEmpty()) {
-                    cachedBuildHistoryText = null
-                    lastFetchStatus = "⚠️ Gagal fetch (tidak ada koneksi / rate limit)"
-                    Toast.makeText(
-                        context,
-                        "Gagal fetch build history. Cek koneksi internet.",
-                        Toast.LENGTH_LONG
-                    ).show()
                 } else {
-                    cachedBuildHistoryText = BuildHistoryFetcher.formatBuildsAsText(builds)
-                    val failedCount = builds.count { it.conclusion == "failure" }
-                    lastFetchStatus = "✅ ${builds.size} build di-fetch • $failedCount gagal"
-                    Toast.makeText(
-                        context,
-                        "Berhasil! ${builds.size} build (${failedCount} gagal)",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        }
-    )
-
-    if (lastFetchStatus != null) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0x33000000), RoundedCornerShape(8.dp))
-                .border(
-                    1.dp,
-                    if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed,
-                    RoundedCornerShape(8.dp)
-                )
-                .padding(12.dp)
-        ) {
-            Text(
-                text = lastFetchStatus ?: "",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed
-            )
-        }
-    }
-
-    Spacer(modifier = Modifier.height(4.dp))
-
-    // ============================================================
-    // PERMISSION STORAGE WARNING
-    // ============================================================
-    if (needStoragePermission) {
-        PermissionWarningCard(
-            onGrantClick = { BackupManager.openPermissionSettings(context) }
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-    }
-
-    // ============================================================
-    // BACKUP AMAN
-    // ============================================================
-    DeveloperButton(
-        icon = Icons.Default.Save,
-        title = if (isBackupRunning) {
-            backupProgress.ifEmpty { "BACKUP SEDANG PROSES..." }
-        } else {
-            "BACKUP AMAN"
-        },
-        description = "Export semua info aplikasi + FULL SOURCE CODE ke file .TXT",
-        disabled = isBackupRunning,
-        onClick = {
-            if (isBackupRunning) return@DeveloperButton
-
-            try {
-                if (BackupManager.needsStoragePermission()) {
-                    needStoragePermission = true
-                    lastBackupStatus = "⚠️ Izin storage diperlukan"
-                    Toast.makeText(
-                        context,
-                        "Beri izin storage dulu, lalu coba lagi",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return@DeveloperButton
-                }
-
-                isBackupRunning = true
-                lastBackupStatus = null
-                lastBackupPath = null
-                backupProgress = "Menyiapkan backup..."
-
-                scope.launch {
-                    if (cachedBuildHistoryText == null) {
-                        backupProgress = "Mengambil build history..."
-                        val builds = BuildHistoryFetcher.fetchRecentBuilds()
-                        cachedBuildHistoryText = if (builds.isNotEmpty()) {
-                            BuildHistoryFetcher.formatBuildsAsText(builds)
-                        } else null
-                    }
-
-                    backupProgress = "Mengambil source code dari GitHub..."
-                    val sourceCodeText = try {
-                        BackupManager.fetchSourceCodeText()
-                    } catch (e: Exception) {
-                        android.util.Log.e("Backup", "Fetch source gagal: ${e.message}")
-                        ""
-                    }
-
-                    backupProgress = "Menyimpan file backup..."
-                    doBackup(
-                        context = context,
-                        settings = settings,
-                        buildHistoryText = cachedBuildHistoryText,
-                        sourceCodeText = sourceCodeText.ifEmpty { null },
-                        onSuccess = { path ->
-                            lastBackupPath = path
-                            lastBackupStatus = "✅ Backup berhasil"
-                        },
-                        onError = { msg ->
-                            lastBackupPath = null
-                            lastBackupStatus = "❌ Gagal: $msg"
-                        },
-                        onNeedPermission = {
-                            needStoragePermission = true
-                        }
-                    )
-
-                    isBackupRunning = false
-                    backupProgress = ""
-                }
-            } catch (e: Exception) {
-                isBackupRunning = false
-                backupProgress = ""
-                lastBackupStatus = "❌ Error: ${e.message}"
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    )
-
-    if (lastBackupStatus != null) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0x33000000), RoundedCornerShape(8.dp))
-                .border(
-                    1.dp,
-                    if (lastBackupStatus?.startsWith("✅") == true)
-                        IslamicGreen
-                    else IslamicGold.copy(alpha = 0.5f),
-                    RoundedCornerShape(8.dp)
-                )
-                .padding(12.dp)
-        ) {
-            Text(
-                text = lastBackupStatus ?: "",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (lastBackupStatus?.startsWith("✅") == true)
-                    IslamicGreen else UrgentRed
-            )
-            if (lastBackupPath != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Lokasi: $lastBackupPath",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-            }
-        }
-    }
-    Spacer(modifier = Modifier.height(8.dp))
-
-// ============================================================
-// RIWAYAT CRASH
-// ============================================================
-DeveloperButton(
-    icon = Icons.Default.BugReport,
-    title = "RIWAYAT CRASH",
-    description = "Lihat daftar error yang pernah terjadi (${CrashReporter.getCrashHistory(context).size} tercatat)",
-    onClick = { showCrashHistory = true }
-)
-
-Spacer(modifier = Modifier.height(16.dp))
-
-// ============================================================
-// V1.04.429 — KREDENSIAL SECRET
-// ============================================================
-Text(
-    text = "KREDENSIAL SECRET",
-    fontSize = 14.sp,
-    fontWeight = FontWeight.Bold,
-    color = IslamicGoldLight
-)
-Text(
-    text = "Token Fonnte, Group ID, dan GitHub PAT disimpan terenkripsi " +
-            "dengan passphrase. Hanya bisa dibuka oleh Anda.",
-    fontSize = 12.sp,
-    color = TextSecondary,
-    lineHeight = 16.sp
-)
-
-// ============================================================
-// JIKA BELUM UNLOCK — Tampilkan tombol buka
-// ============================================================
-if (!isUnlocked) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0x33FFD700), RoundedCornerShape(10.dp))
-            .border(1.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-            .padding(16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = IslamicGold,
-                modifier = Modifier.size(36.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = if (hasPassphrase)
-                    "Kredensial terkunci"
-                else
-                    "Belum ada passphrase",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-            Text(
-                text = if (hasPassphrase)
-                    "Masukkan passphrase untuk membuka kredensial"
-                else
-                    "Buat passphrase baru (minimal 12 karakter)",
-                fontSize = 12.sp,
-                color = TextSecondary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            FonnteButton(
-                icon = Icons.Default.Lock,
-                label = if (hasPassphrase) "BUKA KREDENSIAL" else "BUAT PASSPHRASE",
-                backgroundColor = IslamicGold,
-                textColor = Color(0xFF09141D),
-                enabled = true,
-                onClick = {
-                    passphraseInput = ""
-                    passphraseConfirm = ""
-                    passphraseError = null
-                    isSetupMode = !hasPassphrase
-                    showPassphraseDialog = true
-                }
-            )
-        }
-    }
-} else {
-    // ============================================================
-// FORM TOKEN FONNTE
-// ============================================================
-Text(
-    text = "Token Fonnte",
-    fontSize = 12.sp,
-    color = TextSecondary,
-    modifier = Modifier.padding(bottom = 6.dp)
-)
-Box(
-    modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(10.dp))
-        .background(Color(0x22000000))
-        .border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp))
-        .padding(14.dp)
-) {
-    if (isEditingCredentials) {
-        // Mode edit: field kosong (tidak reveal token lama)
-        if (tokenInput.isEmpty()) {
-            Text(
-                text = "Masukkan Token Fonnte baru...",
-                fontSize = 14.sp,
-                color = TextSecondary.copy(alpha = 0.5f)
-            )
-        }
-        BasicTextField(
-            value = tokenInput,
-            onValueChange = { tokenInput = it },
-            textStyle = TextStyle(
-                fontSize = 14.sp,
-                color = TextPrimary
-            ),
-            visualTransformation = if (showTokenReveal)
-                VisualTransformation.None
-            else PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
-    } else {
-        // Mode tampil: masked read-only
-        Text(
-            text = if (CredentialManager.getToken().isNotEmpty())
-                "●●●●●●●●"
-            else
-                "(belum diisi)",
-            fontSize = 14.sp,
-            color = if (CredentialManager.getToken().isNotEmpty())
-                TextPrimary
-            else
-                TextSecondary.copy(alpha = 0.5f)
-        )
-    }
-}
-
-// ============================================================
-// FORM GROUP ID
-// ============================================================
-Spacer(modifier = Modifier.height(10.dp))
-Text(
-    text = "Group ID WhatsApp",
-    fontSize = 12.sp,
-    color = TextSecondary,
-    modifier = Modifier.padding(bottom = 6.dp)
-)
-Box(
-    modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(10.dp))
-        .background(Color(0x22000000))
-        .border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp))
-        .padding(14.dp)
-) {
-    if (isEditingCredentials) {
-        if (groupIdInput.isEmpty()) {
-            Text(
-                text = "Masukkan Group ID baru...",
-                fontSize = 14.sp,
-                color = TextSecondary.copy(alpha = 0.5f)
-            )
-        }
-        BasicTextField(
-            value = groupIdInput,
-            onValueChange = { groupIdInput = it },
-            textStyle = TextStyle(
-                fontSize = 14.sp,
-                color = TextPrimary
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-    } else {
-        Text(
-            text = if (CredentialManager.getGroupId().isNotEmpty())
-                "●●●●●●●●"
-            else
-                "(belum diisi)",
-            fontSize = 14.sp,
-            color = if (CredentialManager.getGroupId().isNotEmpty())
-                TextPrimary
-            else
-                TextSecondary.copy(alpha = 0.5f)
-        )
-    }
-}
-// ============================================================
-// FORM GITHUB PAT
-// ============================================================
-Spacer(modifier = Modifier.height(10.dp))
-Text(
-    text = "GitHub PAT (untuk sync Gist)",
-    fontSize = 12.sp,
-    color = TextSecondary,
-    modifier = Modifier.padding(bottom = 6.dp)
-)
-Box(
-    modifier = Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(10.dp))
-        .background(Color(0x22000000))
-        .border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp))
-        .padding(14.dp)
-) {
-    if (isEditingCredentials) {
-        if (patInput.isEmpty()) {
-            Text(
-                text = "Masukkan GitHub PAT baru...",
-                fontSize = 14.sp,
-                color = TextSecondary.copy(alpha = 0.5f)
-            )
-        }
-        BasicTextField(
-            value = patInput,
-            onValueChange = { patInput = it },
-            textStyle = TextStyle(
-                fontSize = 14.sp,
-                color = TextPrimary
-            ),
-            visualTransformation = if (showTokenReveal)
-                VisualTransformation.None
-            else PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
-    } else {
-        Text(
-            text = if (CredentialManager.getPat().isNotEmpty())
-                "●●●●●●●●"
-            else
-                "(belum diisi)",
-            fontSize = 14.sp,
-            color = if (CredentialManager.getPat().isNotEmpty())
-                TextPrimary
-            else
-                TextSecondary.copy(alpha = 0.5f)
-        )
-    }
-}
-
-// ============================================================
-// TOMBOL AKSI
-// ============================================================
-Spacer(modifier = Modifier.height(14.dp))
-Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(10.dp)
-) {
-    if (!isEditingCredentials) {
-        // Mode tampil: UBAH + SYNC
-        Box(modifier = Modifier.weight(1f)) {
-            FonnteButton(
-                icon = Icons.Default.Edit,
-                label = "UBAH",
-                backgroundColor = IslamicGold,
-                textColor = Color(0xFF09141D),
-                enabled = !isSyncing,
-                onClick = {
-                    tokenInput = ""
-                    groupIdInput = ""
-                    patInput = ""
-                    isEditingCredentials = true
-                }
-            )
-        }
-        Box(modifier = Modifier.weight(1f)) {
-            FonnteButton(
-                icon = Icons.Default.Cloud,
-                label = if (isSyncing) "SYNC..." else "SYNC",
-                backgroundColor = IslamicGreen,
-                textColor = Color.White,
-                enabled = !isSyncing && CredentialManager.getPat().isNotEmpty(),
-                onClick = {
-                    if (isSyncing) return@FonnteButton
-                    isSyncing = true
-                    lastSyncStatus = null
+                    // Mode unlock: verifikasi passphrase
                     scope.launch {
-                        val result = CredentialManager.syncFromCloud(context)
-                        isSyncing = false
-                        if (result.success) {
-                            if (result.hasRemoteChange && result.remoteCredentials != null) {
-                                CredentialManager.applyRemoteCredentials(
-                                    context,
-                                    result.remoteCredentials
-                                )
-                                lastSyncStatus = "✅ Berhasil sync dari cloud"
-                            } else {
-                                lastSyncStatus = "ℹ️ ${result.message}"
-                            }
-                        } else {
-                            lastSyncStatus = "❌ ${result.message}"
+                        val ok = kotlinx.coroutines.withContext(
+                            kotlinx.coroutines.Dispatchers.IO
+                        ) {
+                            CredentialManager.unlock(context, passphraseInput)
                         }
-                    }
-                }
-            )
-        }
-    } else {
-        // Mode edit: SIMPAN + BATAL
-        Box(modifier = Modifier.weight(1f)) {
-            FonnteButton(
-                icon = Icons.Default.CheckCircle,
-                label = "SIMPAN",
-                backgroundColor = IslamicGold,
-                textColor = Color(0xFF09141D),
-                enabled = tokenInput.isNotBlank() ||
-                        groupIdInput.isNotBlank() ||
-                        patInput.isNotBlank(),
-                onClick = {
-                    scope.launch {
-                        val tokenBaru = tokenInput.ifBlank {
-                            CredentialManager.getToken()
-                        }
-                        val groupBaru = groupIdInput.ifBlank {
-                            CredentialManager.getGroupId()
-                        }
-                        val patBaru = patInput.ifBlank {
-                            CredentialManager.getPat()
-                        }
-
-                        val creds = CredentialManager.Credentials(
-                            fonnteToken = tokenBaru,
-                            fonnteGroupId = groupBaru,
-                            githubPat = patBaru
-                        )
-                        val ok = CredentialManager.saveCredentials(context, creds)
                         if (ok) {
-                            onUpdate(
-                                settings.copy(
-                                    fonnteToken = tokenBaru,
-                                    fonnteGroupId = groupBaru,
-                                    gistId = CredentialManager.getGistId(context) ?: ""
-                                )
-                            )
-                            if (patBaru.isNotBlank()) {
-                                val syncRes = CredentialManager.syncToCloud(context)
-                                if (syncRes.success) {
-                                    lastSyncStatus = "✅ Tersimpan + sync cloud"
-                                } else {
-                                    lastSyncStatus = "⚠️ Tersimpan lokal, sync gagal"
-                                }
-                            } else {
-                                lastSyncStatus = "✅ Tersimpan lokal"
-                            }
-                            isEditingCredentials = false
-                            tokenInput = ""
-                            groupIdInput = ""
-                            patInput = ""
-                        } else {
+                            isUnlocked = true
+                            showPassphraseDialog = false
+                            passphraseInput = ""
                             Toast.makeText(
                                 context,
-                                "Gagal menyimpan",
+                                "Passphrase benar. Kredensial terbuka.",
                                 Toast.LENGTH_SHORT
                             ).show()
+                        } else {
+                            passphraseError = "Passphrase salah"
                         }
                     }
                 }
-            )
-        }
-        Box(modifier = Modifier.weight(1f)) {
-            FonnteButton(
-                icon = Icons.Default.Close,
-                label = "BATAL",
-                backgroundColor = Color(0xFF142735),
-                textColor = TextPrimary,
-                enabled = true,
-                onClick = {
-                    isEditingCredentials = false
-                    tokenInput = ""
-                    groupIdInput = ""
-                    patInput = ""
-                }
-            )
-        }
+            },
+            onDismiss = {
+                showPassphraseDialog = false
+                passphraseInput = ""
+                passphraseConfirm = ""
+                passphraseError = null
+            }
+        )
     }
-}
 
-// ============================================================
-// STATUS SYNC
-// ============================================================
-if (lastSyncStatus != null) {
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        text = lastSyncStatus ?: "",
-        fontSize = 12.sp,
-        color = if (lastSyncStatus?.startsWith("✅") == true)
-            IslamicGreen else UrgentRed
-    )
-}
-            // ============================================================
-            // INFO CARA DAPAT TOKEN FONNTE
-            // ============================================================
-            Spacer(modifier = Modifier.height(12.dp))
+    // ============================================================
+    // MAIN COLUMN
+    // ============================================================
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // HEADER
+        Text(
+            text = "OPSI DEVELOPER",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
+        Text(
+            text = "Menu khusus owner. Jangan dibagikan ke orang lain.",
+            fontSize = 13.sp,
+            color = TextSecondary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        InfoBox(
+            icon = Icons.Default.Info,
+            title = "Versi Aplikasi",
+            value = try { BuildConfig.VERSION_NAME } catch (e: Exception) { "Unknown" },
+            description = "Versi build saat ini"
+        )
+
+        // ============================================================
+        // REFRESH BUILD HISTORY
+        // ============================================================
+        Text(
+            text = "RIWAYAT BUILD",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = IslamicGoldLight
+        )
+        Text(
+            text = "Fetch 10 build terakhir dari GitHub Actions. Hasilnya akan ikut ke Backup Aman.",
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+
+        DeveloperButton(
+            icon = Icons.Default.Refresh,
+            title = if (isFetchingBuild) "MENGAMBIL DATA..." else "REFRESH BUILD HISTORY",
+            description = lastFetchStatus ?: "Ambil data build terbaru dari GitHub",
+            disabled = isFetchingBuild,
+            onClick = {
+                if (isFetchingBuild) return@DeveloperButton
+                isFetchingBuild = true
+                lastFetchStatus = null
+                scope.launch {
+                    val builds = BuildHistoryFetcher.fetchRecentBuilds()
+                    isFetchingBuild = false
+                    if (builds.isEmpty()) {
+                        cachedBuildHistoryText = null
+                        lastFetchStatus = "⚠️ Gagal fetch (tidak ada koneksi / rate limit)"
+                        Toast.makeText(context, "Gagal fetch build history. Cek koneksi internet.", Toast.LENGTH_LONG).show()
+                    } else {
+                        cachedBuildHistoryText = BuildHistoryFetcher.formatBuildsAsText(builds)
+                        val failedCount = builds.count { it.conclusion == "failure" }
+                        lastFetchStatus = "✅ ${builds.size} build di-fetch • $failedCount gagal"
+                        Toast.makeText(context, "Berhasil! ${builds.size} build (${failedCount} gagal)", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        )
+
+        if (lastFetchStatus != null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0x22FFD700), RoundedCornerShape(10.dp))
-                    .border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                    .padding(14.dp)
+                    .background(Color(0x33000000), RoundedCornerShape(8.dp))
+                    .border(1.dp, if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed, RoundedCornerShape(8.dp))
+                    .padding(12.dp)
             ) {
-                Column {
+                Text(
+                    text = lastFetchStatus ?: "",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (lastFetchStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // ============================================================
+        // PERMISSION STORAGE WARNING
+        // ============================================================
+        if (needStoragePermission) {
+            PermissionWarningCard(
+                onGrantClick = { BackupManager.openPermissionSettings(context) }
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        // ============================================================
+        // BACKUP AMAN
+        // ============================================================
+        DeveloperButton(
+            icon = Icons.Default.Save,
+            title = if (isBackupRunning) backupProgress.ifEmpty { "BACKUP SEDANG PROSES..." } else "BACKUP AMAN",
+            description = "Export semua info aplikasi + FULL SOURCE CODE ke file .TXT",
+            disabled = isBackupRunning,
+            onClick = {
+                if (isBackupRunning) return@DeveloperButton
+                try {
+                    if (BackupManager.needsStoragePermission()) {
+                        needStoragePermission = true
+                        lastBackupStatus = "⚠️ Izin storage diperlukan"
+                        Toast.makeText(context, "Beri izin storage dulu, lalu coba lagi", Toast.LENGTH_LONG).show()
+                        return@DeveloperButton
+                    }
+
+                    isBackupRunning = true
+                    lastBackupStatus = null
+                    lastBackupPath = null
+                    backupProgress = "Menyiapkan backup..."
+
+                    scope.launch {
+                        if (cachedBuildHistoryText == null) {
+                            backupProgress = "Mengambil build history..."
+                            val builds = BuildHistoryFetcher.fetchRecentBuilds()
+                            cachedBuildHistoryText = if (builds.isNotEmpty()) BuildHistoryFetcher.formatBuildsAsText(builds) else null
+                        }
+
+                        backupProgress = "Mengambil source code dari GitHub..."
+                        val sourceCodeText = try {
+                            BackupManager.fetchSourceCodeText()
+                        } catch (e: Exception) {
+                            android.util.Log.e("Backup", "Fetch source gagal: ${e.message}")
+                            ""
+                        }
+
+                        backupProgress = "Menyimpan file backup..."
+                        doBackup(
+                            context = context,
+                            settings = settings,
+                            buildHistoryText = cachedBuildHistoryText,
+                            sourceCodeText = sourceCodeText.ifEmpty { null },
+                            onSuccess = { path ->
+                                lastBackupPath = path
+                                lastBackupStatus = "✅ Backup berhasil"
+                            },
+                            onError = { msg ->
+                                lastBackupPath = null
+                                lastBackupStatus = "❌ Gagal: $msg"
+                            },
+                            onNeedPermission = {
+                                needStoragePermission = true
+                            }
+                        )
+
+                        isBackupRunning = false
+                        backupProgress = ""
+                    }
+                } catch (e: Exception) {
+                    isBackupRunning = false
+                    backupProgress = ""
+                    lastBackupStatus = "❌ Error: ${e.message}"
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        )
+
+        if (lastBackupStatus != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x33000000), RoundedCornerShape(8.dp))
+                    .border(1.dp, if (lastBackupStatus?.startsWith("✅") == true) IslamicGreen else IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = lastBackupStatus ?: "",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (lastBackupStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed
+                )
+                if (lastBackupPath != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "Lokasi: $lastBackupPath", fontSize = 12.sp, color = TextSecondary)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ============================================================
+        // RIWAYAT CRASH
+        // ============================================================
+        DeveloperButton(
+            icon = Icons.Default.BugReport,
+            title = "RIWAYAT CRASH",
+            description = "Lihat daftar error yang pernah terjadi (${CrashReporter.getCrashHistory(context).size} tercatat)",
+            onClick = { showCrashHistory = true }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ============================================================
+        // KREDENSIAL SECRET
+        // ============================================================
+        Text(text = "KREDENSIAL SECRET", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+        Text(
+            text = "Token Fonnte, Group ID, dan GitHub PAT disimpan terenkripsi dengan passphrase. Hanya bisa dibuka oleh Anda.",
+            fontSize = 12.sp,
+            color = TextSecondary,
+            lineHeight = 16.sp
+        )
+
+        // JIKA BELUM UNLOCK
+        if (!isUnlocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x33FFD700), RoundedCornerShape(10.dp))
+                    .border(1.dp, IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                    .padding(16.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Lock, null, tint = IslamicGold, modifier = Modifier.size(36.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "ℹ️ Cara Dapat Token Fonnte",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IslamicGoldLight
+                        text = if (hasPassphrase) "Kredensial terkunci" else "Belum ada passphrase",
+                        fontSize = 15.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight
                     )
+                    Text(
+                        text = if (hasPassphrase) "Masukkan passphrase untuk membuka kredensial" else "Buat passphrase baru (minimal 12 karakter)",
+                        fontSize = 12.sp, color = TextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    FonnteButton(
+                        icon = Icons.Default.Lock,
+                        label = if (hasPassphrase) "BUKA KREDENSIAL" else "BUAT PASSPHRASE",
+                        backgroundColor = IslamicGold,
+                        textColor = Color(0xFF09141D),
+                        enabled = true,
+                        onClick = {
+                            passphraseInput = ""
+                            passphraseConfirm = ""
+                            passphraseError = null
+                            isSetupMode = !hasPassphrase
+                            showPassphraseDialog = true
+                        }
+                    )
+                }
+            }
+        } else {
+            // FORM TOKEN FONNTE
+            Text(text = "Token Fonnte", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x22000000)).border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp)).padding(14.dp)
+            ) {
+                if (isEditingCredentials) {
+                    if (tokenInput.isEmpty()) { Text("Masukkan Token Fonnte baru...", fontSize = 14.sp, color = TextSecondary.copy(alpha = 0.5f)) }
+                    BasicTextField(
+                        value = tokenInput, onValueChange = { tokenInput = it },
+                        textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
+                        visualTransformation = if (showTokenReveal) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Text(
+                        text = if (CredentialManager.getToken().isNotEmpty()) "●●●●●●●●" else "(belum diisi)",
+                        fontSize = 14.sp,
+                        color = if (CredentialManager.getToken().isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            // FORM GROUP ID
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(text = "Group ID WhatsApp", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x22000000)).border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp)).padding(14.dp)
+            ) {
+                if (isEditingCredentials) {
+                    if (groupIdInput.isEmpty()) { Text("Masukkan Group ID baru...", fontSize = 14.sp, color = TextSecondary.copy(alpha = 0.5f)) }
+                    BasicTextField(
+                        value = groupIdInput, onValueChange = { groupIdInput = it },
+                        textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Text(
+                        text = if (CredentialManager.getGroupId().isNotEmpty()) "●●●●●●●●" else "(belum diisi)",
+                        fontSize = 14.sp,
+                        color = if (CredentialManager.getGroupId().isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            // FORM GITHUB PAT
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(text = "GitHub PAT (untuk sync Gist)", fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x22000000)).border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp)).padding(14.dp)
+            ) {
+                if (isEditingCredentials) {
+                    if (patInput.isEmpty()) { Text("Masukkan GitHub PAT baru...", fontSize = 14.sp, color = TextSecondary.copy(alpha = 0.5f)) }
+                    BasicTextField(
+                        value = patInput, onValueChange = { patInput = it },
+                        textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
+                        visualTransformation = if (showTokenReveal) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Text(
+                        text = if (CredentialManager.getPat().isNotEmpty()) "●●●●●●●●" else "(belum diisi)",
+                        fontSize = 14.sp,
+                        color = if (CredentialManager.getPat().isNotEmpty()) TextPrimary else TextSecondary.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            // TOMBOL AKSI
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (!isEditingCredentials) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        FonnteButton(
+                            icon = Icons.Default.Edit, label = "UBAH", backgroundColor = IslamicGold, textColor = Color(0xFF09141D), enabled = !isSyncing,
+                            onClick = { tokenInput = ""; groupIdInput = ""; patInput = ""; isEditingCredentials = true }
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        FonnteButton(
+                            icon = Icons.Default.Cloud, label = if (isSyncing) "SYNC..." else "SYNC", backgroundColor = IslamicGreen, textColor = Color.White,
+                            enabled = !isSyncing && CredentialManager.getPat().isNotEmpty(),
+                            onClick = {
+                                if (isSyncing) return@FonnteButton
+                                isSyncing = true; lastSyncStatus = null
+                                scope.launch {
+                                    val result = CredentialManager.syncFromCloud(context)
+                                    isSyncing = false
+                                    if (result.success) {
+                                        if (result.hasRemoteChange && result.remoteCredentials != null) {
+                                            CredentialManager.applyRemoteCredentials(context, result.remoteCredentials)
+                                            lastSyncStatus = "✅ Berhasil sync dari cloud"
+                                        } else lastSyncStatus = "ℹ️ ${result.message}"
+                                    } else lastSyncStatus = "❌ ${result.message}"
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    Box(modifier = Modifier.weight(1f)) {
+                        FonnteButton(
+                            icon = Icons.Default.CheckCircle, label = "SIMPAN", backgroundColor = IslamicGold, textColor = Color(0xFF09141D),
+                            enabled = tokenInput.isNotBlank() || groupIdInput.isNotBlank() || patInput.isNotBlank(),
+                            onClick = {
+                                scope.launch {
+                                    val tokenBaru = tokenInput.ifBlank { CredentialManager.getToken() }
+                                    val groupBaru = groupIdInput.ifBlank { CredentialManager.getGroupId() }
+                                    val patBaru = patInput.ifBlank { CredentialManager.getPat() }
+                                    val creds = CredentialManager.Credentials(fonnteToken = tokenBaru, fonnteGroupId = groupBaru, githubPat = patBaru)
+                                    val ok = CredentialManager.saveCredentials(context, creds)
+                                    if (ok) {
+                                        onUpdate(settings.copy(fonnteToken = tokenBaru, fonnteGroupId = groupBaru, gistId = CredentialManager.getGistId(context) ?: ""))
+                                        if (patBaru.isNotBlank()) {
+                                            val syncRes = CredentialManager.syncToCloud(context)
+                                            if (syncRes.success) lastSyncStatus = "✅ Tersimpan + sync cloud"
+                                            else lastSyncStatus = "⚠️ Tersimpan lokal, sync gagal"
+                                        } else lastSyncStatus = "✅ Tersimpan lokal"
+                                        isEditingCredentials = false; tokenInput = ""; groupIdInput = ""; patInput = ""
+                                    } else Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        FonnteButton(
+                            icon = Icons.Default.Close, label = "BATAL", backgroundColor = Color(0xFF142735), textColor = TextPrimary, enabled = true,
+                            onClick = { isEditingCredentials = false; tokenInput = ""; groupIdInput = ""; patInput = "" }
+                        )
+                    }
+                }
+            }
+
+            if (lastSyncStatus != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = lastSyncStatus ?: "", fontSize = 12.sp, color = if (lastSyncStatus?.startsWith("✅") == true) IslamicGreen else UrgentRed)
+            }
+
+            // INFO CARA DAPAT TOKEN FONNTE
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.fillMaxWidth().background(Color(0x22FFD700), RoundedCornerShape(10.dp)).border(1.dp, IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).padding(14.dp)) {
+                Column {
+                    Text("ℹ️ Cara Dapat Token Fonnte", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "1. Daftar di fonnte.com\n" +
-                                "2. Scan QR pakai WA Anda\n" +
-                                "3. Copy Token dari dashboard\n" +
-                                "4. Buat grup WA admin & dapatkan ID grup\n" +
-                                "5. Paste di kolom atas → SIMPAN",
-                        fontSize = 12.sp,
-                        color = TextPrimary,
-                        lineHeight = 18.sp
+                        text = "1. Daftar di fonnte.com\n2. Scan QR pakai WA Anda\n3. Copy Token dari dashboard\n4. Buat grup WA admin & dapatkan ID grup\n5. Paste di kolom atas → SIMPAN",
+                        fontSize = 12.sp, color = TextPrimary, lineHeight = 18.sp
                     )
                 }
             }
         }
 
         // ============================================================
-        // TOMBOL SALIN PROMPT AI (Proyek 3)
+        // TOMBOL SALIN PROMPT AI
         // ============================================================
         Spacer(modifier = Modifier.height(16.dp))
-
         DeveloperButton(
             icon = Icons.Default.ContentCopy,
             title = "SALIN PROMPT AI",
@@ -899,47 +649,23 @@ if (lastSyncStatus != null) {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Masjid.io Prompt", promptText)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(
-                    context,
-                    "✅ Prompt tersalin ke clipboard",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "✅ Prompt tersalin ke clipboard", Toast.LENGTH_LONG).show()
             }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ============================================================
         // LOKASI BACKUP
-        // ============================================================
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0x22000000), RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
-                .padding(12.dp)
-        ) {
-            Text(
-                text = "📍 Lokasi Backup",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
+        Column(modifier = Modifier.fillMaxWidth().background(Color(0x22000000), RoundedCornerShape(8.dp)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp)).padding(12.dp)) {
+            Text("📍 Lokasi Backup", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "/sdcard/masjid.io/backup aman/",
-                fontSize = 12.sp,
-                color = TextPrimary
-            )
+            Text("/sdcard/masjid.io/backup aman/", fontSize = 12.sp, color = TextPrimary)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "File: Backup Aman-masjid.io-DD-MM-YYYY.TXT",
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
+            Text("File: Backup Aman-masjid.io-DD-MM-YYYY.TXT", fontSize = 11.sp, color = TextSecondary)
         }
     }
 }
+
 // ============================================================
 // FUNGSI HELPER: DO BACKUP
 // ============================================================
@@ -962,19 +688,11 @@ private fun doBackup(
 
         if (result.success) {
             onSuccess(result.filePath ?: "")
-            Toast.makeText(
-                context,
-                "Backup tersimpan:\n${result.filePath}",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, "Backup tersimpan:\n${result.filePath}", Toast.LENGTH_LONG).show()
         } else {
             if (result.needPermission) onNeedPermission()
             onError(result.errorMessage ?: "Unknown error")
-            Toast.makeText(
-                context,
-                "Backup gagal: ${result.errorMessage}",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, "Backup gagal: ${result.errorMessage}", Toast.LENGTH_LONG).show()
         }
     } catch (e: Exception) {
         onError(e.message ?: "Error")
@@ -986,35 +704,16 @@ private fun doBackup(
 // KOMPONEN: INFO BOX
 // ============================================================
 @Composable
-private fun InfoBox(
-    icon: ImageVector,
-    title: String,
-    value: String,
-    description: String
-) {
+private fun InfoBox(icon: ImageVector, title: String, value: String, description: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0x33000000), RoundedCornerShape(10.dp))
-            .border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth().background(Color(0x33000000), RoundedCornerShape(10.dp)).border(1.dp, IslamicGold.copy(alpha = 0.4f), RoundedCornerShape(10.dp)).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = IslamicGold,
-            modifier = Modifier.size(32.dp)
-        )
+        Icon(imageVector = icon, contentDescription = null, tint = IslamicGold, modifier = Modifier.size(32.dp))
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 13.sp, color = TextSecondary)
-            Text(
-                value,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             Text(description, fontSize = 11.sp, color = TextSecondary)
         }
     }
@@ -1024,130 +723,49 @@ private fun InfoBox(
 // KOMPONEN: PERMISSION WARNING CARD
 // ============================================================
 @Composable
-private fun PermissionWarningCard(
-    onGrantClick: () -> Unit
-) {
+private fun PermissionWarningCard(onGrantClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(UrgentRed.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-            .border(
-                if (isFocused) 3.dp else 2.dp,
-                UrgentRed,
-                RoundedCornerShape(12.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .padding(16.dp)
+        modifier = Modifier.fillMaxWidth().background(UrgentRed.copy(alpha = 0.15f), RoundedCornerShape(12.dp)).border(if (isFocused) 3.dp else 2.dp, UrgentRed, RoundedCornerShape(12.dp)).onFocusChanged { isFocused = it.isFocused }.padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = UrgentRed,
-                modifier = Modifier.size(28.dp)
-            )
+            Icon(Icons.Default.Lock, null, tint = UrgentRed, modifier = Modifier.size(28.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "⚠️ IZIN STORAGE DIPERLUKAN",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = UrgentRed
-                )
+                Text("⚠️ IZIN STORAGE DIPERLUKAN", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = UrgentRed)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Untuk menyimpan Backup Aman ke /sdcard/masjid.io/, aplikasi butuh izin 'Akses semua file'.",
-                    fontSize = 12.sp,
-                    color = TextPrimary,
-                    lineHeight = 18.sp
-                )
+                Text("Untuk menyimpan Backup Aman ke /sdcard/masjid.io/, aplikasi butuh izin 'Akses semua file'.", fontSize = 12.sp, color = TextPrimary, lineHeight = 18.sp)
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(UrgentRed)
-                .clickable { onGrantClick() }
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(UrgentRed).clickable { onGrantClick() }.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "BERI IZIN SEKARANG",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Text("BERI IZIN SEKARANG", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }
 }
+
 // ============================================================
 // KOMPONEN: DEVELOPER BUTTON
 // ============================================================
 @Composable
-private fun DeveloperButton(
-    icon: ImageVector,
-    title: String,
-    description: String,
-    onClick: () -> Unit,
-    disabled: Boolean = false
-) {
+private fun DeveloperButton(icon: ImageVector, title: String, description: String, onClick: () -> Unit, disabled: Boolean = false) {
     var isFocused by remember { mutableStateOf(false) }
-    val borderColor = when {
-        disabled -> Color(0x33FFFFFF)
-        isFocused -> IslamicGoldLight
-        else -> IslamicGold.copy(alpha = 0.5f)
-    }
+    val borderColor = when { disabled -> Color(0x33FFFFFF); isFocused -> IslamicGoldLight; else -> IslamicGold.copy(alpha = 0.5f) }
     val contentColor = if (disabled) TextSecondary.copy(alpha = 0.5f) else TextPrimary
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                if (isFocused && !disabled) Color(0x33FFD700) else Color(0x22000000),
-                RoundedCornerShape(10.dp)
-            )
-            .border(
-                if (isFocused) 3.dp else 1.5.dp,
-                borderColor,
-                RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable(enabled = !disabled) { onClick() }
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().background(if (isFocused && !disabled) Color(0x33FFD700) else Color(0x22000000), RoundedCornerShape(10.dp)).border(if (isFocused) 3.dp else 1.5.dp, borderColor, RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable().clickable(enabled = !disabled) { onClick() }.padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            tint = if (disabled) TextSecondary.copy(alpha = 0.5f) else IslamicGold,
-            modifier = Modifier.size(32.dp)
-        )
+        Icon(icon, title, tint = if (disabled) TextSecondary.copy(alpha = 0.5f) else IslamicGold, modifier = Modifier.size(32.dp))
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (disabled) TextSecondary.copy(alpha = 0.5f) else IslamicGoldLight
-            )
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                color = contentColor.copy(alpha = 0.7f)
-            )
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (disabled) TextSecondary.copy(alpha = 0.5f) else IslamicGoldLight)
+            Text(description, fontSize = 12.sp, color = contentColor.copy(alpha = 0.7f))
         }
     }
 }
@@ -1156,132 +774,43 @@ private fun DeveloperButton(
 // KOMPONEN: FONNTE TOGGLE
 // ============================================================
 @Composable
-private fun FonnteToggle(
-    label: String,
-    description: String,
-    isChecked: Boolean,
-    onToggle: (Boolean) -> Unit
-) {
+private fun FonnteToggle(label: String, description: String, isChecked: Boolean, onToggle: (Boolean) -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isFocused) Color(0x33FFD700) else Color(0x22000000))
-            .border(
-                if (isFocused) 3.dp else 1.5.dp,
-                if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.5f),
-                RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
-            .clickable { onToggle(!isChecked) }
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (isFocused) Color(0x33FFD700) else Color(0x22000000)).border(if (isFocused) 3.dp else 1.5.dp, if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable().clickable { onToggle(!isChecked) }.padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
+            Text(description, fontSize = 12.sp, color = TextSecondary)
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 28.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(if (isChecked) IslamicGreen else Color(0x55FFFFFF))
-                .padding(3.dp),
-            contentAlignment = if (isChecked) Alignment.CenterEnd else Alignment.CenterStart
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(Color.White)
-            )
+        Box(modifier = Modifier.size(width = 52.dp, height = 28.dp).clip(RoundedCornerShape(14.dp)).background(if (isChecked) IslamicGreen else Color(0x55FFFFFF)).padding(3.dp), contentAlignment = if (isChecked) Alignment.CenterEnd else Alignment.CenterStart) {
+            Box(modifier = Modifier.size(22.dp).clip(RoundedCornerShape(11.dp)).background(Color.White))
         }
     }
 }
+
 // ============================================================
-// KOMPONEN: FONNTE INPUT FIELD
-// (Masih dipakai untuk backward compatibility /
-//  bisa dihapus kalau tidak dipakai lagi)
+// KOMPONEN: FONNTE INPUT FIELD (Backward compat)
 // ============================================================
 @Composable
-private fun FonnteInputField(
-    label: String,
-    value: String,
-    placeholder: String,
-    isPassword: Boolean,
-    showPassword: Boolean,
-    onTogglePassword: () -> Unit,
-    onValueChange: (String) -> Unit
-) {
+private fun FonnteInputField(label: String, value: String, placeholder: String, isPassword: Boolean, showPassword: Boolean, onTogglePassword: () -> Unit, onValueChange: (String) -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(label, fontSize = 12.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
             if (isPassword) {
-                Text(
-                    text = if (showPassword) "SEMBUNYIKAN" else "LIHAT",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGold,
-                    modifier = Modifier
-                        .clickable { onTogglePassword() }
-                        .padding(4.dp)
-                )
+                Text(if (showPassword) "SEMBUNYIKAN" else "LIHAT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = IslamicGold, modifier = Modifier.clickable { onTogglePassword() }.padding(4.dp))
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0x22000000))
-                .border(
-                    if (isFocused) 3.dp else 1.dp,
-                    if (isFocused) IslamicGoldLight else Color(0x44FFFFFF),
-                    RoundedCornerShape(10.dp)
-                )
-                .padding(14.dp)
-        ) {
-            if (value.isEmpty()) {
-                Text(
-                    text = placeholder,
-                    fontSize = 14.sp,
-                    color = TextSecondary.copy(alpha = 0.5f)
-                )
-            }
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x22000000)).border(if (isFocused) 3.dp else 1.dp, if (isFocused) IslamicGoldLight else Color(0x44FFFFFF), RoundedCornerShape(10.dp)).padding(14.dp)) {
+            if (value.isEmpty()) { Text(placeholder, fontSize = 14.sp, color = TextSecondary.copy(alpha = 0.5f)) }
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                textStyle = TextStyle(
-                    fontSize = 14.sp,
-                    color = TextPrimary
-                ),
-                visualTransformation = if (isPassword && !showPassword)
-                    PasswordVisualTransformation() else VisualTransformation.None,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { isFocused = it.isFocused }
+                value = value, onValueChange = onValueChange, textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
+                visualTransformation = if (isPassword && !showPassword) PasswordVisualTransformation() else VisualTransformation.None,
+                modifier = Modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused }
             )
         }
     }
@@ -1291,232 +820,85 @@ private fun FonnteInputField(
 // KOMPONEN: FONNTE BUTTON
 // ============================================================
 @Composable
-private fun FonnteButton(
-    icon: ImageVector,
-    label: String,
-    backgroundColor: Color,
-    textColor: Color,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
+private fun FonnteButton(icon: ImageVector, label: String, backgroundColor: Color, textColor: Color, enabled: Boolean, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (enabled) backgroundColor else backgroundColor.copy(alpha = 0.4f))
-            .border(
-                if (isFocused && enabled) 3.dp else 0.dp,
-                if (isFocused && enabled) IslamicGoldLight else Color.Transparent,
-                RoundedCornerShape(10.dp)
-            )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable(enabled)
-            .clickable(enabled) { onClick() }
-            .padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (enabled) backgroundColor else backgroundColor.copy(alpha = 0.4f)).border(if (isFocused && enabled) 3.dp else 0.dp, if (isFocused && enabled) IslamicGoldLight else Color.Transparent, RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable(enabled).clickable(enabled) { onClick() }.padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = textColor,
-            modifier = Modifier.size(20.dp)
-        )
+        Icon(icon, label, tint = textColor, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
     }
 }
+
 // ============================================================
 // KOMPONEN: PASSPHRASE DIALOG
-// V1.04.429 — Dialog untuk buat / masukkan passphrase
-//
-// Mode SETUP  : Buat passphrase baru (min 12 karakter)
-// Mode UNLOCK : Masukkan passphrase untuk buka kredensial
 // ============================================================
 @Composable
-private fun PassphraseDialog(
-    isSetupMode: Boolean,
-    passphrase: String,
-    passphraseConfirm: String,
-    errorMessage: String?,
-    onPassphraseChange: (String) -> Unit,
-    onConfirmChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
+private fun PassphraseDialog(isSetupMode: Boolean, passphrase: String, passphraseConfirm: String, errorMessage: String?, onPassphraseChange: (String) -> Unit, onConfirmChange: (String) -> Unit, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     var isFocusedPass by remember { mutableStateOf(false) }
     var isFocusedConfirm by remember { mutableStateOf(false) }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss
-    ) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .width(480.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF0B1720))
-                .border(2.dp, IslamicGold, RoundedCornerShape(16.dp))
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.width(480.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF0B1720)).border(2.dp, IslamicGold, RoundedCornerShape(16.dp)).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = IslamicGold,
-                modifier = Modifier.size(48.dp)
-            )
-
+            Icon(Icons.Default.Lock, null, tint = IslamicGold, modifier = Modifier.size(48.dp))
+            Text(if (isSetupMode) "BUAT PASSPHRASE" else "BUKA KREDENSIAL", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             Text(
-                text = if (isSetupMode) "BUAT PASSPHRASE" else "BUKA KREDENSIAL",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
+                text = if (isSetupMode) "Passphrase minimal 12 karakter. Catat & simpan dengan aman — kalau lupa, kredensial tidak bisa dibuka." else "Masukkan passphrase untuk membuka Token Fonnte, Group ID, dan GitHub PAT.",
+                fontSize = 12.sp, color = TextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 16.sp
             )
 
-            Text(
-                text = if (isSetupMode)
-                    "Passphrase minimal 12 karakter. Catat & simpan dengan aman — kalau lupa, kredensial tidak bisa dibuka."
-                else
-                    "Masukkan passphrase untuk membuka Token Fonnte, Group ID, dan GitHub PAT.",
-                fontSize = 12.sp,
-                color = TextSecondary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 16.sp
-            )
-
-            // ---------- INPUT PASSPHRASE ----------
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0x22000000))
-                    .border(
-                        if (isFocusedPass) 3.dp else 1.dp,
-                        if (isFocusedPass) IslamicGoldLight else Color(0x44FFFFFF),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .padding(14.dp)
-            ) {
-                if (passphrase.isEmpty()) {
-                    Text(
-                        text = "Passphrase...",
-                        fontSize = 14.sp,
-                        color = TextSecondary.copy(alpha = 0.5f)
-                    )
-                }
+            // INPUT PASSPHRASE
+            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x22000000)).border(if (isFocusedPass) 3.dp else 1.dp, if (isFocusedPass) IslamicGoldLight else Color(0x44FFFFFF), RoundedCornerShape(10.dp)).padding(14.dp)) {
+                if (passphrase.isEmpty()) { Text("Passphrase...", fontSize = 14.sp, color = TextSecondary.copy(alpha = 0.5f)) }
                 BasicTextField(
-                    value = passphrase,
-                    onValueChange = onPassphraseChange,
-                    textStyle = TextStyle(
-                        fontSize = 14.sp,
-                        color = TextPrimary
-                    ),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { isFocusedPass = it.isFocused }
+                    value = passphrase, onValueChange = onPassphraseChange, textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
+                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().onFocusChanged { isFocusedPass = it.isFocused }
                 )
             }
 
-            // ---------- INPUT KONFIRM (hanya setup) ----------
+            // INPUT KONFIRM
             if (isSetupMode) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0x22000000))
-                        .border(
-                            if (isFocusedConfirm) 3.dp else 1.dp,
-                            if (isFocusedConfirm) IslamicGoldLight else Color(0x44FFFFFF),
-                            RoundedCornerShape(10.dp)
-                        )
-                        .padding(14.dp)
-                ) {
-                    if (passphraseConfirm.isEmpty()) {
-                        Text(
-                            text = "Ulangi passphrase...",
-                            fontSize = 14.sp,
-                            color = TextSecondary.copy(alpha = 0.5f)
-                        )
-                    }
+                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x22000000)).border(if (isFocusedConfirm) 3.dp else 1.dp, if (isFocusedConfirm) IslamicGoldLight else Color(0x44FFFFFF), RoundedCornerShape(10.dp)).padding(14.dp)) {
+                    if (passphraseConfirm.isEmpty()) { Text("Ulangi passphrase...", fontSize = 14.sp, color = TextSecondary.copy(alpha = 0.5f)) }
                     BasicTextField(
-                        value = passphraseConfirm,
-                        onValueChange = onConfirmChange,
-                        textStyle = TextStyle(
-                            fontSize = 14.sp,
-                            color = TextPrimary
-                        ),
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { isFocusedConfirm = it.isFocused }
+                        value = passphraseConfirm, onValueChange = onConfirmChange, textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
+                        visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().onFocusChanged { isFocusedConfirm = it.isFocused }
                     )
                 }
             }
 
-            // ---------- ERROR ----------
             if (errorMessage != null) {
-                Text(
-                    text = errorMessage,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = UrgentRed,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+                Text(errorMessage, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = UrgentRed, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // ---------- TOMBOL ----------
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(modifier = Modifier.weight(1f)) {
-                    FonnteButton(
-                        icon = Icons.Default.Close,
-                        label = "BATAL",
-                        backgroundColor = Color(0xFF142735),
-                        textColor = TextPrimary,
-                        enabled = true,
-                        onClick = onDismiss
-                    )
+                    FonnteButton(Icons.Default.Close, "BATAL", Color(0xFF142735), TextPrimary, true, onDismiss)
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     FonnteButton(
-                        icon = Icons.Default.CheckCircle,
-                        label = if (isSetupMode) "SIMPAN" else "BUKA",
-                        backgroundColor = IslamicGold,
-                        textColor = Color(0xFF09141D),
-                        enabled = passphrase.isNotBlank() &&
-                                (!isSetupMode || passphraseConfirm.isNotBlank()),
-                        onClick = onConfirm
+                        Icons.Default.CheckCircle, if (isSetupMode) "SIMPAN" else "BUKA", IslamicGold, Color(0xFF09141D),
+                        enabled = passphrase.isNotBlank() && (!isSetupMode || passphraseConfirm.isNotBlank()), onClick = onConfirm
                     )
                 }
             }
         }
     }
 }
+
 // ============================================================
 // FUNGSI: GENERATE AI PROMPT
-// V1.04.429 — Bikin teks prompt siap paste ke AI lain
+// V1.04.432 — Menambahkan info Fitur Terbaru
 // ============================================================
-private fun generateAiPrompt(
-    settings: AppSettings,
-    context: Context
-): String {
-    val version = try {
-        BuildConfig.VERSION_NAME
-    } catch (e: Exception) {
-        "V1.04.429"
-    }
+private fun generateAiPrompt(settings: AppSettings, context: Context): String {
+    val version = try { BuildConfig.VERSION_NAME } catch (e: Exception) { "V1.04.432" }
 
     return buildString {
         appendLine("═══════════════════════════════════════════════════════")
@@ -1657,14 +1039,30 @@ private fun generateAiPrompt(
         appendLine("• Auto-show Crash Log")
         appendLine()
         appendLine("═══════════════════════════════════════════════════════")
-        appendLine("8. ATURAN UPDATE WAJIB TIAP BUILD")
+        appendLine("8. FITUR TERBARU V1.04.432 (HARAP DIPERHATIKAN)")
+        appendLine("═══════════════════════════════════════════════════════")
+        appendLine("• Fix Hotspot: NetworkHelper mengenali IP valid (WiFi/Hotspot/LAN).")
+        appendLine("• Fix D-Pad: focusProperties { up = Cancel }, tidak lompat ke tombol Simpan.")
+        appendLine("• Fix D-Pad: Kembali ke Sidebar Kiri pakai D-pad KIRI.")
+        appendLine("• Fix Fokus Dialog: Retry requestFocus dibatasi, anti-crash.")
+        appendLine("• Fix PIN: Dukungan ketikan angka dari Remote TV fisik.")
+        appendLine("• Fix Auto-Save: forceSave() saat tombol BACK ditekan.")
+        appendLine("• Fix Galeri: Anti double-copy (isProcessing state).")
+        appendLine("• Fix Galeri: Mencegah file aktif terhapus (cleanup protection).")
+        appendLine("• Fix File Picker: Thumbnail background thread, 1 ExoPlayer global.")
+        appendLine("• Fix File Picker: Auto-refresh izin via LifecycleEventObserver.")
+        appendLine("• Fix Timer AutoOff: Reset via onPreviewKeyEvent.")
+        appendLine("• Fix Slider: Hapus clickable, andalkan onPreviewKeyEvent (anti double toggle).")
+        appendLine()
+        appendLine("═══════════════════════════════════════════════════════")
+        appendLine("9. ATURAN UPDATE WAJIB TIAP BUILD")
         appendLine("═══════════════════════════════════════════════════════")
         appendLine("1. Bump versionName -> otomatis dari GITHUB_RUN_NUMBER")
-        appendLine("2. Tambah entri baru -> UpdateHistory.kt")
+        appendLine("2. Tambah entri baru -> UpdateHistory.kt (HANYA 5 TERAKHIR)")
         appendLine("3. Update info baru -> AppKnowledge.kt")
         appendLine()
         appendLine("═══════════════════════════════════════════════════════")
-        appendLine("9. LINK GITHUB")
+        appendLine("10. LINK GITHUB")
         appendLine("═══════════════════════════════════════════════════════")
         appendLine("Repo     : https://github.com/andikune-ux/Masjid.io")
         appendLine("Tree API : https://api.github.com/repos/andikune-ux/Masjid.io/git/trees/main?recursive=1")
@@ -1674,7 +1072,7 @@ private fun generateAiPrompt(
         appendLine("New File : https://github.com/andikune-ux/Masjid.io/new/main/{path}")
         appendLine()
         appendLine("═══════════════════════════════════════════════════════")
-        appendLine("10. FILE PENTING (JANGAN SENTUH)")
+        appendLine("11. FILE PENTING (JANGAN SENTUH)")
         appendLine("═══════════════════════════════════════════════════════")
         appendLine("• app/build.gradle.kts              -> versioning")
         appendLine("• version.properties                -> data versi otomatis")
@@ -1683,7 +1081,7 @@ private fun generateAiPrompt(
         appendLine("• gradle/libs.versions.toml         -> KSP & dependency")
         appendLine()
         appendLine("═══════════════════════════════════════════════════════")
-        appendLine("11. TUGAS SAYA")
+        appendLine("12. TUGAS SAYA")
         appendLine("═══════════════════════════════════════════════════════")
         appendLine("(Tulis tugas di sini)")
         appendLine()
