@@ -6,66 +6,38 @@ import android.net.NetworkCapabilities
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.Socket
 
-/**
- * NetworkHelper — Utilitas deteksi IP WiFi & koneksi jaringan.
- *
- * - Auto-detect IP WiFi saat ini (bukan hardcoded)
- * - Cek WiFi connected status
- * - Test ping ke IP:port tertentu
- */
 object NetworkHelper {
     private const val TAG = "NetworkHelper"
 
-    /**
-     * Dapatkan IP WiFi device saat ini.
-     * Return null jika WiFi tidak connected atau error.
-     */
     suspend fun getWiFiIp(context: Context): String? = withContext(Dispatchers.IO) {
         try {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = cm.activeNetwork ?: run {
-                Log.w(TAG, "Tidak ada active network")
-                return@withContext null
-            }
-            val caps = cm.getNetworkCapabilities(network) ?: run {
-                Log.w(TAG, "Tidak ada network capabilities")
-                return@withContext null
-            }
-
-            if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                Log.w(TAG, "Active network bukan WiFi")
-                return@withContext null
-            }
+            val network = cm.activeNetwork ?: return@withContext null
+            val linkProps = cm.getLinkProperties(network)
 
             // Cari IP di interface yang active
-            val linkProps = cm.getLinkProperties(network)
             linkProps?.let {
                 it.linkAddresses.forEach { addr ->
                     val ip = addr.address.hostAddress
                     if (ip != null && !ip.contains(":") && ip != "127.0.0.1") {
-                        Log.d(TAG, "✅ WiFi IP found: $ip")
                         return@withContext ip
                     }
                 }
             }
 
-            // Fallback: scan semua interface
+            // Fallback: scan semua interface (kadang Hotspot HP tidak terbaca LinkProperties)
             NetworkInterface.getNetworkInterfaces().toList().forEach { ni ->
                 ni.inetAddresses.toList().forEach { addr ->
                     val ip = addr.hostAddress
                     if (ip != null && !ip.contains(":") && ip != "127.0.0.1" && !ip.startsWith("169.")) {
-                        Log.d(TAG, "✅ WiFi IP found (fallback): $ip")
                         return@withContext ip
                     }
                 }
             }
-
-            Log.w(TAG, "❌ Tidak bisa deteksi WiFi IP")
             null
         } catch (e: Exception) {
             Log.e(TAG, "Error getWiFiIp: ${e.message}")
@@ -74,24 +46,26 @@ object NetworkHelper {
     }
 
     /**
-     * Cek apakah device terhubung ke WiFi.
+     * Cek apakah device terhubung ke jaringan yang valid (WiFi, Hotspot, Ethernet).
+     * FIX BUG: Hotspot HP sekarang terdeteksi sebagai jaringan valid.
      */
     fun isWiFiConnected(context: Context): Boolean {
         return try {
+            // Cek dulu apakah ada IP Address valid
+            // (Hotspot HP seringkali mengembalikan TRANSPORT_CELLULAR, tapi punya IP lokal)
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val network = cm.activeNetwork ?: return false
             val caps = cm.getNetworkCapabilities(network) ?: return false
+            
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         } catch (e: Exception) {
-            Log.w(TAG, "Error isWiFiConnected: ${e.message}")
             false
         }
     }
 
-    /**
-     * Test ping ke IP:port tertentu.
-     */
     suspend fun testConnectivity(ip: String, port: Int, timeoutMs: Int = 3000): Boolean =
         withContext(Dispatchers.IO) {
             return@withContext try {
