@@ -75,7 +75,7 @@ import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.audio.SoundManager
 import dev.andikune.masjidio.data.model.AppSettings
 import dev.andikune.masjidio.ui.components.AutoFocusPane
-import dev.andikune.masjidio.ui.components.ChangePinDialog
+import dev.andikune.masjidio.ui.components.ChangePinDialog // <-- IMPORT YANG HILANG
 import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
@@ -180,7 +180,6 @@ fun SettingsScreen(
             SaveButton(onClick = { forceSave(); onSaveSettings(draftSettings) })
         }
 
-        // FIX: Tambahkan focusGroup() di Row ini agar fokus gak keluar ke TopBar
         Row(modifier = Modifier.fillMaxSize().focusGroup()) {
             // SIDEBAR (KIRI)
             Column(
