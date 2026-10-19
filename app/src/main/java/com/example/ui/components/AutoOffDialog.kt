@@ -26,6 +26,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +50,9 @@ fun AutoOffDialog(
 ) {
     val yaFocusRequester = remember { FocusRequester() }
     
+    // State untuk mereset timer jika user berinteraksi
+    var interactionCounter by remember { mutableIntStateOf(0) }
+    
     // LOOP RETRY FOKUS
     LaunchedEffect(Unit) {
         repeat(3) {
@@ -55,10 +61,28 @@ fun AutoOffDialog(
         }
     }
     
-    LaunchedEffect(Unit) { if (autoDismissSeconds > 0) { delay(autoDismissSeconds * 1000L); onConfirmFalse() } }
+    // Timer Auto-Dismiss yang di-reset saat ada interaksi
+    LaunchedEffect(interactionCounter) {
+        if (autoDismissSeconds > 0) {
+            delay(autoDismissSeconds * 1000L)
+            onConfirmFalse()
+        }
+    }
 
     Dialog(onDismissRequest = { onConfirmFalse() }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.72f))
+                .onPreviewKeyEvent { event ->
+                    // Reset timer setiap kali D-pad ditekan
+                    if (event.type == KeyEventType.KeyDown) {
+                        interactionCounter++
+                        false // Biarkan event diteruskan ke tombol
+                    } else false
+                }, 
+            contentAlignment = Alignment.Center
+        ) {
             Column(
                 modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 820.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(20.dp)).background(DARK_BG).border(2.dp, GOLD, RoundedCornerShape(20.dp)).padding(horizontal = 20.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup(),
                 horizontalAlignment = Alignment.CenterHorizontally
