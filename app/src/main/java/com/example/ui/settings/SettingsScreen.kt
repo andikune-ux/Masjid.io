@@ -59,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -116,6 +117,7 @@ object SettingsNavState {
     var isDeveloperUnlocked: Boolean = false
 }
 
+@OptIn(ExperimentalComposeUiApi::class) // <-- TAMBAHKAN INI
 @Composable
 fun SettingsScreen(
     currentSettings: AppSettings,
@@ -231,26 +233,27 @@ fun SettingsScreen(
                             DeveloperLockedPane()
                         } else {
                             when (previewCategory) {
-                                SettingsCategory.LOCATION -> LocationSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.COUNTDOWN -> CountdownSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.IDENTITY -> IdentitySettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.QRIS_DONATION -> QrisSettingsPane(draftSettings, { draftSettings = it }, onTestQrisFocus)
-                                SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.APPEARANCE -> CustomBackgroundPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.TV_DISPLAY -> TvDisplaySettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.AUDIO -> AudioSettingsPane(draftSettings, soundManager) { draftSettings = it }
-                                SettingsCategory.RAMADHAN -> RamadhanSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.SECURITY -> SecuritySettingsPane(draftSettings, { draftSettings = it }, { showChangePinDialog = true })
-                                SettingsCategory.POWER -> PowerSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.SLIDESHOW -> SlideSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.CCTV -> CctvSettingsPane(draftSettings) { draftSettings = it }
-                                SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(draftSettings, isRemoteServerRunning, { draftSettings = it }, onOpenIoControl)
+                                // FIX: Gunakan NAMED PARAMETER (settings =, onUpdate =)
+                                SettingsCategory.LOCATION -> LocationSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.COUNTDOWN -> CountdownSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.IDENTITY -> IdentitySettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.QRIS_DONATION -> QrisSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it }, onTestQrisFocus = onTestQrisFocus)
+                                SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.APPEARANCE -> CustomBackgroundPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.TV_DISPLAY -> TvDisplaySettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.AUDIO -> AudioSettingsPane(settings = draftSettings, soundManager = soundManager, onUpdate = { draftSettings = it })
+                                SettingsCategory.RAMADHAN -> RamadhanSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.SECURITY -> SecuritySettingsPane(settings = draftSettings, onUpdate = { draftSettings = it }, onChangePinClick = { showChangePinDialog = true })
+                                SettingsCategory.POWER -> PowerSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.SLIDESHOW -> SlideSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.CCTV -> CctvSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it })
+                                SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(settings = draftSettings, isServerRunning = isRemoteServerRunning, onUpdate = { draftSettings = it }, onOpenIoControl = onOpenIoControl)
                                 SettingsCategory.ABOUT -> AboutSettingsPane(onOpenRiwayatUpdate = { showRiwayatUpdate = true })
-                                SettingsCategory.DEVELOPER -> DeveloperSettingsPane(draftSettings, { draftSettings = it }, modifier = Modifier.fillMaxSize())
+                                SettingsCategory.DEVELOPER -> DeveloperSettingsPane(settings = draftSettings, onUpdate = { draftSettings = it }, modifier = Modifier.fillMaxSize())
                             }
                         }
                     }
@@ -284,6 +287,7 @@ private fun DeveloperLockedPane() {
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class) // <-- TAMBAHKAN INI UNTUK SIDEBAR
 @Composable
 private fun SidebarItem(
     category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit, onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester
