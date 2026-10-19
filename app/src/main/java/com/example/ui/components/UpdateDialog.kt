@@ -50,12 +50,11 @@ fun UpdateDialog(
     val isLocked = isDownloading || isInstalling
     val updateFocusRequester = remember { FocusRequester() }
 
-    // LOOP RETRY FOKUS: Beri waktu dialog attach ke window
     LaunchedEffect(Unit) {
-        repeat(3) {
-            delay(400L)
-            runCatching { updateFocusRequester.requestFocus() }
-        }
+        delay(400L)
+        runCatching { updateFocusRequester.requestFocus() }
+        delay(300L)
+        runCatching { updateFocusRequester.requestFocus() }
     }
 
     Dialog(onDismissRequest = { if (!forceUpdate && !isLocked) onLaterClick() }, properties = DialogProperties(dismissOnBackPress = !forceUpdate && !isLocked, dismissOnClickOutside = false, usePlatformDefaultWidth = false)) {
@@ -125,24 +124,13 @@ private fun DialogButton(
     var isFocused by remember { mutableStateOf(false) }
     val bg = if (!enabled) backgroundColor.copy(alpha = 0.3f) else backgroundColor
 
-    // FIX: FocusRequester dipindah langsung ke modifier Row agar terdeteksi
     var rowModifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bg)
+    if (focusRequester != null) { rowModifier = rowModifier.focusRequester(focusRequester) }
     
-    if (focusRequester != null) {
-        rowModifier = rowModifier.focusRequester(focusRequester)
-    }
-    
-    rowModifier = rowModifier
-        .onFocusChanged { isFocused = it.isFocused }
-        .focusable(enabled)
-        .clickable(enabled) { onClick() }
-        .padding(vertical = 10.dp, horizontal = 8.dp)
+    rowModifier = rowModifier.onFocusChanged { isFocused = it.isFocused }.focusable(enabled).clickable(enabled) { onClick() }.padding(vertical = 10.dp, horizontal = 8.dp)
 
     NeonFocusBorder(focused = isFocused && enabled, cornerRadius = 12.dp, borderWidth = 4.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = rowModifier,
-            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = rowModifier, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, text, tint = textColor, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
