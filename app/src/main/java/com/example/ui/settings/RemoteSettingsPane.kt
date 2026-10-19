@@ -72,6 +72,8 @@ private val IoBlue = Color(0xFF2196F3)
 private val IoBlueLight = Color(0xFF64B5F6)
 private val IoGreen = Color(0xFF4CAF50)
 
+// ... (IMPORT SAMA SEPERTI SEBELUMNYA) ...
+
 @Composable
 fun RemoteSettingsPane(
     settings: AppSettings,
@@ -80,10 +82,20 @@ fun RemoteSettingsPane(
     onOpenIoControl: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var localServerEnabled by remember(settings.remoteControlEnabled) {
-        mutableStateOf(settings.remoteControlEnabled)
-    }
+    var localServerEnabled by remember(settings.remoteControlEnabled) { mutableStateOf(settings.remoteControlEnabled) }
 
+    // FIX: Hapus loop 5 detik, cukup panggil sekali karena IP di-lock
+    var currentIp by remember { mutableStateOf("Memuat...") }
+    var currentNetworkOn by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        currentIp = getLocalIpAddress(context)
+        currentNetworkOn = isNetworkConnected(context)
+    }
+    
+    // ... (SISA KODE UI & RemoteSectionCard TETAP SAMA) ...
+}
     // ============================================================
     // AUTO-REFRESH IP & STATUS JARINGAN SETIAP 5 DETIK
     // ============================================================
