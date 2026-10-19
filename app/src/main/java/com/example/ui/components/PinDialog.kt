@@ -23,6 +23,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,6 +41,7 @@ import dev.andikune.masjidio.ui.theme.TextPrimary
 import dev.andikune.masjidio.ui.theme.TextSecondary
 import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val DIALOG_BG = Color(0xFF0C1B26)
 private val NUMPAD_BG = Color(0x33000000)
@@ -108,18 +114,49 @@ fun PinDialog(correctPin: String, onSuccess: () -> Unit, onDismiss: () -> Unit) 
     var enteredPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
     val firstKeyFocusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        repeat(3) {
-            delay(400L)
-            runCatching { firstKeyFocusRequester.requestFocus() }
+        delay(400L)
+        runCatching { firstKeyFocusRequester.requestFocus() }
+        delay(300L)
+        runCatching { firstKeyFocusRequester.requestFocus() }
+    }
+
+    fun handleNumberInput(num: String) {
+        if (enteredPin.length < 4) {
+            enteredPin += num
+            isError = false
+            if (enteredPin.length == 4) {
+                if (enteredPin == correctPin) onSuccess()
+                else {
+                    isError = true
+                    scope.launch {
+                        delay(300)
+                        firstKeyFocusRequester.requestFocus()
+                    }
+                }
+            }
         }
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = false)) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
-                modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 400.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(18.dp)).background(DIALOG_BG).border(2.dp, IslamicGold, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup(),
+                modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 400.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(18.dp)).background(DIALOG_BG).border(2.dp, IslamicGold, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup()
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            val num = when(event.key) {
+                                Key.Zero -> "0"; Key.One -> "1"; Key.Two -> "2"; Key.Three -> "3"; Key.Four -> "4"
+                                Key.Five -> "5"; Key.Six -> "6"; Key.Seven -> "7"; Key.Eight -> "8"; Key.Nine -> "9"
+                                else -> null
+                            }
+                            if (num != null) {
+                                handleNumberInput(num)
+                                true
+                            } else false
+                        } else false
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(Icons.Default.Lock, null, tint = IslamicGold, modifier = Modifier.size(30.dp))
@@ -135,12 +172,7 @@ fun PinDialog(correctPin: String, onSuccess: () -> Unit, onDismiss: () -> Unit) 
                         when (key) {
                             "C" -> { enteredPin = ""; isError = false }
                             "⌫" -> { if (enteredPin.isNotEmpty()) { enteredPin = enteredPin.dropLast(1); isError = false } }
-                            else -> {
-                                if (enteredPin.length < 4) {
-                                    enteredPin += key; isError = false
-                                    if (enteredPin.length == 4) { if (enteredPin == correctPin) onSuccess() else isError = true }
-                                }
-                            }
+                            else -> handleNumberInput(key)
                         }
                     }, firstKeyFocusRequester = firstKeyFocusRequester
                 )
@@ -164,7 +196,8 @@ fun ChangePinDialog(currentPin: String, onPinChanged: (String) -> Unit, onDismis
 
     LaunchedEffect(step) {
         enteredPin = ""; isError = false; errorMessage = ""
-        repeat(3) { delay(400L); runCatching { firstKeyFocusRequester.requestFocus() } }
+        delay(300L); runCatching { firstKeyFocusRequester.requestFocus() }
+        delay(300L); runCatching { firstKeyFocusRequester.requestFocus() }
     }
 
     val title = when (step) { ChangePinStep.ENTER_OLD -> "MASUKKAN PIN LAMA"; ChangePinStep.ENTER_NEW -> "MASUKKAN PIN BARU"; ChangePinStep.CONFIRM_NEW -> "ULANGI PIN BARU" }
