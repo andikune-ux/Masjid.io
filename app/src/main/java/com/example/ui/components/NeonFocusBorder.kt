@@ -30,13 +30,12 @@ import androidx.compose.ui.unit.dp
 
 private enum class BorderPhase {
     HIDDEN,
-    IDLE,
-    PRESSED
+    IDLE
 }
 
 /**
- * NeonFocusBorder — Versi Asli (Dikembalikan)
- * Animasi glow berputar 2-kutub (putih + emas).
+ * NeonFocusBorder — V1.04.432 Fix
+ * Animasi glow berputar 2-kutub (putih + emas) distabilkan.
  */
 @Composable
 fun NeonFocusBorder(
@@ -50,23 +49,21 @@ fun NeonFocusBorder(
 ) {
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.05f else 1f,
-        animationSpec = tween(
-            durationMillis = 150,
-            easing = LinearEasing
-        ),
+        animationSpec = tween(durationMillis = 150, easing = LinearEasing),
         label = "focus_scale"
     )
 
     val rotation = remember { Animatable(0f) }
     var currentPhase by remember { mutableStateOf(BorderPhase.HIDDEN) }
 
-    // Fokus -> langsung loop 2 warna
+    // Loop animasi yang stabil
     LaunchedEffect(focused) {
         if (!focused) {
             currentPhase = BorderPhase.HIDDEN
             rotation.snapTo(0f)
             return@LaunchedEffect
         }
+        
         currentPhase = BorderPhase.IDLE
         while (true) {
             rotation.snapTo(0f)
@@ -74,7 +71,7 @@ fun NeonFocusBorder(
         }
     }
 
-    // Pressed -> kedip ON/OFF tegas (100ms on, 100ms off)
+    // Animasi pressed
     val flashAlpha = remember { Animatable(1f) }
     LaunchedEffect(pressed) {
         if (pressed) {
@@ -88,7 +85,7 @@ fun NeonFocusBorder(
     }
 
     Box(modifier = modifier.scale(scale)) {
-        if (focused) {
+        if (focused || pressed) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawGlowBorder(
                     canvasSize = size,
@@ -117,14 +114,9 @@ private fun DrawScope.drawGlowBorder(
     drawIntoCanvas { canvas ->
         val native = canvas.nativeCanvas
 
-        // 1. CORE BORDER (Kerangka)
+        // CORE BORDER
         val coreInset = strokePx / 2f
-        val coreRect = RectF(
-            coreInset,
-            coreInset,
-            canvasSize.width - coreInset,
-            canvasSize.height - coreInset
-        )
+        val coreRect = RectF(coreInset, coreInset, canvasSize.width - coreInset, canvasSize.height - coreInset)
         val corePaint = AndroidPaint().apply {
             isAntiAlias = true
             style = AndroidPaint.Style.STROKE
@@ -133,37 +125,24 @@ private fun DrawScope.drawGlowBorder(
                 val a = (flash * 255).toInt().coerceIn(0, 255)
                 (0xFFFFD700.toInt() and 0x00FFFFFF) or (a shl 24)
             } else {
-                0x33FFD700.toInt() // Emas dim 20%
+                0x66FFD700.toInt() // Emas lebih terang sedikit agar terlihat saat diam
             }
         }
         native.drawRoundRect(coreRect, radiusPx, radiusPx, corePaint)
 
-        // 2. GLOW TAIL (Animasi Berputar)
+        if (!isPressed && rotationDeg == 0f) return@drawIntoCanvas // Skip glow jika animasi belum jalan
+
+        // GLOW TAIL
         val glowOutset = glowPx * 0.4f
-        val glowRect = RectF(
-            -glowOutset,
-            -glowOutset,
-            canvasSize.width + glowOutset,
-            canvasSize.height + glowOutset
-        )
+        val glowRect = RectF(-glowOutset, -glowOutset, canvasSize.width + glowOutset, canvasSize.height + glowOutset)
         val glowPath = Path().apply {
-            addRoundRect(
-                glowRect,
-                radiusPx + glowOutset,
-                radiusPx + glowOutset,
-                Path.Direction.CW
-            )
+            addRoundRect(glowRect, radiusPx + glowOutset, radiusPx + glowOutset, Path.Direction.CW)
         }
 
         val pathMeasure = PathMeasure(glowPath, false)
         val pathLength = pathMeasure.length
 
-        val headColors = if (isPressed) {
-            listOf(0xFFFFD700.toInt())
-        } else {
-            listOf(0xFFFFFFFF.toInt(), 0xFFFFD700.toInt()) // Putih & Emas
-        }
-
+        val headColors = if (isPressed) listOf(0xFFFFD700.toInt()) else listOf(0xFFFFFFFF.toInt(), 0xFFFFD700.toInt())
         val tailLenFraction = 0.30f
         val dotCount = 48
         val blurRadius = glowPx * 1.2f
