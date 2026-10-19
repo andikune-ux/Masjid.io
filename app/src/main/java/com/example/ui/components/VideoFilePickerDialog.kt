@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -44,6 +46,7 @@ import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.TextPrimary
 import dev.andikune.masjidio.ui.theme.TextSecondary
+import dev.andikune.masjidio.util.BackupManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -56,10 +59,13 @@ enum class FilePickerMode { VIDEO, IMAGE, ALL }
 fun VideoFilePickerDialog(
     mode: FilePickerMode, title: String, onFileSelected: (File) -> Unit, onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var fileList by remember { mutableStateOf<List<File>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var hasPermission by remember { mutableStateOf(!BackupManager.needsStoragePermission()) }
 
-    LaunchedEffect(mode) {
+    LaunchedEffect(mode, hasPermission) {
+        if (!hasPermission) return@LaunchedEffect
         isLoading = true
         val files = withContext(Dispatchers.IO) { scanFiles(mode) }
         fileList = files
@@ -84,7 +90,19 @@ fun VideoFilePickerDialog(
                 ) { Icon(Icons.Default.Close, "Tutup", tint = Color.White) }
             }
 
-            if (isLoading) {
+            if (!hasPermission) {
+                // TAMPILAN MINTA IZIN
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Icon(Icons.Default.Folder, null, tint = IslamicGold, modifier = Modifier.size(64.dp))
+                        Text("Izin Akses File Diperlukan", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+                        Text("Untuk menampilkan file dari penyimpanan internal, aplikasi membutuhkan izin 'Akses semua file'.", fontSize = 13.sp, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+                        Box(modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(IslamicGold).clickable { BackupManager.openPermissionSettings(context) }.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                            Text("BERI IZIN SEKARANG", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF09141D))
+                        }
+                    }
+                }
+            } else if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = IslamicGold) }
             } else if (fileList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tidak ada file ditemukan.", color = TextSecondary) }
@@ -107,7 +125,6 @@ private fun FileItemRow(file: File, onSelect: () -> Unit) {
 
     val isVideo = file.extension.lowercase(Locale.getDefault()) in listOf("mp4", "mkv", "webm", "avi")
 
-    // Ambil Thumbnail secara manual (Coil error)
     val thumbnailBitmap = remember(file) {
         if (isVideo) {
             try {
