@@ -109,40 +109,36 @@ fun TvSlider(
                     color = if (isSliderActive) IslamicGreen else IslamicGold.copy(alpha = 0.35f),
                     shape = RoundedCornerShape(14.dp)
                 )
-                .onFocusChanged {
-                    isFocused = it.isFocused
-                    if (!it.isFocused) isSliderActive = false
-                }
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown) {
                         val keyCode = event.key.nativeKeyCode
                         when {
-                            event.key == Key.DirectionCenter ||
-                                    event.key == Key.Enter ||
-                                    event.key == Key.NumPadEnter ||
-                                    keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER ||
-                                    keyCode == AndroidKeyEvent.KEYCODE_ENTER -> {
+                            event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter || keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER || keyCode == AndroidKeyEvent.KEYCODE_ENTER -> {
                                 isSliderActive = !isSliderActive
                                 true
                             }
                             event.key == Key.DirectionLeft || keyCode == AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
-                                isSliderActive = true
-                                slideLeft()
-                                true
+                                if (isSliderActive) {
+                                    slideLeft()
+                                    true
+                                } else false // Biarkan D-pad kiri pindah fokus jika tidak aktif
                             }
                             event.key == Key.DirectionRight || keyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                isSliderActive = true
-                                slideRight()
-                                true
+                                if (isSliderActive) {
+                                    slideRight()
+                                    true
+                                } else false // Biarkan D-pad kanan pindah fokus jika tidak aktif
                             }
                             else -> false
                         }
                     } else false
                 }
-                .focusable()
-                .clickable {
-                    isSliderActive = !isSliderActive
+                .onFocusChanged {
+                    isFocused = it.isFocused
+                    if (!it.isFocused) isSliderActive = false
                 }
+                .focusable()
+                .clickable { isSliderActive = !isSliderActive }
                 .padding(16.dp)
         ) {
             Row(
@@ -174,7 +170,7 @@ fun TvSlider(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ===== TRACK DENGAN TOUCH & CLICK SUPPORT =====
+            // TRACK DENGAN TOUCH & CLICK SUPPORT
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -184,12 +180,8 @@ fun TvSlider(
                             val down = awaitFirstDown(requireUnconsumed = false)
                             isSliderActive = true
 
-                            val initialFraction =
-                                (down.position.x / size.width).coerceIn(0f, 1f)
-                            onValueChange(
-                                valueRange.start +
-                                        initialFraction * (valueRange.endInclusive - valueRange.start)
-                            )
+                            val initialFraction = (down.position.x / size.width).coerceIn(0f, 1f)
+                            onValueChange(valueRange.start + initialFraction * (valueRange.endInclusive - valueRange.start))
                             down.consume()
 
                             var pointer = down
@@ -197,12 +189,8 @@ fun TvSlider(
                                 val event = awaitPointerEvent()
                                 pointer = event.changes.firstOrNull { it.id == down.id } ?: break
                                 if (pointer.positionChanged()) {
-                                    val fraction =
-                                        (pointer.position.x / size.width).coerceIn(0f, 1f)
-                                    onValueChange(
-                                        valueRange.start +
-                                                fraction * (valueRange.endInclusive - valueRange.start)
-                                    )
+                                    val fraction = (pointer.position.x / size.width).coerceIn(0f, 1f)
+                                    onValueChange(valueRange.start + fraction * (valueRange.endInclusive - valueRange.start))
                                     pointer.consume()
                                 }
                             }
@@ -210,47 +198,21 @@ fun TvSlider(
                     },
                 contentAlignment = Alignment.CenterStart
             ) {
-                // Background track
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0x33FFFFFF))
-                )
+                Box(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x33FFFFFF)))
 
                 val rangeSpan = valueRange.endInclusive - valueRange.start
                 val progressFraction = if (rangeSpan > 0f) {
                     ((value - valueRange.start) / rangeSpan).coerceIn(0.005f, 1f)
                 } else 0.005f
 
-                // Progress fill
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progressFraction)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(if (isSliderActive) IslamicGreen else IslamicGold)
-                )
+                Box(modifier = Modifier.fillMaxWidth(progressFraction).height(8.dp).clip(RoundedCornerShape(4.dp)).background(if (isSliderActive) IslamicGreen else IslamicGold))
 
-                // Thumb
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progressFraction)
-                        .height(28.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
+                Box(modifier = Modifier.fillMaxWidth(progressFraction).height(28.dp), contentAlignment = Alignment.CenterEnd) {
                     Box(
                         modifier = Modifier
                             .size(if (isSliderActive) 30.dp else 26.dp)
                             .clip(CircleShape)
-                            .background(
-                                when {
-                                    isSliderActive -> IslamicGreen
-                                    isFocused -> Color(0xFFFFE44D)
-                                    else -> IslamicGold
-                                }
-                            )
+                            .background(when { isSliderActive -> IslamicGreen; isFocused -> Color(0xFFFFE44D); else -> IslamicGold })
                             .border(3.dp, Color.White, CircleShape)
                     )
                 }
@@ -265,61 +227,26 @@ fun TvSlider(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable {
-                                isSliderActive = true
-                                slideLeft()
-                            }
-                            .padding(4.dp)
-                    ) {
-                        Text(
-                            text = "◀",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSliderActive) IslamicGreen else TextSecondary
-                        )
-                    }
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { isSliderActive = true; slideLeft() }.padding(4.dp)
+                    ) { Text("◀", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isSliderActive) IslamicGreen else TextSecondary) }
+                    
                     Spacer(modifier = Modifier.width(6.dp))
+                    
                     Text(
-                        text = if (isSliderActive)
-                            "Geser / D-pad KIRI-KANAN untuk atur"
-                        else
-                            "Tekan D-pad KIRI-KANAN / OK untuk atur",
+                        text = if (isSliderActive) "Geser / D-pad KIRI-KANAN untuk atur" else "Tekan OK untuk aktifkan slider",
                         fontSize = 11.sp,
                         color = if (isSliderActive) IslamicGreen else TextSecondary
                     )
+                    
                     Spacer(modifier = Modifier.width(6.dp))
+                    
                     Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable {
-                                isSliderActive = true
-                                slideRight()
-                            }
-                            .padding(4.dp)
-                    ) {
-                        Text(
-                            text = "▶",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSliderActive) IslamicGreen else TextSecondary
-                        )
-                    }
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { isSliderActive = true; slideRight() }.padding(4.dp)
+                    ) { Text("▶", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isSliderActive) IslamicGreen else TextSecondary) }
                 }
                 if (isSliderActive) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(IslamicGreen.copy(alpha = 0.3f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "AKTIF",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = IslamicGreen
-                        )
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(IslamicGreen.copy(alpha = 0.3f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                        Text("AKTIF", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = IslamicGreen)
                     }
                 }
             }
