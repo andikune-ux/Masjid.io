@@ -58,39 +58,68 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
     var showVideoPicker by remember { mutableStateOf(false) }
     var showPhotoPicker by remember { mutableStateOf(false) }
     
+    // FIX: State untuk mencegah double copy saat file sedang diproses
+    var isProcessing by remember { mutableStateOf(false) }
+
     val isVideoMissing = remember(settings.videoUri) {
         !settings.videoUri.isNullOrBlank() && !File(settings.videoUri).exists()
     }
 
     fun processVideoFile(file: File) {
+        if (isProcessing) return
+        isProcessing = true
         scope.launch {
-            val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyToPermanent(context, file.absolutePath, MediaPersistenceHelper.FOLDER_VIDEO, "video") }
-            if (localPath != null) {
-                MediaPersistenceHelper.cleanupFolder(context, MediaPersistenceHelper.FOLDER_VIDEO, 3)
-                onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
-            } else onUpdate(settings.copy(videoUri = file.absolutePath, videoEnabled = true))
+            try {
+                val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyToPermanent(context, file.absolutePath, MediaPersistenceHelper.FOLDER_VIDEO, "video") }
+                if (localPath != null) {
+                    MediaPersistenceHelper.cleanupFolder(context, MediaPersistenceHelper.FOLDER_VIDEO, 3)
+                    onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
+                } else onUpdate(settings.copy(videoUri = file.absolutePath, videoEnabled = true))
+            } finally {
+                isProcessing = false
+            }
         }
     }
 
     fun processPhotoFile(file: File) {
+        if (isProcessing) return
+        isProcessing = true
         scope.launch {
-            val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyToPermanent(context, file.absolutePath, MediaPersistenceHelper.FOLDER_SLIDESHOW, "foto") }
-            val newItem = localPath ?: file.absolutePath
-            onUpdate(settings.copy(photoSlideshowUris = settings.photoSlideshowUris + newItem, photoSlideshowEnabled = true))
+            try {
+                val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyToPermanent(context, file.absolutePath, MediaPersistenceHelper.FOLDER_SLIDESHOW, "foto") }
+                val newItem = localPath ?: file.absolutePath
+                onUpdate(settings.copy(photoSlideshowUris = settings.photoSlideshowUris + newItem, photoSlideshowEnabled = true))
+            } finally {
+                isProcessing = false
+            }
         }
     }
 
     val videoGalleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) scope.launch {
-            val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyVideoToPermanent(context, uri.toString()) }
-            onUpdate(settings.copy(videoUri = localPath ?: uri.toString(), videoEnabled = true))
+        if (uri != null && !isProcessing) {
+            isProcessing = true
+            scope.launch {
+                try {
+                    val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyVideoToPermanent(context, uri.toString()) }
+                    onUpdate(settings.copy(videoUri = localPath ?: uri.toString(), videoEnabled = true))
+                } finally {
+                    isProcessing = false
+                }
+            }
         }
     }
 
     val photoGalleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
-        if (uris.isNotEmpty()) scope.launch {
-            val localPaths = withContext(Dispatchers.IO) { uris.mapNotNull { MediaPersistenceHelper.copyToPermanent(context, it.toString(), MediaPersistenceHelper.FOLDER_SLIDESHOW, "foto") } }
-            if (localPaths.isNotEmpty()) onUpdate(settings.copy(photoSlideshowUris = settings.photoSlideshowUris + localPaths, photoSlideshowEnabled = true))
+        if (uris.isNotEmpty() && !isProcessing) {
+            isProcessing = true
+            scope.launch {
+                try {
+                    val localPaths = withContext(Dispatchers.IO) { uris.mapNotNull { MediaPersistenceHelper.copyToPermanent(context, it.toString(), MediaPersistenceHelper.FOLDER_SLIDESHOW, "foto") } }
+                    if (localPaths.isNotEmpty()) onUpdate(settings.copy(photoSlideshowUris = settings.photoSlideshowUris + localPaths, photoSlideshowEnabled = true))
+                } finally {
+                    isProcessing = false
+                }
+            }
         }
     }
 
@@ -107,12 +136,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             onToggle = { onUpdate(settings.copy(galleryMasterEnabled = it)) }
         )
 
-        // FIX BUG STUCK D-PAD: Hapus Modifier.focusable(isGalleryEnabled) pada Column ini.
-        // Cukup gunakan Modifier.alpha untuk visual, dan biarkan fokus mengalir ke komponen di dalamnya.
-        Column(
-            modifier = Modifier.alpha(if (isGalleryEnabled) 1f else 0.35f),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
+        Column(modifier = Modifier.alpha(if (isGalleryEnabled) 1f else 0.35f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             
             // --- VIDEO ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -122,7 +146,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     description = "Putar video kegiatan di layar TV.",
                     isChecked = settings.videoEnabled,
                     onToggle = { onUpdate(settings.copy(videoEnabled = it)) },
-                    enabled = isGalleryEnabled // Tambahkan enabled agar tidak bisa diklik saat master off
+                    enabled = isGalleryEnabled && !isProcessing
                 )
 
                 if (settings.videoEnabled && isGalleryEnabled) {
@@ -138,13 +162,13 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(160.dp, 90.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black).border(1.dp, IslamicGold, RoundedCornerShape(10.dp))) {
                                 if (!settings.videoUri.isNullOrBlank()) MasjidVideoPlayer(settings.videoUri, false, modifier = Modifier.fillMaxSize())
-                                else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada video", fontSize = 11.sp, color = TextSecondary) }
+                                else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(if (isProcessing) "Memproses..." else "Belum ada video", fontSize = 11.sp, color = TextSecondary) }
                             }
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TvActionButton(Icons.Default.PhotoLibrary, "GALERI", IslamicGold, Color(0xFF09141D)) { videoGalleryLauncher.launch("video/*") }
-                                    TvActionButton(Icons.Default.FolderOpen, "FILE", IslamicGold, Color(0xFF09141D)) { showVideoPicker = true }
-                                    if (!settings.videoUri.isNullOrBlank()) TvActionButton(Icons.Default.Delete, "HAPUS", Color.Transparent, UrgentRed, true) {
+                                    TvActionButton(Icons.Default.PhotoLibrary, "GALERI", IslamicGold, Color(0xFF09141D), enabled = !isProcessing) { videoGalleryLauncher.launch("video/*") }
+                                    TvActionButton(Icons.Default.FolderOpen, "FILE", IslamicGold, Color(0xFF09141D), enabled = !isProcessing) { showVideoPicker = true }
+                                    if (!settings.videoUri.isNullOrBlank()) TvActionButton(Icons.Default.Delete, "HAPUS", Color.Transparent, UrgentRed, true, enabled = !isProcessing) {
                                         settings.videoUri?.let { MediaPersistenceHelper.deleteFile(it) }; onUpdate(settings.copy(videoUri = null, videoEnabled = false))
                                     }
                                 }
@@ -170,14 +194,14 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     description = "Tampilkan slideshow foto kegiatan di layar TV.",
                     isChecked = settings.photoSlideshowEnabled,
                     onToggle = { onUpdate(settings.copy(photoSlideshowEnabled = it)) },
-                    enabled = isGalleryEnabled
+                    enabled = isGalleryEnabled && !isProcessing
                 )
 
                 if (settings.photoSlideshowEnabled && isGalleryEnabled) {
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091620)).border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("Daftar Foto (${settings.photoSlideshowUris.size})", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
-                            if (settings.photoSlideshowUris.isNotEmpty()) TvActionButton(Icons.Default.DeleteSweep, "HAPUS SEMUA", Color.Transparent, UrgentRed, true) {
+                            if (settings.photoSlideshowUris.isNotEmpty()) TvActionButton(Icons.Default.DeleteSweep, "HAPUS SEMUA", Color.Transparent, UrgentRed, true, enabled = !isProcessing) {
                                 settings.photoSlideshowUris.forEach { MediaPersistenceHelper.deleteFile(it) }; onUpdate(settings.copy(photoSlideshowUris = emptyList()))
                             }
                         }
@@ -188,10 +212,10 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                                     Box(modifier = Modifier.size(140.dp, 90.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black).border(1.dp, if(isMissing) UrgentRed else IslamicGold, RoundedCornerShape(10.dp))) {
                                         if (!isMissing) AsyncImage(uri, "Foto", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                         else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(Icons.Default.Warning, null, tint = UrgentRed) }
-                                        Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(28.dp).clip(RoundedCornerShape(14.dp)).background(UrgentRed).clickable {
+                                        Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(28.dp).clip(RoundedCornerShape(14.dp)).background(if(isProcessing) Color.Gray else UrgentRed).clickable(enabled = !isProcessing) {
                                             val newList = settings.photoSlideshowUris.toMutableList(); MediaPersistenceHelper.deleteFile(newList.removeAt(index)); onUpdate(settings.copy(photoSlideshowUris = newList))
                                         }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Delete, "Hapus", tint = Color.White, modifier = Modifier.size(16.dp)) }
-                                        if (index > 0) Box(modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xAA000000)).clickable {
+                                        if (index > 0) Box(modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(24.dp).clip(RoundedCornerShape(12.dp)).background(if(isProcessing) Color.Gray else Color(0xAA000000)).clickable(enabled = !isProcessing) {
                                             val list = settings.photoSlideshowUris.toMutableList(); list.add(index - 1, list.removeAt(index)); onUpdate(settings.copy(photoSlideshowUris = list))
                                         }, contentAlignment = Alignment.Center) { Icon(Icons.Default.ArrowBack, "Kiri", tint = Color.White, modifier = Modifier.size(14.dp)) }
                                     }
@@ -199,8 +223,8 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TvActionButton(Icons.Default.PhotoLibrary, "GALERI", IslamicGold, Color(0xFF09141D)) { photoGalleryLauncher.launch("image/*") }
-                            TvActionButton(Icons.Default.Add, "FILE", IslamicGold, Color(0xFF09141D)) { showPhotoPicker = true }
+                            TvActionButton(Icons.Default.PhotoLibrary, "GALERI", IslamicGold, Color(0xFF09141D), enabled = !isProcessing) { photoGalleryLauncher.launch("image/*") }
+                            TvActionButton(Icons.Default.Add, "FILE", IslamicGold, Color(0xFF09141D), enabled = !isProcessing) { showPhotoPicker = true }
                         }
                     }
                     TvSlider(
@@ -224,7 +248,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     description = "Layar bergantian: Video -> Foto -> Layar Default.",
                     isChecked = settings.smartSwitchEnabled,
                     onToggle = { onUpdate(settings.copy(smartSwitchEnabled = it)) },
-                    enabled = isGalleryEnabled
+                    enabled = isGalleryEnabled && !isProcessing
                 )
                 if (settings.smartSwitchEnabled && isGalleryEnabled) TvSlider(
                     label = "Durasi Layar Default",
@@ -239,11 +263,11 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             // --- FRAME ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AspectRatio, null, tint = IslamicGold, modifier = Modifier.size(22.dp)); Spacer(modifier = Modifier.width(10.dp)); Text("PENGATURAN UKURAN FRAME", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight) }
-                FrameModeOption("POTONG (Crop)", "Penuhi frame, potong sisi berlebih.", "✂️", settings.videoFrameScale == "POTONG", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
-                FrameModeOption("PAS (Fit)", "Tampil utuh, ada ruang hitam.", "📺", settings.videoFrameScale == "PAS", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "PAS")) }
-                FrameModeOption("ZOOM (Fill)", "Diperbesar penuhi frame, tengah fokus.", "🔍", settings.videoFrameScale == "ZOOM", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
-                FrameModeOption("FULL (Fullscreen)", "Menutupi seluruh layar (panel kiri hilang).", "🖥️", settings.videoFrameScale == "FULL", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "FULL")) }
-                FrameModeOption("FIT (Stretch)", "Dipaksa memenuhi frame (bisa distorsi).", "📐", settings.videoFrameScale == "FIT", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "FIT")) }
+                FrameModeOption("POTONG (Crop)", "Penuhi frame, potong sisi berlebih.", "✂️", settings.videoFrameScale == "POTONG", isGalleryEnabled && !isProcessing) { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
+                FrameModeOption("PAS (Fit)", "Tampil utuh, ada ruang hitam.", "📺", settings.videoFrameScale == "PAS", isGalleryEnabled && !isProcessing) { onUpdate(settings.copy(videoFrameScale = "PAS")) }
+                FrameModeOption("ZOOM (Fill)", "Diperbesar penuhi frame, tengah fokus.", "🔍", settings.videoFrameScale == "ZOOM", isGalleryEnabled && !isProcessing) { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
+                FrameModeOption("FULL (Fullscreen)", "Menutupi seluruh layar (panel kiri hilang).", "🖥️", settings.videoFrameScale == "FULL", isGalleryEnabled && !isProcessing) { onUpdate(settings.copy(videoFrameScale = "FULL")) }
+                FrameModeOption("FIT (Stretch)", "Dipaksa memenuhi frame (bisa distorsi).", "📐", settings.videoFrameScale == "FIT", isGalleryEnabled && !isProcessing) { onUpdate(settings.copy(videoFrameScale = "FIT")) }
             }
         }
     }
@@ -268,10 +292,10 @@ private fun FrameModeOption(title: String, desc: String, emoji: String, isSelect
 }
 
 @Composable
-private fun TvActionButton(icon: ImageVector, label: String, bg: Color, tc: Color, isOutlined: Boolean = false, onClick: () -> Unit) {
+private fun TvActionButton(icon: ImageVector, label: String, bg: Color, tc: Color, isOutlined: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     val borderWidth by animateDpAsState(if (isFocused) 4.dp else if (isOutlined) 1.5.dp else 0.dp, label = "border")
-    Row(modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(if (isOutlined) Color.Transparent else bg).border(borderWidth, if (isFocused) Color(0xFFFFE44D) else if (isOutlined) tc.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable().clickable { onClick() }.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, label, tint = tc, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tc)
+    Row(modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(if (isOutlined) Color.Transparent else if (!enabled) bg.copy(alpha=0.4f) else bg).border(borderWidth, if (isFocused) Color(0xFFFFE44D) else if (isOutlined) tc.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable(enabled).clickable(enabled = enabled) { onClick() }.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, label, tint = if (!enabled) tc.copy(alpha=0.5f) else tc, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (!enabled) tc.copy(alpha=0.5f) else tc)
     }
 }
