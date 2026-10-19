@@ -14,6 +14,35 @@ object UpdateHistory {
 
     val entries: List<UpdateEntry> = listOf(
         UpdateEntry(
+            version = "V1.04.432",
+            date = "20 Oktober 2026",
+            title = "Fix Total D-pad & Fokus, Hotspot HP, Auto-Save & Performa TV",
+            features = listOf(
+                "Fix Hotspot HP: Transfer via iO Control sekarang berfungsi meski HP jadi Hotspot",
+                "Fix Hotspot HP: Tulisan 'WiFi Nonaktif' tidak muncul lagi jika ada IP valid",
+                "Fix Fokus: Fokus D-pad tidak macet/lompat ke tombol Simpan saat scroll mentok atas",
+                "Fix Fokus: Fokus bisa kembali ke menu Sidebar Kiri dari Pane Kanan",
+                "Fix Fokus: Tombol pertama di semua Pop-up (Update, PIN, Jadwal Off) langsung menyala",
+                "Fix Fokus: D-pad di menu Galeri (VideoSettingsPane) tidak stuck lagi",
+                "Fix Input: Pop-up PIN sekarang mendukung ketikan angka dari Remote TV fisik",
+                "Fix Input: Fokus PIN kembali ke awal jika PIN salah",
+                "Fix Slider: Mencegah double toggle (OK & Klik) dan melepas aktif jika D-pad UP/DOWN",
+                "Fix Auto-Save: Data tersimpan paksa saat menekan tombol BACK (tidak hilang)",
+                "Fix Auto-Save: Mencegah tabrakan antara Auto-Save (500ms) dan tombol Simpan Manual",
+                "Fix Galeri: Mencegah file ter-copy dobel saat tombol ditekan cepat (Loading State)",
+                "Fix Galeri: Mencegah file video/foto aktif terhapus otomatis oleh sistem cleanup",
+                "Fix File Picker: Thumbnail video dimuat di background (TV tidak nge-lag)",
+                "Fix File Picker: Hanya 1 ExoPlayer global (mencegah crash saat scroll cepat)",
+                "Fix File Picker: Dialog otomatis refresh saat kembali dari menu izin Android",
+                "Fix File Picker: Cek eksistensi file sebelum dipilih (mencegah crash file hilang)",
+                "Fix Timer AutoOff: Timer 2 menit di-reset jika user menekan tombol remote",
+                "Fix Remote: Polling IP 5 detik dihapus (IP di-lock, mengurangi beban CPU)",
+                "Perbaikan NetworkHelper: Mengenali WiFi, Hotspot, dan LAN dengan lebih akurat",
+                "Optimasi Fokus: Retry requestFocus dibatasi agar tidak crash jika dialog ditutup cepat",
+                "Catatan AI: NeonFocusBorder TIDAK diubah agar animasi glow tetap terlihat jelas"
+            )
+        ),
+        UpdateEntry(
             version = "V1.04.431",
             date = "19 Oktober 2026",
             title = "Galeri Kegiatan Masjid + Smart Switch & Fix D-Pad",
@@ -143,220 +172,6 @@ object UpdateHistory {
                 "Fitur BARU: PIN Lock Mode 3 opsi (IMMEDIATE / TIMEOUT_5MIN / UNTIL_EXIT)",
                 "Improve: panel kiri Mode Video di-compact",
                 "Improve: contentScale video/foto diteruskan dari settings"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.04.421",
-            date = "04 Oktober 2026",
-            title = "Alur Sholat Baru + Media Persistence + Fix Mode Fokus",
-            features = listOf(
-                "Fitur BARU: Alur sholat lengkap (Adzan -> Himbauan HP -> Niat Qobliyah -> Mode Fokus)",
-                "Overlay Adzan fullscreen: 'ADZAN [waktu]'",
-                "Overlay Himbauan HP fullscreen: 'HENINGKAN HP ANDA'",
-                "Overlay Niat Qobliyah fullscreen",
-                "Mode Fokus sekarang 2 fase: Niat Fardhu + Dzikir",
-                "Fix: file foto/video hilang setelah app tutup/update",
-                "Media persistence: copy file ke filesDir/masjid_io/",
-                "File baru: MediaPersistenceHelper.kt",
-                "File baru: AdzanSequenceOverlay.kt"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.04.420",
-            date = "04 Oktober 2026",
-            title = "Layout Opsi H + Auto-Switch Mode + Ukuran Frame",
-            features = listOf(
-                "Fitur BARU: Layout Opsi H untuk mode video/foto",
-                "Panel kiri 24%: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar",
-                "Panel kanan 76%: video/foto dengan lock frame",
-                "Fitur BARU: Auto-Switch Mode Video <-> Mode Normal",
-                "Fitur BARU: Pengaturan Ukuran Frame — 5 mode",
-                "POTONG (Crop) seperti Instagram Reels",
-                "PAS (Fit/Letterbox) seperti Netflix",
-                "ZOOM (Fill) seperti TikTok",
-                "FULL (Fullscreen) panel kiri hilang",
-                "FIT (Stretch) paksa video/foto sesuaikan frame"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.04.418",
-            date = "04 Oktober 2026",
-            title = "Storage Permission Dialog + Fix Download Check",
-            features = listOf(
-                "Fitur BARU: StoragePermissionDialog muncul otomatis saat pertama buka",
-                "Tombol BERI IZIN buka halaman Manage All Files Access",
-                "Auto-detect: kalau izin baru diberikan, dialog hilang otomatis",
-                "Fix: startDownload() cek permission dulu sebelum download update",
-                "RunningTextMarquee: perlambat speed 1 dari 7.0x -> 40.0x",
-                "RemoteServer: hapus fonnteToken & fonnteGroupId dari web dashboard"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.7",
-            date = "03 Oktober 2026",
-            title = "Verifikasi Transfer + Konfirmasi Restart Manual + File Template .iO",
-            features = listOf(
-                "Fitur BARU: verifikasi transfer sebelum restart",
-                "Fitur BARU: konfirmasi restart manual via tombol",
-                "Fitur BARU: file template .iO (bundle ZIP berisi settings + media)",
-                "Fitur BARU: daftar file template di menu Tampilan & Background",
-                "Tombol GUNAKAN / INFO / HAPUS untuk tiap file",
-                "Retry otomatis hanya file yang gagal",
-                "Error detail: stack trace Kotlin asli",
-                "File baru: IoBundleHelper.kt + IoBundleListSection.kt"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.6",
-            date = "03 Oktober 2026",
-            title = "Fix Fokus D-pad TV + Fix Transfer Media iO Control",
-            features = listOf(
-                "Fix CRITICAL: foto & video tidak muncul di TV setelah transfer iO Control",
-                "Fungsi baru: applyMediaPathToSettings() di RemoteServer.kt",
-                "File baru: AutoFocusPane.kt",
-                "Border fokus berputar kembali di NeonFocusBorder",
-                "Fix icon celengan babi di slide Laporan Keuangan"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.5",
-            date = "03 Oktober 2026",
-            title = "Auto-Focus Pane & Smooth D-pad Navigation",
-            features = listOf(
-                "Fix UX: fokus D-pad sekarang langsung ke elemen PERTAMA pane",
-                "Auto-focus instan saat pane baru dibuka",
-                "File baru: AutoFocusPane.kt",
-                "TvFocusHelper: spring(800) diganti tween(150)"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.4",
-            date = "02 Oktober 2026",
-            title = "Transfer Media iO Control — Foto & Video Antar Device",
-            features = listOf(
-                "Fix CRITICAL: transfer foto & video via iO Control sekarang berhasil",
-                "Transfer file media via chunk upload (1 MB per chunk)",
-                "Kompres foto otomatis (max 1920px, quality 85%)",
-                "Kompres video otomatis via MediaMuxer",
-                "Progress bar per-file + total keseluruhan",
-                "Retry otomatis 3x kalau chunk gagal terkirim",
-                "File baru: MediaTransferHelper.kt"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.3",
-            date = "02 Oktober 2026",
-            title = "Responsive Auto-Scale — Tampilan Otomatis Semua Ukuran TV",
-            features = listOf(
-                "Fitur BARU: Auto-Scale tampilan untuk semua ukuran TV",
-                "Deteksi otomatis resolusi TV (px, dp, aspect ratio, density)",
-                "Base design 1920x1080 (FHD) — semua elemen auto-scale",
-                "Safe Area Padding dinamis (0-10%)",
-                "Menu baru: Tampilan TV",
-                "File baru: ResponsiveLayoutHelper.kt + TvDisplaySettingsPane.kt"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.2",
-            date = "02 Oktober 2026",
-            title = "Tema Makkah Dinamis & Fix iO Control Transfer",
-            features = listOf(
-                "Fitur BARU: Tema Makkah Dinamis sebagai tema DEFAULT",
-                "Langit Makkah bergerak real-time: matahari melengkung",
-                "Bulan bergeser otomatis dengan fase real",
-                "Cuaca real-time: cerah, berawan, hujan, hujan petir",
-                "Siluet Masjidil Haram + Ka'bah + pita emas Hizam",
-                "Fix CRITICAL: transfer iO Control antar device (fix error 401)",
-                "File baru: SunMoonCalculator.kt + MakkahDynamicBackground.kt"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.30.1",
-            date = "30 September 2026",
-            title = "iO Control — Kontrol & Transfer Pengaturan Antar Device via WiFi",
-            features = listOf(
-                "Fitur iO Control: HP sebagai remote tampilan TV via WiFi",
-                "Auto-discovery device Masjid.io lain pakai UDP broadcast",
-                "UI radar biru dengan animasi sweep 360°",
-                "Setelah connect: 2 tombol besar KIRIM dan TERIMA",
-                "Transfer semua pengaturan: tema, jadwal, ustadz, dll",
-                "Device penerima otomatis restart setelah 100% transfer"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.29.3",
-            date = "29 September 2026",
-            title = "Fix Crash Scroll & Fade Animasi Manual",
-            features = listOf(
-                "Fix crash: 'Vertically scrollable component was measured with infinity'",
-                "Ganti Crossfade ke Box + key + alpha fade manual",
-                "Fix: RunningTextMarquee guard text kosong",
-                "Feat: MainActivity auto-show dialog crash log"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.28.4",
-            date = "29 September 2026",
-            title = "Slide Fullscreen, CCTV, Remote Control & Konten Rotasi",
-            features = listOf(
-                "Menambahkan Slide Fullscreen (QRIS, Laporan, Kajian)",
-                "Menambahkan Konten Rotasi",
-                "Menambahkan data DzikirStore + AyatStore + HaditsStore",
-                "Menambahkan Mode Ramadhan Overlay",
-                "Menambahkan CCTV Widget (RTSP + HTTP)",
-                "Menambahkan Remote Control (HTTP server)"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.28.3",
-            date = "29 September 2026",
-            title = "Fokus D-pad, Pane Lengkap & Restore Fitur",
-            features = listOf(
-                "Fokus D-pad lebih tebal (TvFocusHelper)",
-                "TvSlider + TvToggle (remote-friendly)",
-                "LocationSettingsPane lengkap",
-                "IdentitySettingsPane lengkap"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.28.2",
-            date = "28 September 2026",
-            title = "Versioning, Keystore & Fitur Inti",
-            features = listOf(
-                "Implementasi versioning otomatis",
-                "Setup keystore permanen",
-                "Auto GitHub Release setiap build",
-                "Fitur Backup Aman (TXT)",
-                "Fitur Log Crash + Riwayat Crash",
-                "Fitur WhatsApp Fonnte"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.28.1",
-            date = "28 September 2026",
-            title = "Perbaikan Tampilan & Petugas",
-            features = listOf(
-                "Upload foto per sesi petugas",
-                "HomeScreen: video diperbesar",
-                "Suara beep diperbaiki",
-                "Integrasi KioskManager & WatchdogService"
-            )
-        ),
-        UpdateEntry(
-            version = "V1.28.0",
-            date = "27 September 2026",
-            title = "Versi Dasar",
-            features = listOf(
-                "Jadwal sholat 6 waktu",
-                "Jam digital + tanggal Hijriah",
-                "Kartu 6 waktu sholat sejajar",
-                "Panel Imam & Muadzin auto-slide",
-                "Running text pengumuman",
-                "Mode fokus 30 menit",
-                "Audio: Beep / Full Adzan / Silent",
-                "Pengaturan lengkap dengan PIN",
-                "Kiosk mode + auto-start",
-                "Auto-build APK via GitHub Actions"
             )
         )
     )
