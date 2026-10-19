@@ -94,7 +94,7 @@ enum class SettingsCategory(
     IDENTITY("Identitas Masjid", Icons.Default.Mosque),
     OFFICERS("Jadwal Petugas & Foto", Icons.Default.Person),
     QRIS_DONATION("Donasi QRIS & Rekening", Icons.Default.QrCode),
-    VIDEO_MEDIA("Galeri Kegiatan Masjid", Icons.Default.VideoLibrary), // <-- DIUBAH
+    VIDEO_MEDIA("Galeri Kegiatan Masjid", Icons.Default.VideoLibrary),
     APPEARANCE("Tampilan & Background", Icons.Default.Palette),
     TV_DISPLAY("Tampilan TV", Icons.Default.Tv),
     WISDOM_CARDS("Kartu Nasihat & Mutiara", Icons.Default.Book),
@@ -136,9 +136,7 @@ fun SettingsScreen(
 
     val scope = rememberCoroutineScope()
 
-    // ============================================================
     // FOKUS
-    // ============================================================
     val paneFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(selectedCategory) {
@@ -196,17 +194,14 @@ fun SettingsScreen(
 
         // BODY
         Row(modifier = Modifier.fillMaxSize()) {
-            // ============================================================
             // SIDEBAR
-            // ============================================================
             Column(
                 modifier = Modifier
                     .weight(0.32f)
                     .fillMaxHeight()
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
-                    .padding(vertical = 16.dp, horizontal = 16.dp)
-                    .focusGroup(),
+                    .padding(vertical = 16.dp, horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SettingsCategory.values().forEach { cat ->
@@ -240,21 +235,21 @@ fun SettingsScreen(
                 }
             }
 
-            // ============================================================
             // PANE KANAN
-            // ============================================================
             Box(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
+                    .focusProperties { 
+                        // Mencegah fokus lari ke TopBar (Simpan) saat tekan UP di paling atas
+                        up = FocusRequester.Cancel 
+                    }
                     .focusRequester(paneFocusRequester)
             ) {
                 key(previewCategory) {
                     var visible by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) {
-                        visible = true
-                    }
+                    LaunchedEffect(Unit) { visible = true }
                     val alpha by animateFloatAsState(
                         targetValue = if (visible) 1f else 0f,
                         animationSpec = tween(durationMillis = 200),
@@ -267,97 +262,30 @@ fun SettingsScreen(
                             .fillMaxSize()
                             .alpha(alpha)
                     ) {
-                        if (previewCategory == SettingsCategory.DEVELOPER &&
-                            !SettingsNavState.isDeveloperUnlocked
-                        ) {
+                        if (previewCategory == SettingsCategory.DEVELOPER && !SettingsNavState.isDeveloperUnlocked) {
                             DeveloperLockedPane()
                         } else {
                             when (previewCategory) {
-                                SettingsCategory.LOCATION -> LocationSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.COUNTDOWN -> CountdownSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.IDENTITY -> IdentitySettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.QRIS_DONATION -> QrisSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it },
-                                    onTestQrisFocus = onTestQrisFocus
-                                )
-                                SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.APPEARANCE -> CustomBackgroundPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.TV_DISPLAY -> TvDisplaySettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.AUDIO -> AudioSettingsPane(
-                                    settings = draftSettings,
-                                    soundManager = soundManager,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.RAMADHAN -> RamadhanSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.SECURITY -> SecuritySettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it },
-                                    onChangePinClick = { showChangePinDialog = true }
-                                )
-                                SettingsCategory.POWER -> PowerSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.SLIDESHOW -> SlideSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.CCTV -> CctvSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it }
-                                )
-                                SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(
-                                    settings = draftSettings,
-                                    isServerRunning = isRemoteServerRunning,
-                                    onUpdate = { draftSettings = it },
-                                    onOpenIoControl = onOpenIoControl
-                                )
-                                SettingsCategory.ABOUT -> AboutSettingsPane(
-                                    onOpenRiwayatUpdate = { showRiwayatUpdate = true }
-                                )
-                                SettingsCategory.DEVELOPER -> DeveloperSettingsPane(
-                                    settings = draftSettings,
-                                    onUpdate = { draftSettings = it },
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                SettingsCategory.LOCATION -> LocationSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.TIME_SETTINGS -> TimeSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.COUNTDOWN -> CountdownSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.IDENTITY -> IdentitySettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.OFFICERS -> WeeklyOfficersSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.QRIS_DONATION -> QrisSettingsPane(draftSettings, { draftSettings = it }, onTestQrisFocus)
+                                SettingsCategory.VIDEO_MEDIA -> VideoSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.APPEARANCE -> CustomBackgroundPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.TV_DISPLAY -> TvDisplaySettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.WISDOM_CARDS -> WisdomSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.RUNNING_TEXT -> RunningTextSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.AUDIO -> AudioSettingsPane(draftSettings, soundManager) { draftSettings = it }
+                                SettingsCategory.RAMADHAN -> RamadhanSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.SECURITY -> SecuritySettingsPane(draftSettings, { draftSettings = it }, { showChangePinDialog = true })
+                                SettingsCategory.POWER -> PowerSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.SLIDESHOW -> SlideSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.CCTV -> CctvSettingsPane(draftSettings) { draftSettings = it }
+                                SettingsCategory.REMOTE_CONTROL -> RemoteSettingsPane(draftSettings, isRemoteServerRunning, { draftSettings = it }, onOpenIoControl)
+                                SettingsCategory.ABOUT -> AboutSettingsPane(onOpenRiwayatUpdate = { showRiwayatUpdate = true })
+                                SettingsCategory.DEVELOPER -> DeveloperSettingsPane(draftSettings, { draftSettings = it }, modifier = Modifier.fillMaxSize())
                             }
                         }
                     }
@@ -390,53 +318,22 @@ fun SettingsScreen(
         )
     }
 }
-// ============================================================
-// DEVELOPER LOCKED PANE
-// ============================================================
+
 @Composable
 private fun DeveloperLockedPane() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = "Terkunci",
-                tint = IslamicGold.copy(alpha = 0.5f),
-                modifier = Modifier.size(72.dp)
-            )
-            Text(
-                text = "🔒 AKSES TERKUNCI",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = IslamicGoldLight
-            )
-            Text(
-                text = "Menu ini memerlukan PIN Developer.\n" +
-                        "Klik \"Opsi Developer\" di sidebar kiri untuk memasukkan PIN.",
-                fontSize = 13.sp,
-                color = TextSecondary,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp
-            )
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(Icons.Default.Lock, "Terkunci", tint = IslamicGold.copy(alpha = 0.5f), modifier = Modifier.size(72.dp))
+            Text("🔒 AKSES TERKUNCI", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+            Text("Menu ini memerlukan PIN Developer.\nKlik \"Opsi Developer\" di sidebar kiri untuk memasukkan PIN.", fontSize = 13.sp, color = TextSecondary, textAlign = TextAlign.Center, lineHeight = 20.sp)
         }
     }
 }
 
-// ============================================================
-// SIDEBAR ITEM
-// ============================================================
 @Composable
 private fun SidebarItem(
-    category: SettingsCategory,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onFocusChange: (Boolean) -> Unit,
-    rightFocusRequester: FocusRequester
+    category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit,
+    onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -448,138 +345,53 @@ private fun SidebarItem(
         else -> Color(0x22000000)
     }
 
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 12.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(bgColor)
-                .focusProperties {
-                    right = rightFocusRequester
-                }
+                .focusProperties { right = rightFocusRequester } // Tetap ke pane kanan
                 .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
+                .clickable(interactionSource = interactionSource, indication = null) { onClick() }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = category.icon,
-                contentDescription = category.label,
-                tint = when {
-                    isSelected -> IslamicGold
-                    isFocused -> Color(0xFFFFE44D)
-                    else -> TextPrimary
-                },
-                modifier = Modifier.size(22.dp)
-            )
+            Icon(category.icon, category.label, tint = if (isSelected) IslamicGold else if (isFocused) Color(0xFFFFE44D) else TextPrimary, modifier = Modifier.size(22.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = category.label,
-                fontSize = 14.sp,
-                fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium,
-                color = when {
-                    isSelected -> IslamicGoldLight
-                    isFocused -> Color(0xFFFFE44D)
-                    else -> TextPrimary
-                }
-            )
+            Text(category.label, fontSize = 14.sp, fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium, color = if (isSelected) IslamicGoldLight else if (isFocused) Color(0xFFFFE44D) else TextPrimary)
         }
     }
 }
 
-// ============================================================
-// TOP BAR ICON BUTTON
-// ============================================================
 @Composable
-private fun TopBarIconButton(
-    onClick: () -> Unit,
-    content: @Composable () -> Unit
-) {
+private fun TopBarIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.1f else 1f,
-        animationSpec = tween(150),
-        label = "icon_scale"
-    )
-
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 12.dp,
-        modifier = Modifier.size(48.dp)
-    ) {
+    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp, modifier = Modifier.size(48.dp)) {
         Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF142735))
-                .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() },
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF142735)).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() },
             contentAlignment = Alignment.Center
-        ) {
-            content()
-        }
+        ) { content() }
     }
 }
 
-// ============================================================
-// SAVE BUTTON
-// ============================================================
 @Composable
-private fun SaveButton(
-    onClick: () -> Unit
-) {
+private fun SaveButton(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    NeonFocusBorder(
-        focused = isFocused,
-        pressed = isPressed,
-        borderWidth = 5.dp,
-        cornerRadius = 12.dp
-    ) {
+    NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp) {
         Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(IslamicGold)
-                .focusable(interactionSource = interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { onClick() }
-                .padding(horizontal = 24.dp, vertical = 14.dp)
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(IslamicGold).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() }.padding(horizontal = 24.dp, vertical = 14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color(0xFF09141D),
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.Check, null, tint = Color(0xFF09141D), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "SIMPAN PENGATURAN",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF09141D)
-                )
+                Text("SIMPAN PENGATURAN", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF09141D))
             }
         }
     }
