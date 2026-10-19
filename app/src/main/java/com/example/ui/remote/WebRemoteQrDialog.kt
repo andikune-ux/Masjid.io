@@ -9,18 +9,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,7 +39,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -70,11 +58,7 @@ private val IoCardBg = Color(0xFF0C1F33)
 
 @Composable
 fun WebRemoteQrDialog(
-    url: String,
-    ip: String,
-    port: Int,
-    isWifiConnected: Boolean,
-    onDismiss: () -> Unit
+    url: String, ip: String, port: Int, isWifiConnected: Boolean, onDismiss: () -> Unit
 ) {
     BackHandler { onDismiss() }
 
@@ -82,67 +66,25 @@ fun WebRemoteQrDialog(
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(2500)
-            copied = false
-        }
-    }
+    LaunchedEffect(copied) { if (copied) { delay(2500); copied = false } }
 
-    // LOOP RETRY FOKUS
     LaunchedEffect(Unit) {
-        repeat(3) {
-            delay(300L)
-            runCatching { closeFocusRequester.requestFocus() }
-        }
+        delay(400)
+        runCatching { closeFocusRequester.requestFocus() }
+        delay(300)
+        runCatching { closeFocusRequester.requestFocus() }
     }
 
-    val qrBitmap = remember(url) {
-        if (url.isNotBlank()) QrCodeGenerator.generateQrImageBitmap(url, 600) else null
-    }
+    val qrBitmap = remember(url) { if (url.isNotBlank()) QrCodeGenerator.generateQrImageBitmap(url, 600) else null }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.85f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { onDismiss() },
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 760.dp)
-                    .fillMaxWidth(0.92f)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(IoCardBg)
-                    .border(2.dp, IoBlueLight.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { /* prevent click through */ }
-                    .padding(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Header Bar
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() }, contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth(0.92f).clip(RoundedCornerShape(20.dp)).background(IoCardBg).border(2.dp, IoBlueLight.copy(alpha = 0.6f), RoundedCornerShape(20.dp)).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }.padding(24.dp)) {
+                Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier.size(40.dp).clip(CircleShape).background(IoBlue.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(IoBlue.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.QrCode, "QR Code", tint = IoBlueLight, modifier = Modifier.size(24.dp))
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -152,30 +94,12 @@ fun WebRemoteQrDialog(
                             }
                         }
 
-                        // Tombol Tutup (D-pad Focusable)
                         val closeInteraction = remember { MutableInteractionSource() }
                         val closeFocused by closeInteraction.collectIsFocusedAsState()
                         val closePressed by closeInteraction.collectIsPressedAsState()
 
-                        NeonFocusBorder(
-                            focused = closeFocused,
-                            pressed = closePressed,
-                            cornerRadius = 10.dp,
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFF1B3654))
-                                    .focusRequester(closeFocusRequester) // FIX: Pindah sebelum focusable
-                                    .focusable(interactionSource = closeInteraction)
-                                    .clickable(
-                                        interactionSource = closeInteraction,
-                                        indication = null
-                                    ) { onDismiss() },
-                                contentAlignment = Alignment.Center
-                            ) {
+                        NeonFocusBorder(focused = closeFocused, pressed = closePressed, cornerRadius = 10.dp, modifier = Modifier.size(38.dp)) {
+                            Box(modifier = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF1B3654)).focusRequester(closeFocusRequester).focusable(interactionSource = closeInteraction).clickable(interactionSource = closeInteraction, indication = null) { onDismiss() }, contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Close, "Tutup", tint = Color.White, modifier = Modifier.size(20.dp))
                             }
                         }
@@ -183,40 +107,26 @@ fun WebRemoteQrDialog(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier.size(230.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).border(3.dp, IslamicGold, RoundedCornerShape(16.dp)).padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (qrBitmap != null) {
-                                Image(qrBitmap, "Kode QR Barcode Web Remote", modifier = Modifier.fillMaxSize())
-                            } else {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = IoBlue, modifier = Modifier.size(32.dp))
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Membuat QR...", fontSize = 12.sp, color = Color.DarkGray)
-                                }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(230.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).border(3.dp, IslamicGold, RoundedCornerShape(16.dp)).padding(12.dp), contentAlignment = Alignment.Center) {
+                            if (qrBitmap != null) Image(qrBitmap, "Kode QR Barcode Web Remote", modifier = Modifier.fillMaxSize())
+                            else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = IoBlue, modifier = Modifier.size(32.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Membuat QR...", fontSize = 12.sp, color = Color.DarkGray)
                             }
                         }
 
                         Spacer(modifier = Modifier.width(24.dp))
 
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xFF132A42)).padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xFF132A42)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                                 Icon(Icons.Default.Wifi, null, tint = if (isWifiConnected) IoGreen else Color(0xFFFF5252), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(if (isWifiConnected) "WiFi Aktif" else "WiFi Nonaktif", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isWifiConnected) IoGreen else Color(0xFFFF5252))
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text("IP: $ip:$port", fontSize = 11.sp, color = TextSecondary, fontFamily = FontFamily.Monospace)
                             }
-
                             Text("Langkah Mudah Menghubungkan:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                             Text("① Pastikan HP dan TV terhubung ke WiFi/Hotspot yang sama.", fontSize = 12.sp, color = TextPrimary, lineHeight = 16.sp)
                             Text("② Buka aplikasi Kamera di HP Anda lalu arahkan ke barcode QR di samping.", fontSize = 12.sp, color = TextPrimary, lineHeight = 16.sp)
@@ -226,9 +136,7 @@ fun WebRemoteQrDialog(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091624)).border(1.dp, IoBlue.copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(14.dp)
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091624)).border(1.dp, IoBlue.copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(14.dp)) {
                         Text("Atau buka browser di HP lalu ketik alamat ini:", fontSize = 11.sp, color = TextSecondary)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(url, fontSize = 12.sp, color = IoBlueLight, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
@@ -242,15 +150,7 @@ fun WebRemoteQrDialog(
                         val copyPressed by copyInteraction.collectIsPressedAsState()
 
                         NeonFocusBorder(focused = copyFocused, pressed = copyPressed, cornerRadius = 10.dp, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                                    .background(if (copied) IoGreen.copy(alpha = 0.25f) else Color(0xFF132F4C))
-                                    .border(1.5.dp, if (copied) IoGreen else IoBlue, RoundedCornerShape(10.dp))
-                                    .focusable(interactionSource = copyInteraction)
-                                    .clickable(interactionSource = copyInteraction, indication = null) { clipboardManager.setText(AnnotatedString(url)); copied = true }
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (copied) IoGreen.copy(alpha = 0.25f) else Color(0xFF132F4C)).border(1.5.dp, if (copied) IoGreen else IoBlue, RoundedCornerShape(10.dp)).focusable(interactionSource = copyInteraction).clickable(interactionSource = copyInteraction, indication = null) { clipboardManager.setText(AnnotatedString(url)); copied = true }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(if (copied) Icons.Default.Check else Icons.Default.ContentCopy, null, tint = if (copied) IoGreen else IoBlueLight, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -264,13 +164,7 @@ fun WebRemoteQrDialog(
                         val donePressed by doneInteraction.collectIsPressedAsState()
 
                         NeonFocusBorder(focused = doneFocused, pressed = donePressed, cornerRadius = 10.dp, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF1B3B5C)).border(1.5.dp, IoBlueLight, RoundedCornerShape(10.dp))
-                                    .focusable(interactionSource = doneInteraction)
-                                    .clickable(interactionSource = doneInteraction, indication = null) { onDismiss() }
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF1B3B5C)).border(1.5.dp, IoBlueLight, RoundedCornerShape(10.dp)).focusable(interactionSource = doneInteraction).clickable(interactionSource = doneInteraction, indication = null) { onDismiss() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                                 Text("SELESAI / TUTUP", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
