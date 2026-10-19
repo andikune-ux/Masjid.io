@@ -19,7 +19,6 @@ object NetworkHelper {
             val network = cm.activeNetwork ?: return@withContext null
             val linkProps = cm.getLinkProperties(network)
 
-            // Cari IP di interface yang active
             linkProps?.let {
                 it.linkAddresses.forEach { addr ->
                     val ip = addr.address.hostAddress
@@ -29,7 +28,6 @@ object NetworkHelper {
                 }
             }
 
-            // Fallback: scan semua interface (kadang Hotspot HP tidak terbaca LinkProperties)
             NetworkInterface.getNetworkInterfaces().toList().forEach { ni ->
                 ni.inetAddresses.toList().forEach { addr ->
                     val ip = addr.hostAddress
@@ -45,14 +43,8 @@ object NetworkHelper {
         }
     }
 
-    /**
-     * Cek apakah device terhubung ke jaringan yang valid (WiFi, Hotspot, Ethernet).
-     * FIX BUG: Hotspot HP sekarang terdeteksi sebagai jaringan valid.
-     */
     fun isWiFiConnected(context: Context): Boolean {
         return try {
-            // Cek dulu apakah ada IP Address valid
-            // (Hotspot HP seringkali mengembalikan TRANSPORT_CELLULAR, tapi punya IP lokal)
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val network = cm.activeNetwork ?: return false
             val caps = cm.getNetworkCapabilities(network) ?: return false
