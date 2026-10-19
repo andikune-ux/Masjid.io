@@ -53,14 +53,6 @@ import dev.andikune.masjidio.ui.theme.TextSecondary
 import dev.andikune.masjidio.ui.theme.UrgentRed
 import kotlinx.coroutines.delay
 
-// ============================================================
-// V1.04.430 — DEVELOPER PIN DIALOG
-//
-// FIX:
-// 1. Fix D-pad (FocusRequester + delay 500ms + retry)
-// 2. Compact HP (fillMaxWidth + fillMaxHeight + verticalScroll)
-// 3. Padding & spacing dikurangi
-// ============================================================
 @Composable
 fun DeveloperPinDialog(
     correctPin: String = "140399",
@@ -75,15 +67,15 @@ fun DeveloperPinDialog(
     var isFocusedBatal by remember { mutableStateOf(false) }
     var isFocusedMasuk by remember { mutableStateOf(false) }
 
-    // FocusRequester untuk auto-fokus ke input PIN
+    // FocusRequester
     val pinFocusRequester = remember { FocusRequester() }
 
-    // Auto-fokus saat dialog muncul (delay 500ms + retry)
+    // LOOP RETRY FOKUS: Paksa fokus masuk ke text field
     LaunchedEffect(Unit) {
-        delay(500L)
-        runCatching { pinFocusRequester.requestFocus() }
-        delay(300L)
-        runCatching { pinFocusRequester.requestFocus() }
+        repeat(3) {
+            delay(400L)
+            runCatching { pinFocusRequester.requestFocus() }
+        }
     }
 
     Dialog(
@@ -138,9 +130,7 @@ fun DeveloperPinDialog(
                             color = if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.6f),
                             shape = RoundedCornerShape(8.dp)
                         )
-                        .focusRequester(pinFocusRequester)
                         .onFocusChanged { isFocused = it.isFocused }
-                        .focusable()
                         .padding(10.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -161,7 +151,11 @@ fun DeveloperPinDialog(
                             color = IslamicGoldLight,
                             textAlign = TextAlign.Center
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(pinFocusRequester) // Pindah ke sini
+                            .onFocusChanged { isFocused = it.isFocused }
+                            .focusable()
                     )
                 }
 
