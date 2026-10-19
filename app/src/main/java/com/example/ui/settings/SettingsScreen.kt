@@ -81,10 +81,14 @@ import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.MosqueDeepBg
 import dev.andikune.masjidio.ui.theme.TextPrimary
 import dev.andikune.masjidio.ui.theme.TextSecondary
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-enum class SettingsCategory(val label: String, val icon: ImageVector) {
+enum class SettingsCategory(
+    val label: String,
+    val icon: ImageVector
+) {
     LOCATION("Lokasi & Waktu Sholat", Icons.Default.LocationOn),
     TIME_SETTINGS("Pengaturan Waktu", Icons.Default.Schedule),
     COUNTDOWN("Durasi & Hitungan Mundur", Icons.Default.Timer),
@@ -133,12 +137,23 @@ fun SettingsScreen(
 
     val scope = rememberCoroutineScope()
     val paneFocusRequester = remember { FocusRequester() }
+    val sidebarFocusRequester = remember { FocusRequester() }
+
+    var autoSaveJob by remember { mutableStateOf<Job?>(null) }
 
     LaunchedEffect(selectedCategory) { SettingsNavState.lastCategory = selectedCategory }
 
     LaunchedEffect(draftSettings) {
         if (isInitialLoad) { isInitialLoad = false; return@LaunchedEffect }
-        delay(500)
+        autoSaveJob?.cancel()
+        autoSaveJob = launch {
+            delay(500)
+            onAutoSaveSettings(draftSettings)
+        }
+    }
+
+    val forceSave = {
+        autoSaveJob?.cancel()
         onAutoSaveSettings(draftSettings)
     }
 
@@ -148,25 +163,22 @@ fun SettingsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MosqueDeepBg)) {
-        // TOP BAR
         Row(
             modifier = Modifier.fillMaxWidth().background(Color(0xFF0B1720)).padding(horizontal = 24.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TopBarIconButton(onClick = onBack) {
+                TopBarIconButton(onClick = { forceSave(); onBack() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = IslamicGold, modifier = Modifier.size(24.dp))
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Text("PENGATURAN MASJID.IO", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             }
-            SaveButton(onClick = { onSaveSettings(draftSettings) })
+            SaveButton(onClick = { forceSave(); onSaveSettings(draftSettings) })
         }
 
-        // BODY
         Row(modifier = Modifier.fillMaxSize()) {
-            // SIDEBAR (FIX: up = Cancel)
             Column(
                 modifier = Modifier
                     .weight(0.32f)
@@ -174,19 +186,19 @@ fun SettingsScreen(
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = 16.dp, horizontal = 16.dp)
-                    .focusProperties { up = FocusRequester.Cancel },
+                    .focusProperties { up = FocusRequester.Cancel }
+                    .focusRequester(sidebarFocusRequester),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SettingsCategory.values().forEach { cat ->
                     SidebarItem(
-                        category = cat,
-                        isSelected = selectedCategory == cat,
+                        category = cat, isSelected = selectedCategory == cat,
                         onClick = {
                             if (cat == SettingsCategory.DEVELOPER) {
                                 if (SettingsNavState.isDeveloperUnlocked) {
                                     selectedCategory = cat; previewCategory = cat
                                     scope.launch { delay(200); runCatching { paneFocusRequester.requestFocus() } }
-                                } else { showDeveloperPinDialog = true }
+                                } else showDeveloperPinDialog = true
                             } else {
                                 selectedCategory = cat; previewCategory = cat
                                 scope.launch { delay(200); runCatching { paneFocusRequester.requestFocus() } }
@@ -198,13 +210,15 @@ fun SettingsScreen(
                 }
             }
 
-            // PANE KANAN
             Box(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
-                    .focusProperties { up = FocusRequester.Cancel }
+                    .focusProperties { 
+                        up = FocusRequester.Cancel 
+                        left = sidebarFocusRequester 
+                    }
                     .focusRequester(paneFocusRequester)
             ) {
                 key(previewCategory) {
@@ -271,7 +285,9 @@ private fun DeveloperLockedPane() {
 }
 
 @Composable
-private fun SidebarItem(category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit, onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester) {
+private fun SidebarItem(
+    category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit, onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
