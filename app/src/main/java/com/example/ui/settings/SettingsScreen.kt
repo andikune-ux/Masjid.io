@@ -84,10 +84,7 @@ import dev.andikune.masjidio.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-enum class SettingsCategory(
-    val label: String,
-    val icon: ImageVector
-) {
+enum class SettingsCategory(val label: String, val icon: ImageVector) {
     LOCATION("Lokasi & Waktu Sholat", Icons.Default.LocationOn),
     TIME_SETTINGS("Pengaturan Waktu", Icons.Default.Schedule),
     COUNTDOWN("Durasi & Hitungan Mundur", Icons.Default.Timer),
@@ -135,73 +132,49 @@ fun SettingsScreen(
     var isInitialLoad by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
-
-    // FOKUS
     val paneFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(selectedCategory) {
-        SettingsNavState.lastCategory = selectedCategory
-    }
+    LaunchedEffect(selectedCategory) { SettingsNavState.lastCategory = selectedCategory }
 
-    // AUTO-SAVE debounce 500ms
     LaunchedEffect(draftSettings) {
-        if (isInitialLoad) {
-            isInitialLoad = false
-            return@LaunchedEffect
-        }
+        if (isInitialLoad) { isInitialLoad = false; return@LaunchedEffect }
         delay(500)
         onAutoSaveSettings(draftSettings)
     }
 
     if (showRiwayatUpdate) {
-        RiwayatUpdateScreen(
-            onBack = { showRiwayatUpdate = false }
-        )
+        RiwayatUpdateScreen(onBack = { showRiwayatUpdate = false })
         return
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MosqueDeepBg)) {
         // TOP BAR
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF0B1720))
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth().background(Color(0xFF0B1720)).padding(horizontal = 24.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TopBarIconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Kembali",
-                        tint = IslamicGold,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = IslamicGold, modifier = Modifier.size(24.dp))
                 }
                 Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = "PENGATURAN MASJID.IO",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
+                Text("PENGATURAN MASJID.IO", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
             }
-            SaveButton(
-                onClick = { onSaveSettings(draftSettings) }
-            )
+            SaveButton(onClick = { onSaveSettings(draftSettings) })
         }
 
         // BODY
         Row(modifier = Modifier.fillMaxSize()) {
-            // SIDEBAR
+            // SIDEBAR (FIX: up = Cancel)
             Column(
                 modifier = Modifier
                     .weight(0.32f)
                     .fillMaxHeight()
                     .background(Color(0xFF09141D))
                     .verticalScroll(rememberScrollState())
-                    .padding(vertical = 16.dp, horizontal = 16.dp),
+                    .padding(vertical = 16.dp, horizontal = 16.dp)
+                    .focusProperties { up = FocusRequester.Cancel },
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SettingsCategory.values().forEach { cat ->
@@ -211,25 +184,15 @@ fun SettingsScreen(
                         onClick = {
                             if (cat == SettingsCategory.DEVELOPER) {
                                 if (SettingsNavState.isDeveloperUnlocked) {
-                                    selectedCategory = cat
-                                    previewCategory = cat
-                                    scope.launch {
-                                        delay(200)
-                                        runCatching { paneFocusRequester.requestFocus() }
-                                    }
-                                } else {
-                                    showDeveloperPinDialog = true
-                                }
+                                    selectedCategory = cat; previewCategory = cat
+                                    scope.launch { delay(200); runCatching { paneFocusRequester.requestFocus() } }
+                                } else { showDeveloperPinDialog = true }
                             } else {
-                                selectedCategory = cat
-                                previewCategory = cat
-                                scope.launch {
-                                    delay(200)
-                                    runCatching { paneFocusRequester.requestFocus() }
-                                }
+                                selectedCategory = cat; previewCategory = cat
+                                scope.launch { delay(200); runCatching { paneFocusRequester.requestFocus() } }
                             }
                         },
-                        onFocusChange = { /* no-op */ },
+                        onFocusChange = { },
                         rightFocusRequester = paneFocusRequester
                     )
                 }
@@ -241,27 +204,15 @@ fun SettingsScreen(
                     .weight(0.68f)
                     .fillMaxHeight()
                     .padding(24.dp)
-                    .focusProperties { 
-                        // Mencegah fokus lari ke TopBar (Simpan) saat tekan UP di paling atas
-                        up = FocusRequester.Cancel 
-                    }
+                    .focusProperties { up = FocusRequester.Cancel }
                     .focusRequester(paneFocusRequester)
             ) {
                 key(previewCategory) {
                     var visible by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { visible = true }
-                    val alpha by animateFloatAsState(
-                        targetValue = if (visible) 1f else 0f,
-                        animationSpec = tween(durationMillis = 200),
-                        label = "pane_fade"
-                    )
+                    val alpha by animateFloatAsState(targetValue = if (visible) 1f else 0f, animationSpec = tween(200), label = "pane_fade")
 
-                    AutoFocusPane(
-                        paneKey = previewCategory,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(alpha)
-                    ) {
+                    AutoFocusPane(paneKey = previewCategory, modifier = Modifier.fillMaxSize().alpha(alpha)) {
                         if (previewCategory == SettingsCategory.DEVELOPER && !SettingsNavState.isDeveloperUnlocked) {
                             DeveloperLockedPane()
                         } else {
@@ -295,27 +246,16 @@ fun SettingsScreen(
     }
 
     if (showDeveloperPinDialog) {
-        DeveloperPinDialog(
-            correctPin = "140399",
-            onSuccess = {
-                showDeveloperPinDialog = false
-                SettingsNavState.isDeveloperUnlocked = true
-                selectedCategory = SettingsCategory.DEVELOPER
-                previewCategory = SettingsCategory.DEVELOPER
-            },
-            onDismiss = { showDeveloperPinDialog = false }
-        )
+        DeveloperPinDialog(correctPin = "140399", onSuccess = {
+            showDeveloperPinDialog = false; SettingsNavState.isDeveloperUnlocked = true
+            selectedCategory = SettingsCategory.DEVELOPER; previewCategory = SettingsCategory.DEVELOPER
+        }, onDismiss = { showDeveloperPinDialog = false })
     }
 
     if (showChangePinDialog) {
-        ChangePinDialog(
-            currentPin = draftSettings.pinCode,
-            onPinChanged = { newPin ->
-                draftSettings = draftSettings.copy(pinCode = newPin)
-                showChangePinDialog = false
-            },
-            onDismiss = { showChangePinDialog = false }
-        )
+        ChangePinDialog(currentPin = draftSettings.pinCode, onPinChanged = { newPin ->
+            draftSettings = draftSettings.copy(pinCode = newPin); showChangePinDialog = false
+        }, onDismiss = { showChangePinDialog = false })
     }
 }
 
@@ -331,27 +271,17 @@ private fun DeveloperLockedPane() {
 }
 
 @Composable
-private fun SidebarItem(
-    category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit,
-    onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester
-) {
+private fun SidebarItem(category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit, onFocusChange: (Boolean) -> Unit, rightFocusRequester: FocusRequester) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val bgColor = when {
-        isSelected -> Color(0x44FFD700)
-        isFocused -> Color(0x33FFD700)
-        else -> Color(0x22000000)
-    }
+    val bgColor = when { isSelected -> Color(0x44FFD700); isFocused -> Color(0x33FFD700); else -> Color(0x22000000) }
 
     NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp, modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(bgColor)
-                .focusProperties { right = rightFocusRequester } // Tetap ke pane kanan
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bgColor)
+                .focusProperties { right = rightFocusRequester }
                 .focusable(interactionSource = interactionSource)
                 .clickable(interactionSource = interactionSource, indication = null) { onClick() }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -371,10 +301,7 @@ private fun TopBarIconButton(onClick: () -> Unit, content: @Composable () -> Uni
     val isPressed by interactionSource.collectIsPressedAsState()
 
     NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp, modifier = Modifier.size(48.dp)) {
-        Box(
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF142735)).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() },
-            contentAlignment = Alignment.Center
-        ) { content() }
+        Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF142735)).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() }, contentAlignment = Alignment.Center) { content() }
     }
 }
 
@@ -385,9 +312,7 @@ private fun SaveButton(onClick: () -> Unit) {
     val isPressed by interactionSource.collectIsPressedAsState()
 
     NeonFocusBorder(focused = isFocused, pressed = isPressed, borderWidth = 5.dp, cornerRadius = 12.dp) {
-        Box(
-            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(IslamicGold).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() }.padding(horizontal = 24.dp, vertical = 14.dp)
-        ) {
+        Box(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(IslamicGold).focusable(interactionSource = interactionSource).clickable(interactionSource = interactionSource, indication = null) { onClick() }.padding(horizontal = 24.dp, vertical = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Check, null, tint = Color(0xFF09141D), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
