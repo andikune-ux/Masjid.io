@@ -63,209 +63,67 @@ fun DeveloperPinDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isFocused by remember { mutableStateOf(false) }
 
-    // State fokus tombol
     var isFocusedBatal by remember { mutableStateOf(false) }
     var isFocusedMasuk by remember { mutableStateOf(false) }
 
-    // FocusRequester
     val pinFocusRequester = remember { FocusRequester() }
 
-    // LOOP RETRY FOKUS: Paksa fokus masuk ke text field
     LaunchedEffect(Unit) {
-        repeat(3) {
-            delay(400L)
-            runCatching { pinFocusRequester.requestFocus() }
-        }
+        delay(400L)
+        runCatching { pinFocusRequester.requestFocus() }
+        delay(300L)
+        runCatching { pinFocusRequester.requestFocus() }
     }
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = false
-        )
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = false)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .widthIn(max = 420.dp)
-                    .fillMaxHeight(0.94f)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFF0B1720))
-                    .border(2.dp, IslamicGold, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 420.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(18.dp)).background(Color(0xFF0B1720)).border(2.dp, IslamicGold, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp, vertical = 16.dp).verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "🔐 AKSES DEVELOPER",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = IslamicGoldLight
-                )
+                Text("🔐 AKSES DEVELOPER", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
+                Text("Masukkan PIN Developer (6 digit)", fontSize = 12.sp, color = TextSecondary, textAlign = TextAlign.Center)
 
-                Text(
-                    text = "Masukkan PIN Developer (6 digit)",
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-
-                // ============================================================
-                // INPUT PIN
-                // ============================================================
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF142735))
-                        .border(
-                            width = if (isFocused) 3.dp else 1.5.dp,
-                            color = if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.6f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .onFocusChanged { isFocused = it.isFocused }
-                        .padding(10.dp),
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xFF142735)).border(if (isFocused) 3.dp else 1.5.dp, if (isFocused) IslamicGoldLight else IslamicGold.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).onFocusChanged { isFocused = it.isFocused }.padding(10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     BasicTextField(
                         value = pin,
-                        onValueChange = {
-                            if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                                pin = it
-                                errorMessage = null
-                            }
-                        },
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) { pin = it; errorMessage = null } },
                         visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.NumberPassword
-                        ),
-                        textStyle = TextStyle(
-                            fontSize = 20.sp,
-                            color = IslamicGoldLight,
-                            textAlign = TextAlign.Center
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(pinFocusRequester) // Pindah ke sini
-                            .onFocusChanged { isFocused = it.isFocused }
-                            .focusable()
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        textStyle = TextStyle(fontSize = 20.sp, color = IslamicGoldLight, textAlign = TextAlign.Center),
+                        modifier = Modifier.fillMaxWidth().focusRequester(pinFocusRequester).onFocusChanged { isFocused = it.isFocused }.focusable()
                     )
                 }
 
-                // ============================================================
-                // INDIKATOR 6 DIGIT
-                // ============================================================
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     repeat(6) { index ->
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (index < pin.length) IslamicGold
-                                    else Color(0x33FFFFFF)
-                                )
-                        )
+                        Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(if (index < pin.length) IslamicGold else Color(0x33FFFFFF)))
                     }
                 }
 
-                // ============================================================
-                // PESAN ERROR
-                // ============================================================
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage ?: "",
-                        fontSize = 12.sp,
-                        color = UrgentRed,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                if (errorMessage != null) { Text(errorMessage ?: "", fontSize = 12.sp, color = UrgentRed, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // ============================================================
-                // TOMBOL BATAL + MASUK
-                // ============================================================
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // ---------- TOMBOL BATAL ----------
-                    NeonFocusBorder(
-                        focused = isFocusedBatal,
-                        cornerRadius = 10.dp,
-                        borderWidth = 3.5.dp,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    if (isFocusedBatal) Color(0xFF1F3A52)
-                                    else Color(0xFF142735)
-                                )
-                                .focusable()
-                                .onFocusChanged { isFocusedBatal = it.isFocused }
-                                .clickable { onDismiss() }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "BATAL",
-                                color = if (isFocusedBatal) IslamicGoldLight else TextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NeonFocusBorder(focused = isFocusedBatal, cornerRadius = 10.dp, borderWidth = 3.5.dp, modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (isFocusedBatal) Color(0xFF1F3A52) else Color(0xFF142735)).focusable().onFocusChanged { isFocusedBatal = it.isFocused }.clickable { onDismiss() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            Text("BATAL", color = if (isFocusedBatal) IslamicGoldLight else TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
 
-                    // ---------- TOMBOL MASUK ----------
                     val canSubmit = pin.length == 6
-                    NeonFocusBorder(
-                        focused = isFocusedMasuk && canSubmit,
-                        cornerRadius = 10.dp,
-                        borderWidth = 3.5.dp,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    when {
-                                        !canSubmit -> Color(0x33FFD700)
-                                        isFocusedMasuk -> Color(0xFFFFE44D)
-                                        else -> IslamicGold
-                                    }
-                                )
-                                .focusable(enabled = canSubmit)
-                                .onFocusChanged { isFocusedMasuk = it.isFocused }
-                                .clickable(enabled = canSubmit) {
-                                    if (pin == correctPin) {
-                                        onSuccess()
-                                    } else {
-                                        errorMessage = "PIN salah"
-                                        pin = ""
-                                    }
-                                }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "MASUK",
-                                color = if (canSubmit) Color(0xFF09141D) else TextSecondary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
+                    NeonFocusBorder(focused = isFocusedMasuk && canSubmit, cornerRadius = 10.dp, borderWidth = 3.5.dp, modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (!canSubmit) Color(0x33FFD700) else if (isFocusedMasuk) Color(0xFFFFE44D) else IslamicGold).focusable(enabled = canSubmit).onFocusChanged { isFocusedMasuk = it.isFocused }.clickable(enabled = canSubmit) {
+                            if (pin == correctPin) onSuccess() else { errorMessage = "PIN salah"; pin = "" }
+                        }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            Text("MASUK", color = if (canSubmit) Color(0xFF09141D) else TextSecondary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }
