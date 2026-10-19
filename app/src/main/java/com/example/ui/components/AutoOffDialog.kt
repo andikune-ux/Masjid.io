@@ -49,19 +49,15 @@ fun AutoOffDialog(
     offStartTime: String, offEndTime: String, autoDismissSeconds: Int, onConfirmTrue: () -> Unit, onConfirmFalse: () -> Unit
 ) {
     val yaFocusRequester = remember { FocusRequester() }
-    
-    // State untuk mereset timer jika user berinteraksi
     var interactionCounter by remember { mutableIntStateOf(0) }
-    
-    // LOOP RETRY FOKUS
+
     LaunchedEffect(Unit) {
         repeat(3) {
             delay(400L)
             runCatching { yaFocusRequester.requestFocus() }
         }
     }
-    
-    // Timer Auto-Dismiss yang di-reset saat ada interaksi
+
     LaunchedEffect(interactionCounter) {
         if (autoDismissSeconds > 0) {
             delay(autoDismissSeconds * 1000L)
@@ -70,21 +66,15 @@ fun AutoOffDialog(
     }
 
     Dialog(onDismissRequest = { onConfirmFalse() }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.72f))
-                .onPreviewKeyEvent { event ->
-                    // Reset timer setiap kali D-pad ditekan
-                    if (event.type == KeyEventType.KeyDown) {
-                        interactionCounter++
-                        false // Biarkan event diteruskan ke tombol
-                    } else false
-                }, 
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)), contentAlignment = Alignment.Center) {
             Column(
-                modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 820.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(20.dp)).background(DARK_BG).border(2.dp, GOLD, RoundedCornerShape(20.dp)).padding(horizontal = 20.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup(),
+                modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 820.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(20.dp)).background(DARK_BG).border(2.dp, GOLD, RoundedCornerShape(20.dp)).padding(horizontal = 20.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup()
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            interactionCounter++
+                            false
+                        } else false
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(modifier = Modifier.size(72.dp).clip(CircleShape).background(GOLD.copy(alpha = 0.12f)).border(2.dp, GOLD, CircleShape), contentAlignment = Alignment.Center) {
@@ -121,27 +111,18 @@ fun AutoOffDialog(
 }
 
 @Composable
-private fun AutoOffButton(
-    text: String, isConfirm: Boolean, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, onClick: () -> Unit
-) {
+private fun AutoOffButton(text: String, isConfirm: Boolean, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val baseColor = if (isConfirm) Color(0xFF1BAA5F) else Color(0xFF1A4A9E)
     val focusColor = if (isConfirm) Color(0xFF3DDC84) else Color(0xFF2A6FE0)
     val bgColor = if (focused) focusColor else baseColor
 
     var boxModifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(bgColor)
-    
-    if (focusRequester != null) {
-        boxModifier = boxModifier.focusRequester(focusRequester)
-    }
-    
+    if (focusRequester != null) { boxModifier = boxModifier.focusRequester(focusRequester) }
     boxModifier = boxModifier.onFocusChanged { focused = it.isFocused }.focusable().clickable { onClick() }
 
     NeonFocusBorder(focused = focused, cornerRadius = 14.dp, borderWidth = 4.dp, modifier = modifier.height(56.dp)) {
-        Box(
-            modifier = boxModifier,
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = boxModifier, contentAlignment = Alignment.Center) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (isConfirm) Icons.Filled.Check else Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
