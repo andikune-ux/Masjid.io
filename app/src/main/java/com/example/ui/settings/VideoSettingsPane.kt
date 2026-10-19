@@ -57,13 +57,9 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
     val scope = rememberCoroutineScope()
     var showVideoPicker by remember { mutableStateOf(false) }
     var showPhotoPicker by remember { mutableStateOf(false) }
-    
-    // FIX: State untuk mencegah double copy saat file sedang diproses
     var isProcessing by remember { mutableStateOf(false) }
 
-    val isVideoMissing = remember(settings.videoUri) {
-        !settings.videoUri.isNullOrBlank() && !File(settings.videoUri).exists()
-    }
+    val isVideoMissing = remember(settings.videoUri) { !settings.videoUri.isNullOrBlank() && !File(settings.videoUri).exists() }
 
     fun processVideoFile(file: File) {
         if (isProcessing) return
@@ -75,9 +71,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     MediaPersistenceHelper.cleanupFolder(context, MediaPersistenceHelper.FOLDER_VIDEO, 3)
                     onUpdate(settings.copy(videoUri = localPath, videoEnabled = true))
                 } else onUpdate(settings.copy(videoUri = file.absolutePath, videoEnabled = true))
-            } finally {
-                isProcessing = false
-            }
+            } finally { isProcessing = false }
         }
     }
 
@@ -89,9 +83,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                 val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyToPermanent(context, file.absolutePath, MediaPersistenceHelper.FOLDER_SLIDESHOW, "foto") }
                 val newItem = localPath ?: file.absolutePath
                 onUpdate(settings.copy(photoSlideshowUris = settings.photoSlideshowUris + newItem, photoSlideshowEnabled = true))
-            } finally {
-                isProcessing = false
-            }
+            } finally { isProcessing = false }
         }
     }
 
@@ -102,9 +94,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                 try {
                     val localPath = withContext(Dispatchers.IO) { MediaPersistenceHelper.copyVideoToPermanent(context, uri.toString()) }
                     onUpdate(settings.copy(videoUri = localPath ?: uri.toString(), videoEnabled = true))
-                } finally {
-                    isProcessing = false
-                }
+                } finally { isProcessing = false }
             }
         }
     }
@@ -116,9 +106,7 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                 try {
                     val localPaths = withContext(Dispatchers.IO) { uris.mapNotNull { MediaPersistenceHelper.copyToPermanent(context, it.toString(), MediaPersistenceHelper.FOLDER_SLIDESHOW, "foto") } }
                     if (localPaths.isNotEmpty()) onUpdate(settings.copy(photoSlideshowUris = settings.photoSlideshowUris + localPaths, photoSlideshowEnabled = true))
-                } finally {
-                    isProcessing = false
-                }
+                } finally { isProcessing = false }
             }
         }
     }
@@ -136,9 +124,13 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             onToggle = { onUpdate(settings.copy(galleryMasterEnabled = it)) }
         )
 
+        if (isProcessing) {
+            Box(modifier = Modifier.fillMaxWidth().height(50.dp).focusable().background(Color(0x33FFD700), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                Text("⏳ Memproses file, mohon tunggu...", color = IslamicGoldLight, fontWeight = FontWeight.Bold)
+            }
+        }
+
         Column(modifier = Modifier.alpha(if (isGalleryEnabled) 1f else 0.35f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            
-            // --- VIDEO ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("📹 VIDEO KEGIATAN", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                 TvToggle(
@@ -186,7 +178,6 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
 
-            // --- FOTO ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("📷 FOTO KEGIATAN", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                 TvToggle(
@@ -240,7 +231,6 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
 
-            // --- SMART SWITCH ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("🔄 SMART SWITCH (Rotasi Cerdas)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                 TvToggle(
@@ -260,7 +250,6 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x33FFFFFF)))
 
-            // --- FRAME ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AspectRatio, null, tint = IslamicGold, modifier = Modifier.size(22.dp)); Spacer(modifier = Modifier.width(10.dp)); Text("PENGATURAN UKURAN FRAME", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight) }
                 FrameModeOption("POTONG (Crop)", "Penuhi frame, potong sisi berlebih.", "✂️", settings.videoFrameScale == "POTONG", isGalleryEnabled && !isProcessing) { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
