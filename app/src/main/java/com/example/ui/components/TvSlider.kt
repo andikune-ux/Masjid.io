@@ -3,7 +3,6 @@ package dev.andikune.masjidio.ui.components
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -118,16 +117,14 @@ fun TvSlider(
                                 true
                             }
                             event.key == Key.DirectionLeft || keyCode == AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
-                                if (isSliderActive) {
-                                    slideLeft()
-                                    true
-                                } else false // Biarkan D-pad kiri pindah fokus jika tidak aktif
+                                if (isSliderActive) { slideLeft(); true } else false
                             }
                             event.key == Key.DirectionRight || keyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                if (isSliderActive) {
-                                    slideRight()
-                                    true
-                                } else false // Biarkan D-pad kanan pindah fokus jika tidak aktif
+                                if (isSliderActive) { slideRight(); true } else false
+                            }
+                            event.key == Key.DirectionUp || event.key == Key.DirectionDown -> {
+                                isSliderActive = false
+                                false 
                             }
                             else -> false
                         }
@@ -138,7 +135,6 @@ fun TvSlider(
                     if (!it.isFocused) isSliderActive = false
                 }
                 .focusable()
-                .clickable { isSliderActive = !isSliderActive }
                 .padding(16.dp)
         ) {
             Row(
@@ -150,27 +146,18 @@ fun TvSlider(
                     text = label,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = when {
-                        isSliderActive -> IslamicGreen
-                        isFocused -> Color(0xFFFFE44D)
-                        else -> IslamicGoldLight
-                    }
+                    color = when { isSliderActive -> IslamicGreen; isFocused -> Color(0xFFFFE44D); else -> IslamicGoldLight }
                 )
                 Text(
                     text = displayValue,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
-                    color = when {
-                        isSliderActive -> IslamicGreen
-                        isFocused -> Color(0xFFFFE44D)
-                        else -> TextPrimary
-                    }
+                    color = when { isSliderActive -> IslamicGreen; isFocused -> Color(0xFFFFE44D); else -> TextPrimary }
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // TRACK DENGAN TOUCH & CLICK SUPPORT
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -179,11 +166,9 @@ fun TvSlider(
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             isSliderActive = true
-
                             val initialFraction = (down.position.x / size.width).coerceIn(0f, 1f)
                             onValueChange(valueRange.start + initialFraction * (valueRange.endInclusive - valueRange.start))
                             down.consume()
-
                             var pointer = down
                             while (pointer.pressed) {
                                 val event = awaitPointerEvent()
@@ -201,9 +186,7 @@ fun TvSlider(
                 Box(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x33FFFFFF)))
 
                 val rangeSpan = valueRange.endInclusive - valueRange.start
-                val progressFraction = if (rangeSpan > 0f) {
-                    ((value - valueRange.start) / rangeSpan).coerceIn(0.005f, 1f)
-                } else 0.005f
+                val progressFraction = if (rangeSpan > 0f) ((value - valueRange.start) / rangeSpan).coerceIn(0.005f, 1f) else 0.005f
 
                 Box(modifier = Modifier.fillMaxWidth(progressFraction).height(8.dp).clip(RoundedCornerShape(4.dp)).background(if (isSliderActive) IslamicGreen else IslamicGold))
 
@@ -226,23 +209,19 @@ fun TvSlider(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { isSliderActive = true; slideLeft() }.padding(4.dp)
-                    ) { Text("◀", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isSliderActive) IslamicGreen else TextSecondary) }
-                    
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { isSliderActive = true; slideLeft() }.padding(4.dp)) { 
+                        Text("◀", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isSliderActive) IslamicGreen else TextSecondary) 
+                    }
                     Spacer(modifier = Modifier.width(6.dp))
-                    
                     Text(
                         text = if (isSliderActive) "Geser / D-pad KIRI-KANAN untuk atur" else "Tekan OK untuk aktifkan slider",
                         fontSize = 11.sp,
                         color = if (isSliderActive) IslamicGreen else TextSecondary
                     )
-                    
                     Spacer(modifier = Modifier.width(6.dp))
-                    
-                    Box(
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { isSliderActive = true; slideRight() }.padding(4.dp)
-                    ) { Text("▶", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isSliderActive) IslamicGreen else TextSecondary) }
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { isSliderActive = true; slideRight() }.padding(4.dp)) { 
+                        Text("▶", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isSliderActive) IslamicGreen else TextSecondary) 
+                    }
                 }
                 if (isSliderActive) {
                     Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(IslamicGreen.copy(alpha = 0.3f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
