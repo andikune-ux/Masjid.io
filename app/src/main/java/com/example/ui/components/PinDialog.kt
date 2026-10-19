@@ -58,7 +58,12 @@ private fun PinPad(onKeyPress: (String) -> Unit, firstKeyFocusRequester: FocusRe
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 for ((colIdx, key) in row.withIndex()) {
                     val isFirst = rowIdx == 0 && colIdx == 0
-                    PinPadKey(key = key, modifier = Modifier.weight(1f).let { base -> if (isFirst && firstKeyFocusRequester != null) base.focusRequester(firstKeyFocusRequester) else base }, onClick = { onKeyPress(key) })
+                    PinPadKey(
+                        key = key, 
+                        modifier = Modifier.weight(1f), 
+                        focusRequester = if (isFirst) firstKeyFocusRequester else null, 
+                        onClick = { onKeyPress(key) }
+                    )
                 }
             }
         }
@@ -66,11 +71,12 @@ private fun PinPad(onKeyPress: (String) -> Unit, firstKeyFocusRequester: FocusRe
 }
 
 @Composable
-private fun PinPadKey(key: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun PinPadKey(key: String, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     NeonFocusBorder(focused = focused, cornerRadius = 10.dp, borderWidth = 3.dp, modifier = modifier.height(44.dp)) {
         Box(
             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(if (focused) Color(0x55FFD700) else NUMPAD_BG)
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .focusable().onFocusChanged { focused = it.isFocused }.clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -103,7 +109,12 @@ fun PinDialog(correctPin: String, onSuccess: () -> Unit, onDismiss: () -> Unit) 
     var isError by remember { mutableStateOf(false) }
     val firstKeyFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { delay(500L); runCatching { firstKeyFocusRequester.requestFocus() }; delay(300L); runCatching { firstKeyFocusRequester.requestFocus() } }
+    LaunchedEffect(Unit) {
+        repeat(3) {
+            delay(400L)
+            runCatching { firstKeyFocusRequester.requestFocus() }
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = false)) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -151,8 +162,10 @@ fun ChangePinDialog(currentPin: String, onPinChanged: (String) -> Unit, onDismis
     var errorMessage by remember { mutableStateOf("") }
     val firstKeyFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(step) { enteredPin = ""; isError = false; errorMessage = ""; delay(300L); runCatching { firstKeyFocusRequester.requestFocus() } }
-    LaunchedEffect(Unit) { delay(500L); runCatching { firstKeyFocusRequester.requestFocus() }; delay(300L); runCatching { firstKeyFocusRequester.requestFocus() } }
+    LaunchedEffect(step) {
+        enteredPin = ""; isError = false; errorMessage = ""
+        repeat(3) { delay(400L); runCatching { firstKeyFocusRequester.requestFocus() } }
+    }
 
     val title = when (step) { ChangePinStep.ENTER_OLD -> "MASUKKAN PIN LAMA"; ChangePinStep.ENTER_NEW -> "MASUKKAN PIN BARU"; ChangePinStep.CONFIRM_NEW -> "ULANGI PIN BARU" }
     val subtitle = when (step) { ChangePinStep.ENTER_OLD -> "Verifikasi PIN Anda yang sekarang"; ChangePinStep.ENTER_NEW -> "Buat PIN baru 4 digit"; ChangePinStep.CONFIRM_NEW -> "Ketik ulang PIN baru untuk konfirmasi" }
