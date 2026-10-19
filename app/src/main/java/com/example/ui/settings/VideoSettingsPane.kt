@@ -107,7 +107,12 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             onToggle = { onUpdate(settings.copy(galleryMasterEnabled = it)) }
         )
 
-        Column(modifier = Modifier.alpha(if (isGalleryEnabled) 1f else 0.35f).focusable(isGalleryEnabled), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        // FIX BUG STUCK D-PAD: Hapus Modifier.focusable(isGalleryEnabled) pada Column ini.
+        // Cukup gunakan Modifier.alpha untuk visual, dan biarkan fokus mengalir ke komponen di dalamnya.
+        Column(
+            modifier = Modifier.alpha(if (isGalleryEnabled) 1f else 0.35f),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
             
             // --- VIDEO ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -116,10 +121,11 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     label = "Aktifkan Video",
                     description = "Putar video kegiatan di layar TV.",
                     isChecked = settings.videoEnabled,
-                    onToggle = { onUpdate(settings.copy(videoEnabled = it)) }
+                    onToggle = { onUpdate(settings.copy(videoEnabled = it)) },
+                    enabled = isGalleryEnabled // Tambahkan enabled agar tidak bisa diklik saat master off
                 )
 
-                if (settings.videoEnabled) {
+                if (settings.videoEnabled && isGalleryEnabled) {
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091620)).border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("File Video Masjid", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
                         if (isVideoMissing) {
@@ -163,10 +169,11 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     label = "Aktifkan Foto",
                     description = "Tampilkan slideshow foto kegiatan di layar TV.",
                     isChecked = settings.photoSlideshowEnabled,
-                    onToggle = { onUpdate(settings.copy(photoSlideshowEnabled = it)) }
+                    onToggle = { onUpdate(settings.copy(photoSlideshowEnabled = it)) },
+                    enabled = isGalleryEnabled
                 )
 
-                if (settings.photoSlideshowEnabled) {
+                if (settings.photoSlideshowEnabled && isGalleryEnabled) {
                     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF091620)).border(1.dp, Color(0x33FFD700), RoundedCornerShape(12.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("Daftar Foto (${settings.photoSlideshowUris.size})", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight)
@@ -216,9 +223,10 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
                     label = "Tampilkan Layar Default",
                     description = "Layar bergantian: Video -> Foto -> Layar Default.",
                     isChecked = settings.smartSwitchEnabled,
-                    onToggle = { onUpdate(settings.copy(smartSwitchEnabled = it)) }
+                    onToggle = { onUpdate(settings.copy(smartSwitchEnabled = it)) },
+                    enabled = isGalleryEnabled
                 )
-                if (settings.smartSwitchEnabled) TvSlider(
+                if (settings.smartSwitchEnabled && isGalleryEnabled) TvSlider(
                     label = "Durasi Layar Default",
                     value = settings.normalModeDurationMinutes.toFloat(),
                     onValueChange = { onUpdate(settings.copy(normalModeDurationMinutes = it.toInt())) },
@@ -231,11 +239,11 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
             // --- FRAME ---
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AspectRatio, null, tint = IslamicGold, modifier = Modifier.size(22.dp)); Spacer(modifier = Modifier.width(10.dp)); Text("PENGATURAN UKURAN FRAME", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight) }
-                FrameModeOption("POTONG (Crop)", "Penuhi frame, potong sisi berlebih.", "✂️", settings.videoFrameScale == "POTONG") { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
-                FrameModeOption("PAS (Fit)", "Tampil utuh, ada ruang hitam.", "📺", settings.videoFrameScale == "PAS") { onUpdate(settings.copy(videoFrameScale = "PAS")) }
-                FrameModeOption("ZOOM (Fill)", "Diperbesar penuhi frame, tengah fokus.", "🔍", settings.videoFrameScale == "ZOOM") { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
-                FrameModeOption("FULL (Fullscreen)", "Menutupi seluruh layar (panel kiri hilang).", "🖥️", settings.videoFrameScale == "FULL") { onUpdate(settings.copy(videoFrameScale = "FULL")) }
-                FrameModeOption("FIT (Stretch)", "Dipaksa memenuhi frame (bisa distorsi).", "📐", settings.videoFrameScale == "FIT") { onUpdate(settings.copy(videoFrameScale = "FIT")) }
+                FrameModeOption("POTONG (Crop)", "Penuhi frame, potong sisi berlebih.", "✂️", settings.videoFrameScale == "POTONG", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "POTONG")) }
+                FrameModeOption("PAS (Fit)", "Tampil utuh, ada ruang hitam.", "📺", settings.videoFrameScale == "PAS", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "PAS")) }
+                FrameModeOption("ZOOM (Fill)", "Diperbesar penuhi frame, tengah fokus.", "🔍", settings.videoFrameScale == "ZOOM", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "ZOOM")) }
+                FrameModeOption("FULL (Fullscreen)", "Menutupi seluruh layar (panel kiri hilang).", "🖥️", settings.videoFrameScale == "FULL", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "FULL")) }
+                FrameModeOption("FIT (Stretch)", "Dipaksa memenuhi frame (bisa distorsi).", "📐", settings.videoFrameScale == "FIT", isGalleryEnabled) { onUpdate(settings.copy(videoFrameScale = "FIT")) }
             }
         }
     }
@@ -245,16 +253,16 @@ fun VideoSettingsPane(settings: AppSettings, onUpdate: (AppSettings) -> Unit, mo
 }
 
 @Composable
-private fun FrameModeOption(title: String, desc: String, emoji: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun FrameModeOption(title: String, desc: String, emoji: String, isSelected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     val borderWidth by animateDpAsState(if (isFocused) 4.dp else if (isSelected) 2.dp else 1.dp, label = "border")
     val scale by animateFloatAsState(if (isFocused) 1.02f else 1f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f), label = "scale")
-    Box(modifier = Modifier.fillMaxWidth().scale(scale).clip(RoundedCornerShape(10.dp)).background(if (isSelected) Color(0x33FFD700) else if (isFocused) Color(0x22FFD700) else Color(0x22000000)).border(borderWidth, if (isFocused) Color(0xFFFFE44D) else if (isSelected) IslamicGold else Color(0x22FFFFFF), RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable().clickable { onClick() }.padding(12.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().scale(scale).clip(RoundedCornerShape(10.dp)).background(if (isSelected) Color(0x33FFD700) else if (isFocused) Color(0x22FFD700) else Color(0x22000000)).border(borderWidth, if (isFocused) Color(0xFFFFE44D) else if (isSelected) IslamicGold else Color(0x22FFFFFF), RoundedCornerShape(10.dp)).onFocusChanged { isFocused = it.isFocused }.focusable(enabled).clickable(enabled = enabled) { onClick() }.padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(if (isSelected) IslamicGold.copy(alpha = 0.25f) else Color(0x22FFFFFF)), contentAlignment = Alignment.Center) { Text(emoji, fontSize = 18.sp) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) { Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (isSelected) IslamicGoldLight else if (isFocused) Color(0xFFFFE44D) else TextPrimary); Text(desc, fontSize = 11.sp, color = TextSecondary, lineHeight = 15.sp) }
-            RadioButton(selected = isSelected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = IslamicGold))
+            RadioButton(selected = isSelected, onClick = onClick, enabled = enabled, colors = RadioButtonDefaults.colors(selectedColor = IslamicGold))
         }
     }
 }
