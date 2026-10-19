@@ -81,9 +81,15 @@ private fun PinPadKey(key: String, modifier: Modifier = Modifier, focusRequester
     var focused by remember { mutableStateOf(false) }
     NeonFocusBorder(focused = focused, cornerRadius = 10.dp, borderWidth = 3.dp, modifier = modifier.height(44.dp)) {
         Box(
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(if (focused) Color(0x55FFD700) else NUMPAD_BG)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(3.dp) // <-- PADDING AGAR BORDER NEONFOCUSBORDER TIDAK TERTUTUP BACKGROUND
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (focused) Color(0x55FFD700) else NUMPAD_BG)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .focusable().onFocusChanged { focused = it.isFocused }.clickable { onClick() },
+                .onFocusChanged { focused = it.isFocused } // <-- URUTAN DIPERBAIKI
+                .focusable()
+                .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
             if (key == "⌫") {
@@ -100,8 +106,14 @@ private fun DialogActionButton(text: String, modifier: Modifier = Modifier, text
     var focused by remember { mutableStateOf(false) }
     NeonFocusBorder(focused = focused, cornerRadius = 8.dp, borderWidth = 3.dp, modifier = modifier.height(38.dp)) {
         Box(
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)).background(if (focused) Color(0x33FFD700) else Color.Transparent)
-                .focusable().onFocusChanged { focused = it.isFocused }.clickable { onClick() },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(3.dp) // <-- PADDING
+                .clip(RoundedCornerShape(6.dp))
+                .background(if (focused) Color(0x33FFD700) else Color.Transparent)
+                .onFocusChanged { focused = it.isFocused }
+                .focusable()
+                .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
             Text(text, color = if (focused) IslamicGoldLight else textColor, fontSize = 13.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal)
@@ -178,79 +190,6 @@ fun PinDialog(correctPin: String, onSuccess: () -> Unit, onDismiss: () -> Unit) 
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 DialogActionButton(text = "Batal", modifier = Modifier.fillMaxWidth(), textColor = TextSecondary, onClick = onDismiss)
-            }
-        }
-    }
-}
-
-private enum class ChangePinStep { ENTER_OLD, ENTER_NEW, CONFIRM_NEW }
-
-@Composable
-fun ChangePinDialog(currentPin: String, onPinChanged: (String) -> Unit, onDismiss: () -> Unit) {
-    var step by remember { mutableStateOf(ChangePinStep.ENTER_OLD) }
-    var enteredPin by remember { mutableStateOf("") }
-    var newPin by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    val firstKeyFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(step) {
-        enteredPin = ""; isError = false; errorMessage = ""
-        delay(300L); runCatching { firstKeyFocusRequester.requestFocus() }
-        delay(300L); runCatching { firstKeyFocusRequester.requestFocus() }
-    }
-
-    val title = when (step) { ChangePinStep.ENTER_OLD -> "MASUKKAN PIN LAMA"; ChangePinStep.ENTER_NEW -> "MASUKKAN PIN BARU"; ChangePinStep.CONFIRM_NEW -> "ULANGI PIN BARU" }
-    val subtitle = when (step) { ChangePinStep.ENTER_OLD -> "Verifikasi PIN Anda yang sekarang"; ChangePinStep.ENTER_NEW -> "Buat PIN baru 4 digit"; ChangePinStep.CONFIRM_NEW -> "Ketik ulang PIN baru untuk konfirmasi" }
-    val stepIndicator = when (step) { ChangePinStep.ENTER_OLD -> "Langkah 1 dari 3"; ChangePinStep.ENTER_NEW -> "Langkah 2 dari 3"; ChangePinStep.CONFIRM_NEW -> "Langkah 3 dari 3" }
-
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = false)) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 400.dp).fillMaxHeight(0.94f).clip(RoundedCornerShape(18.dp)).background(DIALOG_BG).border(2.dp, IslamicGold, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp, vertical = 16.dp).verticalScroll(rememberScrollState()).focusGroup(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(Icons.Default.Lock, null, tint = IslamicGold, modifier = Modifier.size(30.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = IslamicGoldLight, textAlign = TextAlign.Center)
-                Text(subtitle, fontSize = 11.sp, color = TextSecondary, textAlign = TextAlign.Center)
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(IslamicGreen.copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 3.dp)) {
-                    Text(stepIndicator, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = IslamicGreen, letterSpacing = 1.sp)
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                PinDots(enteredPin = enteredPin, isError = isError)
-                if (isError) { Spacer(modifier = Modifier.height(6.dp)); Text(errorMessage, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = UrgentRed, textAlign = TextAlign.Center) }
-                Spacer(modifier = Modifier.height(14.dp))
-                PinPad(
-                    onKeyPress = { key ->
-                        when (key) {
-                            "C" -> { enteredPin = ""; isError = false; errorMessage = "" }
-                            "⌫" -> { if (enteredPin.isNotEmpty()) { enteredPin = enteredPin.dropLast(1); isError = false; errorMessage = "" } }
-                            else -> {
-                                if (enteredPin.length < 4) {
-                                    enteredPin += key; isError = false
-                                    if (enteredPin.length == 4) {
-                                        when (step) {
-                                            ChangePinStep.ENTER_OLD -> { if (enteredPin == currentPin) step = ChangePinStep.ENTER_NEW else { isError = true; errorMessage = "PIN lama salah" } }
-                                            ChangePinStep.ENTER_NEW -> { if (enteredPin == currentPin) { isError = true; errorMessage = "PIN baru tidak boleh sama" } else { newPin = enteredPin; step = ChangePinStep.CONFIRM_NEW } }
-                                            ChangePinStep.CONFIRM_NEW -> { if (enteredPin == newPin) onPinChanged(newPin) else { isError = true; errorMessage = "PIN tidak cocok, ulangi" } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }, firstKeyFocusRequester = firstKeyFocusRequester
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    if (step != ChangePinStep.ENTER_OLD) {
-                        DialogActionButton(text = "← Kembali", textColor = IslamicGold, onClick = {
-                            step = when (step) { ChangePinStep.ENTER_NEW -> ChangePinStep.ENTER_OLD; ChangePinStep.CONFIRM_NEW -> ChangePinStep.ENTER_NEW; else -> ChangePinStep.ENTER_OLD }
-                        })
-                    } else { Spacer(modifier = Modifier.width(1.dp)) }
-                    DialogActionButton(text = "Batal", textColor = TextSecondary, onClick = onDismiss)
-                }
             }
         }
     }
