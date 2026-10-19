@@ -16,7 +16,7 @@ object AppKnowledge {
 
     val APP_STRUCTURE = """
 app/src/main/java/dev/andikune/masjidio/
-├── MainActivity.kt                    -> Activity utama (V1.04.426)
+├── MainActivity.kt                    -> Activity utama (V1.04.432)
 ├── audio/
 │   └── SoundManager.kt                -> Suara beep & adzan
 ├── data/
@@ -43,7 +43,7 @@ app/src/main/java/dev/andikune/masjidio/
 │   ├── KioskManager.kt                -> Mode kiosk (lock task)
 │   ├── WatchdogService.kt             -> Auto-restart
 │   ├── AutoStartService.kt            -> Auto-start saat boot
-│   └── TransferForegroundService.kt   -> V1.04.426 BARU (foreground + WiFiLock)
+│   └── TransferForegroundService.kt   -> Foreground + WiFiLock
 ├── receiver/BootReceiver.kt           -> Terima broadcast boot
 ├── util/
 │   ├── BackupManager.kt               -> Backup Aman (TXT)
@@ -51,10 +51,10 @@ app/src/main/java/dev/andikune/masjidio/
 │   ├── CrashAutoShowHelper.kt         -> Auto-show dialog crash
 │   ├── GithubSourceFetcher.kt         -> Fetch source dari GitHub
 │   ├── SettingsTransferHelper.kt      -> Serialize + upload media
-│   ├── RemoteControlClient.kt         -> HTTP client iO Control (V1.04.426 streaming)
-│   ├── MediaTransferHelper.kt         -> Chunk + kompres media (V1.04.426)
+│   ├── RemoteControlClient.kt         -> HTTP client iO Control
+│   ├── MediaTransferHelper.kt         -> Chunk + kompres media
 │   ├── MediaPersistenceHelper.kt      -> Copy file ke folder permanen
-│   ├── IoBundleHelper.kt              -> Bundle .iO (V1.04.426 color coding)
+│   ├── IoBundleHelper.kt              -> Bundle .iO
 │   ├── FonnteHelper.kt                -> Token & Group ID Fonnte
 │   ├── FonnteSender.kt                -> Kirim WA via Fonnte API
 │   ├── UpdateManager.kt               -> Cek update GitHub
@@ -71,15 +71,15 @@ app/src/main/java/dev/andikune/masjidio/
     │   ├── QrisSlide.kt               -> Slide QRIS Infaq
     │   ├── LaporanSlide.kt            -> Slide Laporan Keuangan
     │   ├── KajianSlide.kt             -> Slide Jadwal Kajian
-    │   └── SlideManager.kt            -> Manager rotasi slide (CLEAN VIEW)
+    │   └── SlideManager.kt            -> Manager rotasi slide
     ├── ramadhan/RamadhanOverlay.kt    -> Overlay Mode Ramadhan
     ├── cctv/CctvWidget.kt             -> Widget CCTV (RTSP/HTTP)
     ├── remote/
-    │   ├── RemoteServer.kt            -> HTTP server (V1.04.426 streaming upload)
+    │   ├── RemoteServer.kt            -> HTTP server
     │   ├── RemoteDashboard.kt         -> Info akses remote
     │   ├── DeviceDiscovery.kt         -> Discovery device via UDP
-    │   ├── NetworkHelper.kt           -> Helper deteksi IP WiFi
-    │   ├── IoControlScreen.kt         -> UI radar + trigger FGS (V1.04.426)
+    │   ├── NetworkHelper.kt           -> Helper deteksi IP
+    │   ├── IoControlScreen.kt         -> UI radar + trigger FGS
     │   ├── IoControlHelpSheet.kt      -> Panduan iO Control
     │   └── RestartCountdownOverlay.kt -> Overlay countdown restart
     ├── settings/
@@ -89,22 +89,22 @@ app/src/main/java/dev/andikune/masjidio/
     │   ├── AboutSettingsPane.kt       -> Tentang + Sosmed + APK install
     │   ├── AudioSettingsPane.kt       -> Audio & Adzan
     │   ├── CountdownSettingsPane.kt   -> Durasi & countdown
-    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah + .iO (V1.04.426 GALERI)
-    │   ├── IoBundleListSection.kt     -> Daftar .iO (V1.04.426 color coding)
+    │   ├── CustomBackgroundPane.kt    -> Background + Tema Makkah
+    │   ├── IoBundleListSection.kt     -> Daftar file .iO
     │   ├── TvDisplaySettingsPane.kt   -> Tampilan TV responsif
-    │   ├── IdentitySettingsPane.kt    -> Identitas + logo (V1.04.426 GALERI)
+    │   ├── IdentitySettingsPane.kt    -> Identitas + logo
     │   ├── LocationSettingsPane.kt    -> Lokasi + GPS
-    │   ├── PowerSettingsPane.kt       -> Daya & Booting (jadwal on/off otomatis)
-    │   ├── QrisSettingsPane.kt        -> Donasi QRIS (V1.04.426 GALERI)
+    │   ├── PowerSettingsPane.kt       -> Daya & Booting
+    │   ├── QrisSettingsPane.kt        -> Donasi QRIS
     │   ├── RamadhanSettingsPane.kt    -> Mode Ramadhan
     │   ├── RunningTextSettingsPane.kt -> Running text
-    │   ├── SecuritySettingsPane.kt    -> Keamanan (PIN LOCK 3 opsi)
+    │   ├── SecuritySettingsPane.kt    -> Keamanan (PIN LOCK)
     │   ├── SlideSettingsPane.kt       -> Slide Fullscreen
     │   ├── CctvSettingsPane.kt        -> CCTV Masjid
     │   ├── RemoteSettingsPane.kt      -> iO Control + Remote Server
     │   ├── TimeSettingsPane.kt        -> Waktu manual
-    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch (V1.04.426 GALERI)
-    │   ├── WeeklyOfficersSettingsPane.kt -> Petugas (V1.04.426 menu GALERI/FILE/HAPUS)
+    │   ├── VideoSettingsPane.kt       -> Video + Auto-Switch
+    │   ├── WeeklyOfficersSettingsPane.kt -> Petugas & Foto
     │   ├── WisdomSettingsPane.kt      -> Kartu nasihat
     │   ├── MiniCalendarPickerModal.kt -> Kalender mini
     │   ├── PinDialog.kt               -> Dialog PIN
@@ -120,7 +120,7 @@ app/src/main/java/dev/andikune/masjidio/
     │   ├── FocusHelper.kt             -> Helper fokus tambahan
     │   ├── NeonFocusBorder.kt         -> Border fokus berputar
     │   ├── PhotoSlideshow.kt          -> Slideshow foto
-    │   ├── MasjidVideoPlayer.kt       -> Video player (onVideoLooped + zoomFactor)
+    │   ├── MasjidVideoPlayer.kt       -> Video player
     │   ├── UpdateDialog.kt            -> Dialog update
     │   ├── OfficerCarousel.kt         -> Panel imam/muadzin
     │   ├── PrayerCardsRow.kt          -> Kartu sholat
@@ -134,7 +134,7 @@ app/src/main/java/dev/andikune/masjidio/
     │   ├── ArabesquePattern.kt        -> Pola arabesque
     │   ├── IslamicEventCard.kt        -> Kartu event Islam
     │   ├── WeatherAmbientOverlay.kt   -> Efek cuaca ambient
-    │   ├── WisdomCardCarousel.kt      -> Karusel kartu nasihat (auto-shrink)
+    │   ├── WisdomCardCarousel.kt      -> Karusel kartu nasihat
     │   ├── VideoFilePickerDialog.kt   -> Custom file picker TV
     │   └── AutoOffDialog.kt           -> Popup konfirmasi jadwal off
     └── theme/                          -> Warna & tipografi
@@ -153,35 +153,35 @@ app/src/main/java/dev/andikune/masjidio/
    - Auto-scale untuk semua ukuran TV
    - 2 mode otomatis: MODE VIDEO (Opsi H) & MODE NORMAL
 
-3. TEMA MAKKAH DINAMIS (V1.30.2)
+3. TEMA MAKKAH DINAMIS
    - Langit bergerak real-time 24 jam
    - Matahari melengkung + bulan fase real
    - Awan, burung, bintang, hujan, petir otomatis
    - Siluet Masjidil Haram + Ka'bah
    - Default theme
 
-4. RESPONSIVE AUTO-SCALE (V1.30.3)
+4. RESPONSIVE AUTO-SCALE
    - Deteksi otomatis resolusi TV
    - Deteksi tipe: Ultrawide, Standar, 4:3
    - Safe Area Padding untuk hindari overscan
    - Preset: AUTO / STANDAR / ULTRAWIDE / 4:3
    - Menu: Tampilan TV
 
-5. NAVIGASI D-PAD (V1.30.5 + V1.30.6)
+5. NAVIGASI D-PAD
    - Auto-focus ke elemen pertama pane (AutoFocusPane.kt)
    - Border fokus berputar (NeonFocusBorder.kt)
    - Fokus pindah INSTANT, animasi scale smooth 150ms
    - Blur glow tetap dipertahankan
    - Fokus tidak mendarat di tombol Kembali
 
-6. ALUR SHOLAT BARU (V1.04.421)
+6. ALUR SHOLAT BARU
    - Beep bunyi saat waktu sholat tiba
    - Tahap 1: Overlay Adzan fullscreen ('ADZAN [waktu]')
    - Tahap 2: Overlay Himbauan HP fullscreen
    - Tahap 3: Overlay Niat Qobliyah + Countdown Iqomah
    - Tahap 4: Mode Fokus (Niat Fardhu -> Dzikir)
 
-7. MODE FOKUS SHOLAT (V1.04.421)
+7. MODE FOKUS SHOLAT
    - 2 fase baru: Niat Fardhu + Dzikir
    - Niat sholat fardhu (arab + latin + arti) - 5 waktu
    - Tombol OK: skip ke fase berikutnya
@@ -190,22 +190,22 @@ app/src/main/java/dev/andikune/masjidio/
 8. AUDIO
    - Mode Beep Only / Full Adzan / Silent
 
-9. SLIDE FULLSCREEN (V1.04.423 - CLEAN VIEW)
+9. SLIDE FULLSCREEN
    - Slide QRIS / Laporan / Kajian auto-rotate
    - Tampilan BERSIH tanpa overlay navigasi
    - Tidak muncul saat Mode Fokus aktif
-   - OK/BACK keluar, KIRI/KANAN pindah slide (fungsi remote tetap)
+   - OK/BACK keluar, KIRI/KANAN pindah slide
    - Cooldown 5 menit setelah dismiss
 
 10. CCTV MASJID
     - Widget PiP (RTSP + HTTP)
 
-11. iO CONTROL (V1.30.1 + V1.30.4 + V1.30.7 + V1.04.426)
+11. iO CONTROL
     - HP sebagai remote TV via WiFi
     - Auto-discovery UDP + UI radar
     - Transfer semua pengaturan antar device
-    - TRANSFER MEDIA (foto + video) via STREAMING UPLOAD (V1.04.426)
-    - Foreground Service + WiFiLock (V1.04.426)
+    - TRANSFER MEDIA (foto + video) via STREAMING UPLOAD
+    - Foreground Service + WiFiLock
     - Progress bar per-file + total
     - UPDATE PATH LOKAL setelah media masuk TV
     - VERIFIKASI transfer sebelum restart
@@ -259,7 +259,7 @@ app/src/main/java/dev/andikune/masjidio/
 29. FIX MEDIA PATH
     - Update settings TV dengan path lokal setelah media masuk
 
-30. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL (V1.30.7)
+30. VERIFIKASI TRANSFER + KONFIRMASI RESTART MANUAL
     - Cek semua file benar-benar terkirim sebelum restart
     - Restart MANUAL via tombol konfirmasi
     - Tombol COBA LAGI untuk kirim ulang file gagal
@@ -267,7 +267,7 @@ app/src/main/java/dev/andikune/masjidio/
     - Tombol RESTART SAJA kalau ada file gagal
     - Tombol LEWATI -> template aktif otomatis saat app dibuka ulang
 
-31. FILE TEMPLATE .iO (V1.30.7)
+31. FILE TEMPLATE .iO
     - Format .iO = ZIP (settings.json + metadata.json + media/)
     - Auto-bikin setiap transfer selesai
     - Nama file: {Merk HP}-{dd-MM-yyyy HH.mm}.iO
@@ -276,45 +276,45 @@ app/src/main/java/dev/andikune/masjidio/
     - Daftar file template di menu Tampilan & Background
     - 3 tombol per file: GUNAKAN / INFO / HAPUS
 
-32. STORAGE PERMISSION DIALOG (V1.04.418)
+32. STORAGE PERMISSION DIALOG
     - Muncul otomatis saat pertama buka app
     - Dialog penjelasan izin akses file
     - Tombol BERI IZIN -> buka Manage All Files Access
 
-33. LAYOUT OPSI H — MODE VIDEO (V1.04.420)
+33. LAYOUT OPSI H — MODE VIDEO
     - Panel kiri 24%: logo + kotak gabungan jam/tanggal + list sholat vertikal + progress bar
     - Panel kanan 76%: video/foto dengan lock frame
     - List sholat vertikal 6 baris (Subuh -> Isya)
     - Highlight NEXT: emas + border tebal + pulse animation
 
-34. AUTO-SWITCH MODE (V1.04.420 + V1.04.423)
+34. AUTO-SWITCH MODE
     - Bolak-balik Mode Video <-> Mode Normal otomatis
     - Interval video (1-60 menit), Durasi normal (1-30 menit)
-    - V1.04.423: Tunggu video selesai 1x putaran sebelum switch
+    - Tunggu video selesai 1x putaran sebelum switch
     - Polling posisi video (500ms) deteksi loop
     - Kalau belum ada video/foto -> mode normal permanen
 
-35. PENGATURAN UKURAN FRAME (V1.04.420 + V1.04.423)
+35. PENGATURAN UKURAN FRAME
     - 5 mode: POTONG / PAS / ZOOM / FULL / FIT
     - POTONG (Crop) seperti Instagram Reels
     - PAS (Fit/Letterbox) seperti Netflix
-    - ZOOM (Fill) - V1.04.423: pakai zoomFactor 1.15f (beda dari POTONG)
+    - ZOOM (Fill) - pakai zoomFactor 1.15f (beda dari POTONG)
     - FULL (Fullscreen) panel kiri hilang
     - FIT (Stretch) paksa video/foto sesuaikan frame
     - Frame LOCK ukuran tetap (16:9, 9:16, 1:1 semua sama)
 
-36. MEDIA PERSISTENCE (V1.04.421)
+36. MEDIA PERSISTENCE
     - File foto/video di-copy ke filesDir/masjid_io/ (folder permanen)
     - Fix masalah file hilang setelah app tutup/update/reboot
     - File baru: MediaPersistenceHelper.kt
 
-37. FIX MODE VIDEO FULL-FRAME (V1.04.422)
+37. FIX MODE VIDEO FULL-FRAME
     - Video/foto sekarang PENUH sampai tepi kanan layar
     - Bug resizeMode shadowing di MasjidVideoPlayer sudah diperbaiki
     - contentScale diteruskan dari settings.videoFrameScale ke player
     - 5 mode ukuran frame (POTONG/PAS/ZOOM/FULL/FIT) benar-benar beda
 
-38. PIN LOCK MODE (V1.04.422)
+38. PIN LOCK MODE
     - 3 opsi di Settings -> Keamanan -> PIN LOCK:
       • IMMEDIATE   = Setiap tekan tombol Settings -> langsung minta PIN
       • TIMEOUT_5MIN = Minta PIN 5 menit setelah kembali ke menu utama
@@ -322,49 +322,49 @@ app/src/main/java/dev/andikune/masjidio/
     - Enum PinLockMode di AppSettings.kt
     - Logic di MainActivity: sessionPinVerified + lastPinVerifiedTime
 
-39. SLIDE NAVIGASI REMOTE (V1.04.422 + V1.04.423)
+39. SLIDE NAVIGASI REMOTE
     - Tekan OK / BACK / ENTER / DPAD_CENTER -> keluar slide kembali ke Home
     - Tekan KIRI / KANAN -> pindah slide (Qris <-> Laporan <-> Kajian)
     - CLEAN VIEW - hapus semua overlay navigasi visual
     - Cooldown 5 menit setelah dismiss -> slide muncul lagi sesuai jadwal
 
-40. STRUKTUR MODE VIDEO BARU (V1.04.422)
+40. STRUKTUR MODE VIDEO BARU
     - Root Column (bukan Box)
     - Row (weight 1f) = panel kiri + panel kanan
     - Running Text (height 52dp) = fixed di paling bawah
     - Video/foto full hingga tepi kanan panel (no outer padding)
 
-41. JADWAL ON/OFF OTOMATIS (V1.04.423)
+41. JADWAL ON/OFF OTOMATIS
     - ON otomatis = Subuh - X menit (X bisa diatur 5-120, default 15)
     - OFF otomatis = Isya + Y menit (Y bisa diatur 5-120, default 30)
     - Brightness 0 (layar redup total) saat jam OFF
     - Polling jadwal setiap 30 detik - real-time ikut waktu
     - Tampil kartu 'Jadwal Hari Ini' di menu Daya & Booting
 
-42. AUTO-OFF DIALOG (V1.04.423)
+42. AUTO-OFF DIALOG
     - Popup konfirmasi saat user tekan remote di jam OFF
     - Tombol YA (kiri, hijau) = matikan jadwal -> layar nyala terus
     - Tombol TIDAK (kanan, abu-abu) = popup hilang, layar redup lagi
     - Auto-dismiss 2 menit -> dianggap TIDAK
     - File baru: AutoOffDialog.kt
 
-43. VIDEO FILE PICKER CUSTOM (V1.04.423)
+43. VIDEO FILE PICKER CUSTOM
     - Custom file picker dalam app (TV friendly, D-pad navigasi)
     - Scan rekursif /sdcard/ + semua subfolder
     - 3 mode: VIDEO / IMAGE / ALL
     - File baru: VideoFilePickerDialog.kt
 
-44. WISDOM CARD AUTO-SHRINK (V1.04.423)
+44. WISDOM CARD AUTO-SHRINK
     - Fix tulisan terpotong dengan auto-shrink font + multi-line dinamis
     - TextOverflow.Clip (bukan Ellipsis) -> teks utuh tanpa '...'
     - Wisdom card full sampai tepi kanan layar (76% panel kanan)
 
-45. ICON JADWAL SHOLAT BERBEDA (V1.04.423)
+45. ICON JADWAL SHOLAT BERBEDA
     - Icon berbeda per waktu sholat (bukan emoji)
     - Subuh -> WbTwilight, Syuruq -> WbSunny, Dzuhur -> LightMode
     - Ashar -> WbCloudy, Maghrib -> NightsStay, Isya -> Nightlight
 
-46. STREAMING UPLOAD TRANSFER MEDIA (V1.04.426) — BARU
+46. STREAMING UPLOAD TRANSFER MEDIA
     - Fix CRITICAL: transfer media yang selalu gagal via iO Control
     - Metode: 1 request HTTP per file (bukan chunk + Base64)
     - TCP handle retransmisi otomatis — tidak perlu retry manual
@@ -377,7 +377,7 @@ app/src/main/java/dev/andikune/masjidio/
     - Header: X-File-Id, X-Field-Key, X-File-Name, X-File-Type, X-Total-Bytes, X-Mime-Type
     - Backward compatible: endpoint chunk lama tetap ada
 
-47. FOREGROUND SERVICE + WIFILOCK (V1.04.426) — BARU
+47. FOREGROUND SERVICE + WIFILOCK
     - File baru: TransferForegroundService.kt
     - Foreground Service: Android tidak boleh bunuh proses saat transfer
     - WiFiLock: WiFi tidak mati saat layar TV off
@@ -386,7 +386,7 @@ app/src/main/java/dev/andikune/masjidio/
     - Auto-start saat kirim media, auto-stop setelah selesai
     - Trigger dari IoControlScreen (SENDING_MEDIA phase)
 
-48. COLOR CODING TEMPLATE .iO (V1.04.426) — BARU
+48. COLOR CODING TEMPLATE .iO
     - Warna tombol template sesuai persentase transfer
     - HIJAU (100%) = semua file berhasil dikirim
     - KUNING (50-99%) = sebagian besar berhasil
@@ -399,12 +399,12 @@ app/src/main/java/dev/andikune/masjidio/
     - Dialog INFO/DELETE/RESTART juga pakai warna kategori
     - File template gagal sebagian tetap bisa dipakai (file yang berhasil tetap masuk)
 
-49. FOLDER PROTECTION .NOMEDIA (V1.04.426) — BARU
+49. FOLDER PROTECTION .NOMEDIA
     - Auto-bikin file .nomedia di folder /sdcard/masjid.io/Terima/
     - Folder Terima tidak dianggap cache oleh aplikasi cleaner
     - File .iO tidak akan dihapus otomatis oleh Clean Master, dll
 
-50. TOMBOL GALERI DI SEMUA PICKER (V1.04.426) — BARU
+50. TOMBOL GALERI DI SEMUA PICKER
     - Tombol GALERI di samping FILE untuk semua picker media
     - Video Kegiatan: GALERI + FILE
     - Logo Masjid: GALERI + FILE
@@ -415,27 +415,73 @@ app/src/main/java/dev/andikune/masjidio/
     - FILE pakai VideoFilePickerDialog custom (TV friendly)
     - Hint text jelas beda GALERI vs FILE
 
-51. INSTALL DIALOG FIX (V1.04.426) — BARU
+51. INSTALL DIALOG FIX
     - InstallPermissionDialog tidak muncul berulang setelah user grant/skip
     - Tambah state installDialogAlreadyShown (muncul sekali per sesi)
     - Tombol dialog izin height fixed 56dp -> teks & ikon muncul
     - Ganti Row dengan padding ke Box dengan height fixed + contentAlignment Center
 
-52. NAMESPACE CONSISTENCY (V1.04.426) — BARU
+52. NAMESPACE CONSISTENCY
     - Namespace konsisten dev.andikune.masjidio di semua file
     - Ganti namespace dari com.example ke dev.andikune.masjidio
     - Update import di semua file yang terdampak
     - Folder fisik tetap com/example/ (Kotlin izinkan package beda dari folder)
 
- 53. GALERI KEGIATAN MASJID (V1.04.431)
+53. GALERI KEGIATAN MASJID
     - Master Switch (Aktifkan Galeri) - meredupkan UI jika mati.
     - Smart Switch (Rotasi Video -> Foto 1 putaran -> Layar Default).
     - Pratinjau popup video (hover D-pad, ExoPlayer tunggal).
     - Thumbnail File Picker (pakai MediaMetadataRetriever, bukan Coil).
     - Hitung total durasi putar foto.
     - Deteksi file hilang (⚠️).
+
+54. FIX HOTSPOT HP (V1.04.432)
+    - Transfer via iO Control sekarang berfungsi meski HP jadi Hotspot.
+    - NetworkHelper mengenali IP valid (WiFi, Hotspot, LAN) tanpa peduli transport.
+    - Tulisan 'WiFi Nonaktif' tidak muncul lagi jika ada IP valid.
+
+55. FIX D-PAD & FOKUS MENYELURUH (V1.04.432)
+    - Fokus tidak lompat ke pojok kanan atas (tombol Simpan).
+    - Fokus bisa kembali ke Sidebar Kiri dari Pane Kanan.
+    - Fokus awal di semua dialog (PIN, Update, AutoOff) langsung menyala.
+    - Retry requestFocus dibatasi agar tidak crash.
+
+56. FIX AUTO-SAVE & DATA HILANG (V1.04.432)
+    - Data tersimpan paksa saat tekan BACK (tidak hilang).
+    - Auto-save tidak bertabrakan dengan tombol Simpan manual.
+
+57. FIX FILE PICKER & GALERI (V1.04.432)
+    - Mencegah double copy (Loading State).
+    - Mencegah file aktif terhapus (cleanup protection).
+    - Thumbnail dimuat di background (anti-lag).
+    - Hanya 1 ExoPlayer global (anti-crash).
+    - Auto-refresh izin & cek eksistensi file sebelum dipilih.
+
+58. FIX INPUT & TIMER (V1.04.432)
+    - Dukungan ketikan angka remote fisik di Pop-up PIN.
+    - Fokus PIN kembali ke awal jika salah.
+    - Timer AutoOff di-reset jika user menekan remote.
+    - Slider tidak double toggle & lepas aktif saat D-pad UP/DOWN.
     """.trimIndent()
         val UPDATE_HISTORY = """
+V1.04.432 (20 Oktober 2026)
+- Fix Total D-pad & Fokus, Hotspot HP, Auto-Save & Performa TV
+- Fix Hotspot HP: Transfer via iO Control berfungsi meski HP jadi Hotspot.
+- Fix Fokus: D-pad tidak macet/lompat, tombol pertama di Pop-up langsung menyala.
+- Fix Input: Pop-up PIN mendukung angka remote fisik & reset fokus jika salah.
+- Fix Auto-Save: Data tidak hilang saat tekan BACK & cegah tabrakan simpan manual.
+- Fix Galeri: Mencegah double copy, file aktif terhapus, & anti-lag ExoPlayer.
+- Fix Timer AutoOff: Timer di-reset jika user menekan remote.
+- Hapus Polling IP 5 detik (IP di-lock) & optimasi NetworkHelper.
+
+V1.04.431 (19 Oktober 2026)
+- Galeri Kegiatan Masjid + Smart Switch & Fix D-Pad
+- Fitur BARU: Galeri Kegiatan Masjid (menggantikan menu Video Kegiatan)
+- Tambah Master Switch, Smart Switch, Pratinjau popup video, Hitung durasi foto
+- Fix TvSlider D-pad kanan tidak berfungsi (onPreviewKeyEvent)
+- Fix NeonFocusBorder (animasi Canvas putih-emas dikembalikan)
+- Fix Fokus awal dialog (Storage & Install) langsung menyala
+
 V1.04.426 (06 Oktober 2026)
 - Fix Transfer Media Gagal + Color Coding Template .iO + Namespace Consistency
 - Streaming upload: 1 request HTTP per file (bukan chunk + Base64)
@@ -466,91 +512,6 @@ V1.04.422 (06 Oktober 2026)
 - Auto-Switch tunggu video selesai 1x putaran
 - PIN Lock Mode 3 opsi (IMMEDIATE / TIMEOUT_5MIN / UNTIL_EXIT)
 - Slide OK/BACK keluar + tombol KIRI/KANAN pindah slide
-
-V1.04.421 (04 Oktober 2026)
-- Alur Sholat Baru + Media Persistence + Fix Mode Fokus
-- Alur: Beep -> Adzan -> Himbauan HP -> Niat Qobliyah -> Mode Fokus
-- Mode Fokus: 2 fase (Niat Fardhu + Dzikir)
-- Media persistence: copy file ke folder permanen
-
-V1.04.420 (04 Oktober 2026)
-- Layout Opsi H + Auto-Switch Mode + Ukuran Frame
-- Panel kiri 24% + video 76% (mode video/foto)
-- 5 mode ukuran frame: POTONG / PAS / ZOOM / FULL / FIT
-- Auto-switch Mode Video <-> Mode Normal otomatis
-
-V1.04.418 (04 Oktober 2026)
-- Storage Permission Dialog muncul otomatis saat pertama buka
-- Hapus token Fonnte dari web dashboard
-- Perlambat speed running text (speed 1 = 40x lebih lambat)
-
-V1.30.7 (03 Oktober 2026)
-- Verifikasi transfer + konfirmasi restart manual + file template .iO
-- Setiap transfer sukses -> auto-bikin file .iO (bundle ZIP)
-- Daftar file template di menu Tampilan & Background
-- Tombol GUNAKAN / INFO / HAPUS untuk tiap file
-- Retry otomatis hanya file yang gagal
-- Error detail: stack trace Kotlin asli
-
-V1.30.6 (03 Oktober 2026)
-- Fix fokus D-pad TV + fix transfer media iO Control
-- Foto/video tidak muncul di TV (fix path lokal)
-- AutoFocusPane: auto-fokus ke elemen pertama pane
-- Border fokus berputar kembali (NeonFocusBorder)
-- Icon dompet di Laporan Keuangan
-- UpdateDialog: tombol selalu terlihat
-
-V1.30.5 (03 Oktober 2026)
-- Auto-Focus Pane & Smooth D-pad Navigation
-- Fokus langsung ke elemen pertama pane
-- Border INSTANT + scale smooth 150ms
-- File baru: AutoFocusPane.kt
-
-V1.30.4 (02 Oktober 2026)
-- Transfer Media iO Control — Foto & Video Antar Device
-- Chunk upload 1 MB per request
-- Kompres foto + video otomatis
-- Progress bar per-file + total
-- Retry otomatis 3x
-
-V1.30.3 (02 Oktober 2026)
-- Responsive Auto-Scale semua ukuran TV
-- Deteksi resolusi, aspect ratio, density
-- Safe Area padding 0-10%
-- Menu baru: Tampilan TV
-
-V1.30.2 (02 Oktober 2026)
-- Tema Makkah Dinamis (default)
-- Langit real-time + cuaca otomatis
-- Fix iO Control transfer (fix 401)
-
-V1.30.1 (30 September 2026)
-- iO Control: HP sebagai remote TV via WiFi
-- Auto-discovery device (UDP broadcast)
-
-V1.29.3 (29 September 2026)
-- Fix crash nested scroll
-- Ganti Crossfade ke Box + fade manual
-- Auto-show dialog crash log
-
-V1.28.4 (29 September 2026)
-- Slide Fullscreen (QRIS, Laporan, Kajian)
-- Konten Rotasi (Ayat, Hadits, Asmaul Husna)
-- CCTV + Remote Control
-
-V1.28.3 (29 September 2026)
-- Fokus D-pad, TvSlider + TvToggle
-- LocationSettingsPane + IdentitySettingsPane
-
-V1.28.2 (28 September 2026)
-- Versioning otomatis + Keystore permanen
-- Backup Aman + Log Crash + Periksa Update
-
-V1.28.1 (28 September 2026)
-- Foto per sesi petugas, HomeScreen video besar
-
-V1.28.0 (27 September 2026)
-- Versi dasar: jadwal sholat, mode fokus, kiosk, dll
     """.trimIndent()
 
     val KNOWN_ISSUES = """
@@ -618,6 +579,18 @@ V1.28.0 (27 September 2026)
 61. Install dialog muncul berulang setelah user grant -> state installDialogAlreadyShown (muncul sekali per sesi)
 62. Foto QRIS ketuker dengan foto ustadz -> folder terpisah + nama file = fieldKey + settings.json (sudah benar sejak awal)
 63. File .iO dianggap cache oleh cleaner -> auto-bikin file .nomedia di folder Terima
+64. Hotspot HP diblokir -> NetworkHelper fix transport CELLULAR/WIFI/LAN
+65. Fokus lompat ke "Simpan" saat scroll mentok -> focusProperties up = Cancel
+66. Fokus D-pad macet di Galeri -> hapus .focusable() di parent
+67. Fokus pop-up tidak menyala -> retry requestFocus dibatasi (anti-crash)
+68. Data hilang saat tekan BACK -> forceSave() sebelum onBack()
+69. File dobel ter-copy -> state isProcessing
+70. File aktif terhapus -> cleanup protection
+71. Nge-lag buka File Picker -> thumbnail background & 1 ExoPlayer global
+72. Izin tidak auto-refresh -> LifecycleEventObserver ON_RESUME
+73. Timer AutoOff maksa tutup -> onPreviewKeyEvent reset
+74. PIN tidak bisa pakai remote angka -> onPreviewKeyEvent Key.Zero-N
+75. Slider double toggle -> hapus clickable, andalkan onPreviewKeyEvent
 
 === BELUM DIPERBAIKI ===
 (Tidak ada)
@@ -632,6 +605,11 @@ Solusi: [cara memperbaiki]
 ---
 
 === RIWAYAT ===
+
+[20-10-2026] - V1.04.432
+Error: (Belum ada error build, menunggu hasil)
+File: -
+Solusi: -
 
 [06-10-2026] - V1.04.426
 Error: Namespace tidak konsisten (com.example vs dev.andikune.masjidio) -> build gagal ratusan error
@@ -838,7 +816,7 @@ URUTAN BATCH:
 4. Update versi + UpdateHistory + AppKnowledge
 5. Commit
 
-ATURAN FORMAT (V1.04.426+):
+ATURAN FORMAT (V1.04.432+):
 1. Visualisasi folder (emoji + indentasi)
 2. Path lengkap file
 3. Nama file
@@ -876,13 +854,13 @@ APLIKASI:
 - Platform       : Android TV (Jetpack Compose)
 - Namespace      : dev.andikune.masjidio
 - Application ID : dev.andikune.masjidio.tv
-- Versi saat ini : V1.04.426
+- Versi saat ini : V1.04.432
 - PIN Developer  : 140399
 
 UPDATE WAJIB TIAP BUILD:
 1. Bump versionName (otomatis dari GITHUB_RUN_NUMBER)
-2. Tambah entri baru di UpdateHistory.kt
-3. Update AppKnowledge.kt (struktur + fitur + build error)
+2. Tambah entri baru di UpdateHistory.kt (maksimal 5 entri terakhir)
+3. Update AppKnowledge.kt (struktur + fitur + build error + memory)
 
 ATURAN FORMAT:
 - Setiap respon pakai code block untuk path/URL/nama file
@@ -914,7 +892,7 @@ RIWAYAT KEJADIAN:
 - Solusi: restore debug.keystore dari commit lama
 
 FITUR YANG BELUM SELESAI:
-- Tidak ada (semua fitur selesai per V1.04.426)
+- Tidak ada (semua fitur selesai per V1.04.432)
     """.trimIndent()
         val MEMORY_INSTRUCTION = """
 ATURAN FORMAT:
@@ -995,7 +973,7 @@ Untuk AI baru yang membaca backup ini
 
 === BAGIAN 1 — ATURAN FORMAT RESPON ===
 
-Elemen wajib (V1.04.426+):
+Elemen wajib (V1.04.432+):
 1. Visualisasi folder (emoji + indentasi)
 2. Path lengkap file
 3. Nama file
@@ -1049,7 +1027,7 @@ APLIKASI:
   Platform       : Android TV (Jetpack Compose)
   Namespace      : dev.andikune.masjidio
   Application ID : dev.andikune.masjidio.tv
-  Versi saat ini : V1.04.426
+  Versi saat ini : V1.04.432
   PIN Developer  : 140399
 
 === BAGIAN 4 — STRUKTUR MENU SETTINGS (20 KATEGORI) ===
@@ -1096,7 +1074,7 @@ gradle/libs.versions.toml         -> KSP & dependency
 === BAGIAN 8 — UPDATE WAJIB TIAP BUILD ===
 
 1. Bump versionName  -> GITHUB_RUN_NUMBER otomatis
-2. Tambah entri baru -> UpdateHistory.kt
+2. Tambah entri baru -> UpdateHistory.kt (HANYA SIMPAN 5 TERAKHIR)
 3. Update info baru  -> AppKnowledge.kt
 
 === BAGIAN 9 — PENANGANAN BUILD ERROR ===
@@ -1515,6 +1493,24 @@ Kenapa dipisah:
 Kalau nambah file baru:
 - Package declaration: package dev.andikune.masjidio.xxx
 - Import: import dev.andikune.masjidio.xxx
+
+=== BAGIAN 48 — FIX HOTSPOT HP (V1.04.432) ===
+
+- NetworkHelper mengenali IP valid (WiFi, Hotspot, LAN) tanpa peduli transport.
+- UI iO Control tidak memblokir KIRIM/TERIMA meski HP jadi Hotspot.
+
+=== BAGIAN 49 — FIX D-PAD & FOKUS (V1.04.432) ===
+
+- Sidebar & Pane Kanan pakai focusProperties { up = FocusRequester.Cancel }.
+- Fokus KIRI dari Pane Kanan kembali ke Sidebar.
+- Retry requestFocus di dialog dibatasi (anti-crash).
+
+=== BAGIAN 50 — FIX AUTO-SAVE & FILE (V1.04.432) ===
+
+- forceSave() saat tombol BACK ditekan.
+- Anti double-copy pakai state isProcessing.
+- Anti-lag ExoPlayer tunggal di VideoFilePickerDialog.
+- Timer AutoOff di-reset via onPreviewKeyEvent.
 
 ============================================================
 END OF MEMORY KNOWLEDGE
