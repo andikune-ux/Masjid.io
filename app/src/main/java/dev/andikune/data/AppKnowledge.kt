@@ -423,9 +423,9 @@ app/src/main/java/dev/andikune/masjidio/
 
 52. NAMESPACE CONSISTENCY
     - Namespace konsisten dev.andikune.masjidio di semua file
-    - Ganti namespace dari com.example ke dev.andikune.masjidio
+    - Ganti namespace dari dev.andikune ke dev.andikune.masjidio
     - Update import di semua file yang terdampak
-    - Folder fisik tetap com/example/ (Kotlin izinkan package beda dari folder)
+    - Folder fisik tetap dev/andikune/ (Kotlin izinkan package beda dari folder)
 
 53. GALERI KEGIATAN MASJID
     - Master Switch (Aktifkan Galeri) - meredupkan UI jika mati.
@@ -574,7 +574,7 @@ V1.04.422 (06 Oktober 2026)
 56. Jadwal on/off tidak berfungsi (hanya UI) -> logic brightness otomatis dari jadwal sholat
 57. Transfer media selalu gagal (chunk + Base64 + timeout 30 detik) -> streaming upload 1 request + timeout 10 menit
 58. WiFi mati saat transfer (layar TV off) -> TransferForegroundService + WiFiLock
-59. Namespace tidak konsisten (com.example vs dev.andikune.masjidio) -> ubah semua ke dev.andikune.masjidio
+59. Namespace tidak konsisten (dev.andikune vs dev.andikune.masjidio) -> ubah semua ke dev.andikune.masjidio
 60. Tombol dialog izin kosong (teks tidak render) -> Box + height(56dp) + contentAlignment Center
 61. Install dialog muncul berulang setelah user grant -> state installDialogAlreadyShown (muncul sekali per sesi)
 62. Foto QRIS ketuker dengan foto ustadz -> folder terpisah + nama file = fieldKey + settings.json (sudah benar sejak awal)
@@ -612,83 +612,83 @@ File: -
 Solusi: -
 
 [06-10-2026] - V1.04.426
-Error: Namespace tidak konsisten (com.example vs dev.andikune.masjidio) -> build gagal ratusan error
-File: Semua file .kt di app/src/main/java/com/example/
-Solusi: Ubah SEMUA file yang masih com.example ke dev.andikune.masjidio (package + import). Folder fisik tetap com/example/ (Kotlin izinkan package beda dari folder).
+Error: Namespace tidak konsisten (dev.andikune vs dev.andikune.masjidio) -> build gagal ratusan error
+File: Semua file .kt di app/src/main/java/dev/andikune/
+Solusi: Ubah SEMUA file yang masih dev.andikune ke dev.andikune.masjidio (package + import). Folder fisik tetap dev/andikune/ (Kotlin izinkan package beda dari folder).
 
 [06-10-2026] - V1.04.426
 Error: Transfer media selalu gagal (foto & video tidak terkirim)
-File: app/src/main/java/com/example/util/RemoteControlClient.kt
+File: app/src/main/java/dev/andikune/util/RemoteControlClient.kt
 Solusi: Ganti chunk upload + Base64 dengan STREAMING UPLOAD (1 request HTTP per file). Timeout 30 detik -> 10 menit. Tidak ada Base64 overhead.
 
 [06-10-2026] - V1.04.426
 Error: WiFi TV mati saat transfer (layar off) -> transfer putus
-File: app/src/main/java/com/example/kiosk/TransferForegroundService.kt
+File: app/src/main/java/dev/andikune/kiosk/TransferForegroundService.kt
 Solusi: Buat Foreground Service baru dengan WiFiLock + WakeLock. Start saat kirim media, stop setelah selesai.
 
 [06-10-2026] - V1.04.426
 Error: Tombol dialog izin kosong (teks & ikon tidak render)
-File: app/src/main/java/com/example/MainActivity.kt
+File: app/src/main/java/dev/andikune/MainActivity.kt
 Solusi: Ganti Row dengan padding ke Box dengan height(56.dp) fixed + contentAlignment Center. Tambah .onFocusChanged sebelum .focusable().
 
 [06-10-2026] - V1.04.426
 Error: InstallPermissionDialog muncul berulang setelah user grant/skip
-File: app/src/main/java/com/example/MainActivity.kt
+File: app/src/main/java/dev/andikune/MainActivity.kt
 Solusi: Tambah state installDialogAlreadyShown (Boolean). Set true setelah user grant/skip. Dialog hanya muncul kalau masih false.
 
 [06-10-2026] - V1.04.423
 Error: Video tidak pernah trigger STATE_ENDED untuk auto-switch
-File: app/src/main/java/com/example/ui/components/MasjidVideoPlayer.kt
+File: app/src/main/java/dev/andikune/ui/components/MasjidVideoPlayer.kt
 Solusi: Video pakai REPEAT_MODE_ALL -> tidak pernah STATE_ENDED. Solusi: polling posisi video setiap 500ms deteksi loop (posisi turun drastis dari >80% ke <20%).
 
 [06-10-2026] - V1.04.423
 Error: Compile error 'Unresolved reference videoFinishedOnce' + 'onVideoEnded not found'
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Rename field state videoFinishedOnce -> videoLoopedOnce, parameter onVideoEnded -> onVideoLooped. Kirim file FULL TIMPA supaya tidak campuran.
 
 [06-10-2026] - V1.04.423
 Error: Tombol GALERI & FILE di TV muncul 'Anda tidak memiliki aplikasi untuk melakukan tindakan ini'
-File: app/src/main/java/com/example/ui/settings/VideoSettingsPane.kt
+File: app/src/main/java/dev/andikune/ui/settings/VideoSettingsPane.kt
 Solusi: ActivityResultContracts butuh DocumentsUI yang tidak ada di TV. Buat custom VideoFilePickerDialog.
 
 [06-10-2026] - V1.04.423
 Error: Wisdom card tidak full sampai tepi kanan
-File: app/src/main/java/com/example/ui/components/WisdomCardCarousel.kt
+File: app/src/main/java/dev/andikune/ui/components/WisdomCardCarousel.kt
 Solusi: AnimatedContent tidak dikasih Modifier.fillMaxWidth(). Fix: hapus Box wrapper + AnimatedContent langsung pakai modifier.fillMaxWidth().
 
 [06-10-2026] - V1.04.422
 Error: Video tidak full ke kanan (gap hitam di sisi kanan panel)
-File: app/src/main/java/com/example/ui/components/MasjidVideoPlayer.kt
+File: app/src/main/java/dev/andikune/ui/components/MasjidVideoPlayer.kt
 Solusi: Rename variable lokal `resizeMode` -> `aspectResizeMode`. Sebelumnya nama variable bentrok dengan property PlayerView.resizeMode.
 
 [06-10-2026] - V1.04.422
 Error: Mode POTONG/PAS/ZOOM/FIT hasilnya sama saja
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Teruskan parameter `contentScale` dari settings.videoFrameScale ke MasjidVideoPlayer dan PhotoSlideshow.
 
 [06-10-2026] - V1.04.422
 Error: Jadwal sholat di panel kiri kepotong oleh running text
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Ubah struktur root Mode Video dari `Box` (overlay) -> `Column`.
 
 [06-10-2026] - V1.04.422
 Error: Tombol ⚙ Settings overlay posisi salah (masuk ke dalam panel)
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Pindah tombol ⚙ dari dalam panel kanan ke root Box dengan `align(Alignment.TopEnd)`.
 
 [06-10-2026] - V1.04.422
 Error: Auto-Switch Mode tidak berfungsi (tidak berganti mode)
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Reset `videoFinishedOnce = false` sebelum tunggu + tunggu video selesai 1x putaran.
 
 [06-10-2026] - V1.04.422
 Error: Slide tidak bisa keluar via tombol OK/BACK remote
-File: app/src/main/java/com/example/ui/slides/SlideManager.kt
+File: app/src/main/java/dev/andikune/ui/slides/SlideManager.kt
 Solusi: Tambah `onKeyEvent` handler + FocusRequester.
 
 [04-10-2026] - V1.04.421
 Error: MainActivity gagal commit (paste terpotong)
-File: app/src/main/java/com/example/MainActivity.kt
+File: app/src/main/java/dev/andikune/MainActivity.kt
 Solusi: Bagi jadi 7 BAGIAN lebih kecil supaya tidak kepotong saat paste
 
 [04-10-2026] - V1.04.421
@@ -698,27 +698,27 @@ Solusi: Buat MediaPersistenceHelper.kt + copy file ke filesDir/masjid_io/
 
 [04-10-2026] - V1.04.421
 Error: Import HomeScreen.kt kurang 4 file
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Tambah import ClockAndDate, MosqueHeader, QRISFocusOverlay, SlideManager
 
 [04-10-2026] - V1.04.420
 Error: Import HomeScreen.kt kurang (ClockAndDate, MosqueHeader, QRISFocusOverlay, SlideManager)
-File: app/src/main/java/com/example/ui/home/HomeScreen.kt
+File: app/src/main/java/dev/andikune/ui/home/HomeScreen.kt
 Solusi: Tambah 4 import
 
 [04-10-2026] - V1.04.419
 Error: Kotak cuaca di TopBar tidak presisi di tengah
-File: app/src/main/java/com/example/ui/components/TopBar.kt
+File: app/src/main/java/dev/andikune/ui/components/TopBar.kt
 Solusi: Ganti Arrangement.SpaceBetween ke 3-zona weight(1f)
 
 [04-10-2026] - V1.04.418
 Error: Aplikasi tidak bisa download update karena belum izin akses file
-File: app/src/main/java/com/example/MainActivity.kt
+File: app/src/main/java/dev/andikune/MainActivity.kt
 Solusi: Tambah StoragePermissionDialog yang muncul otomatis + cek permission sebelum download
 
 [04-10-2026] - V1.04.418
 Error: Token Fonnte tampil di web dashboard (bisa diubah via web)
-File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+File: app/src/main/java/dev/andikune/ui/remote/RemoteServer.kt
 Solusi: Hapus fonnteToken & fonnteGroupId dari HTML + saveFields + applySettingsUpdate + getFullSettingsJson
 
 [04-10-2026] - V1.04.418
@@ -728,47 +728,47 @@ Solusi: Upload ulang debug.keystore asli dari riwayat commit sebelum AI Studio u
 
 [03-10-2026] - V1.30.7
 Error: File CustomBackgroundPane.kt refer ke IoBundleListSection yang belum ada
-File: app/src/main/java/com/example/ui/settings/CustomBackgroundPane.kt
+File: app/src/main/java/dev/andikune/ui/settings/CustomBackgroundPane.kt
 Solusi: Buat IoBundleListSection.kt dulu (BATCH 5B) sebelum commit CustomBackgroundPane.kt
 
 [03-10-2026] - V1.30.7
 Error: RemoteControlClient.kt mediaChunk() dan mediaFinish() swallow exception
-File: app/src/main/java/com/example/util/RemoteControlClient.kt
+File: app/src/main/java/dev/andikune/util/RemoteControlClient.kt
 Solusi: Ganti return false jadi throw e — biar stack trace lengkap tersimpan
 
 [03-10-2026] - V1.30.6
 Error: Fungsi applyMediaPathToSettings tidak ditemukan
-File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+File: app/src/main/java/dev/andikune/ui/remote/RemoteServer.kt
 Solusi: Tambah fungsi applyMediaPathToSettings setelah saveMediaFile
 
 [03-10-2026] - V1.30.6
 Error: Konten RemoteServer.kt terpotong saat paste
-File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+File: app/src/main/java/dev/andikune/ui/remote/RemoteServer.kt
 Solusi: Bagi jadi 8 BAGIAN rata, paste berurutan
 
 [02-10-2026] - V1.30.4
 Error: Foto & video tidak ikut terkirim via iO Control (hanya path)
-File: app/src/main/java/com/example/util/SettingsTransferHelper.kt
+File: app/src/main/java/dev/andikune/util/SettingsTransferHelper.kt
 Solusi: Kirim file fisik via chunk upload + Base64 encode
 
 [02-10-2026] - V1.30.3
 Error: Extension ScreenInfo.dp() bentrok dengan androidx.compose.ui.unit.dp
-File: app/src/main/java/com/example/ui/components/ResponsiveLayoutHelper.kt
+File: app/src/main/java/dev/andikune/ui/components/ResponsiveLayoutHelper.kt
 Solusi: Rename .dp() -> .scaledDp() dan .sp() -> .scaledSp()
 
 [02-10-2026] - V1.30.2
 Error: iO Control transfer antar device gagal — "Server tolak (kode 401)"
-File: app/src/main/java/com/example/ui/remote/RemoteServer.kt
+File: app/src/main/java/dev/andikune/ui/remote/RemoteServer.kt
 Solusi: Tambahkan "/api/io/receive" ke isPublicRoute
 
 [02-10-2026] - V1.30.2
 Error: APK tidak bisa di-tap untuk install (hanya tombol hapus)
-File: app/src/main/java/com/example/ui/settings/AboutSettingsPane.kt
+File: app/src/main/java/dev/andikune/ui/settings/AboutSettingsPane.kt
 Solusi: ApkFileItem: kiri tap=install, kanan tombol=hapus
 
 [02-10-2026] - V1.30.2
 Error: IoControlScreen error "No value passed for parameter 'deviceId'"
-File: app/src/main/java/com/example/ui/remote/IoControlScreen.kt
+File: app/src/main/java/dev/andikune/ui/remote/IoControlScreen.kt
 Solusi: Ambil Android ID + fallback UUID, kirim ke DeviceDiscovery.configure()
 
 [30-09-2026] - V1.30.1
@@ -1487,7 +1487,7 @@ Kenapa dipisah:
 
 - Namespace konsisten: dev.andikune.masjidio
 - Application ID: dev.andikune.masjidio.tv
-- Folder fisik tetap com/example/ (Kotlin izinkan package beda dari folder)
+- Folder fisik tetap dev/andikune/ (Kotlin izinkan package beda dari folder)
 - Semua file .kt wajib pakai package dev.andikune.masjidio.*
 
 Kalau nambah file baru:
