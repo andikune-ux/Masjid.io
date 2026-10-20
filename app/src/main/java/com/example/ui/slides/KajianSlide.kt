@@ -37,8 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.DailyOfficerItem
+import dev.andikune.data.model.AppSettings
+import dev.andikune.data.model.DailyOfficerItem
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.IslamicGreen

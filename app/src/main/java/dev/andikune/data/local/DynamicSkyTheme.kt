@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.data.local
+package dev.andikune.data.local
 
 import dev.andikune.masjidio.ui.theme.*
 import java.time.LocalTime

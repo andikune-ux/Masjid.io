@@ -1,16 +1,16 @@
-package dev.andikune.masjidio.data.local
+package dev.andikune.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.AudioMode
-import dev.andikune.masjidio.data.model.BackgroundMode
-import dev.andikune.masjidio.data.model.BrightnessMode
-import dev.andikune.masjidio.data.model.CctvPosition
-import dev.andikune.masjidio.data.model.DailyOfficerItem
-import dev.andikune.masjidio.data.model.LaporanKeuangan
-import dev.andikune.masjidio.data.model.OfficerSchedule
-import dev.andikune.masjidio.data.model.PinLockMode
+import dev.andikune.data.model.AppSettings
+import dev.andikune.data.model.AudioMode
+import dev.andikune.data.model.BackgroundMode
+import dev.andikune.data.model.BrightnessMode
+import dev.andikune.data.model.CctvPosition
+import dev.andikune.data.model.DailyOfficerItem
+import dev.andikune.data.model.LaporanKeuangan
+import dev.andikune.data.model.OfficerSchedule
+import dev.andikune.data.model.PinLockMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

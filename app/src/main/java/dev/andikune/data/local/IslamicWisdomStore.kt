@@ -1,6 +1,6 @@
-package dev.andikune.masjidio.data.local
+package dev.andikune.data.local
 
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 
 data class WisdomCardItem(
     val title: String,

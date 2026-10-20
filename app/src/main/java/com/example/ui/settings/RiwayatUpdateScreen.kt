@@ -37,7 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.andikune.masjidio.data.UpdateHistory
+import dev.andikune.data.UpdateHistory
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.IslamicGreen

@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.data.content
+package dev.andikune.data.content
 
 data class AyatItem(
     val surahName: String,

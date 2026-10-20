@@ -51,9 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import dev.andikune.masjidio.data.local.PrayerTimesCalculator
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.PrayerSchedule
+import dev.andikune.data.local.PrayerTimesCalculator
+import dev.andikune.data.model.AppSettings
+import dev.andikune.data.model.PrayerSchedule
 import dev.andikune.masjidio.ui.components.TvToggle
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight

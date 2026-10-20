@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import dev.andikune.masjidio.data.local.SunMoonCalculator
+import dev.andikune.data.local.SunMoonCalculator
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import kotlin.math.PI

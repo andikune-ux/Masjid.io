@@ -57,7 +57,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.BuildConfig
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.IslamicGreen

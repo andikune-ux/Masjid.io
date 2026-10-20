@@ -42,8 +42,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.PinLockMode
+import dev.andikune.data.model.AppSettings
+import dev.andikune.data.model.PinLockMode
 import dev.andikune.masjidio.ui.components.TvToggle
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight

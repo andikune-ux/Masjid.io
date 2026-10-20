@@ -40,8 +40,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import dev.andikune.masjidio.data.model.AppSettings
-import dev.andikune.masjidio.data.model.CctvPosition
+import dev.andikune.data.model.AppSettings
+import dev.andikune.data.model.CctvPosition
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 

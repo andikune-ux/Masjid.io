@@ -7,7 +7,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.ToneGenerator
 import android.util.Log
-import dev.andikune.masjidio.data.model.AudioMode
+import dev.andikune.data.model.AudioMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

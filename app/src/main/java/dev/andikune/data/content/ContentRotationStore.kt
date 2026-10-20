@@ -1,6 +1,6 @@
-package dev.andikune.masjidio.data.content
+package dev.andikune.data.content
 
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 
 /**
  * Jenis konten yang bisa tampil bergantian di panel rotasi.

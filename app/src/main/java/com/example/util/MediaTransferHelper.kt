@@ -12,7 +12,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream

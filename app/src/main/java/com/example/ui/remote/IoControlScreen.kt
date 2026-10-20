@@ -76,7 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.andikune.masjidio.data.local.SettingsRepository
+import dev.andikune.data.local.SettingsRepository
 import dev.andikune.masjidio.kiosk.TransferForegroundService
 import dev.andikune.masjidio.ui.components.NeonFocusBorder
 import dev.andikune.masjidio.ui.theme.IslamicGold

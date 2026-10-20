@@ -53,7 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 import dev.andikune.masjidio.ui.components.FilePickerMode
 import dev.andikune.masjidio.ui.components.VideoFilePickerDialog
 import dev.andikune.masjidio.ui.theme.IslamicGold

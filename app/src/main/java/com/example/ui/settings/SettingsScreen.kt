@@ -73,7 +73,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.audio.SoundManager
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 import dev.andikune.masjidio.ui.components.AutoFocusPane
 import dev.andikune.masjidio.ui.components.ChangePinDialog // <-- IMPORT YANG HILANG
 import dev.andikune.masjidio.ui.components.NeonFocusBorder

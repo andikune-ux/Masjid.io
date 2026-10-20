@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.data.local
+package dev.andikune.data.local
 
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit

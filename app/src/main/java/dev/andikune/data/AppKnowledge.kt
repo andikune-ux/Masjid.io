@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.data
+package dev.andikune.data
 
 /**
  * AppKnowledge — Data statis aplikasi MASJID.IO.

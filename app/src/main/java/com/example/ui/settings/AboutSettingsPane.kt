@@ -53,7 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.andikune.masjidio.BuildConfig
-import dev.andikune.masjidio.data.UpdateHistory
+import dev.andikune.data.UpdateHistory
 import dev.andikune.masjidio.ui.theme.IslamicGold
 import dev.andikune.masjidio.ui.theme.IslamicGoldLight
 import dev.andikune.masjidio.ui.theme.IslamicGreen

@@ -5,11 +5,11 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Base64
 import android.util.Log
-import dev.andikune.masjidio.data.local.SettingsRepository
-import dev.andikune.masjidio.data.model.AudioMode
-import dev.andikune.masjidio.data.model.BackgroundMode
-import dev.andikune.masjidio.data.model.CctvPosition
-import dev.andikune.masjidio.data.model.DailyOfficerItem
+import dev.andikune.data.local.SettingsRepository
+import dev.andikune.data.model.AudioMode
+import dev.andikune.data.model.BackgroundMode
+import dev.andikune.data.model.CctvPosition
+import dev.andikune.data.model.DailyOfficerItem
 import dev.andikune.masjidio.util.IoBundleHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -1220,7 +1220,7 @@ private fun findLatestIn(dir: File): File? {
 // ============================================================
 // APPLY SETTINGS UPDATE (dari JSON)
 // ============================================================
-private fun applySettingsUpdate(json: JSONObject): dev.andikune.masjidio.data.model.AppSettings {
+private fun applySettingsUpdate(json: JSONObject): dev.andikune.data.model.AppSettings {
     var s = settingsRepository.settingsFlow.value
 
     json.keys().forEach { key ->

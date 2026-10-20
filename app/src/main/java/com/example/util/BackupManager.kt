@@ -8,9 +8,9 @@ import android.os.Environment
 import android.provider.Settings
 import android.util.Log
 import dev.andikune.masjidio.BuildConfig
-import dev.andikune.masjidio.data.AppKnowledge
-import dev.andikune.masjidio.data.UpdateHistory
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.AppKnowledge
+import dev.andikune.data.UpdateHistory
+import dev.andikune.data.model.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date

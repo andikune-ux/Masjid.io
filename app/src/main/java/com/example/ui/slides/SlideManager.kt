@@ -26,7 +26,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 import dev.andikune.masjidio.ui.slides.QrisSlide
 import dev.andikune.masjidio.ui.slides.LaporanSlide
 import dev.andikune.masjidio.ui.slides.KajianSlide

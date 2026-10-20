@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.data.local
+package dev.andikune.data.local
 
 data class CityLocation(
     val name: String,

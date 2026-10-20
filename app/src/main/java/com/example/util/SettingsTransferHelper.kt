@@ -2,7 +2,7 @@ package dev.andikune.masjidio.util
 
 import android.content.Context
 import android.util.Log
-import dev.andikune.masjidio.data.model.*
+import dev.andikune.data.model.*
 import org.json.JSONArray
 import org.json.JSONObject
 

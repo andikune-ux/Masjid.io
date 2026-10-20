@@ -1,4 +1,4 @@
-package dev.andikune.masjidio.data.local
+package dev.andikune.data.local
 
 import androidx.compose.ui.graphics.Color
 import java.time.LocalDateTime

@@ -41,7 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.andikune.masjidio.data.model.AppSettings
+import dev.andikune.data.model.AppSettings
 import dev.andikune.masjidio.ui.components.TvSlider
 import dev.andikune.masjidio.ui.components.TvToggle
 import dev.andikune.masjidio.ui.theme.IslamicGold
